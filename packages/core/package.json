@@ -1,0 +1,34 @@
+{
+    "name": "@bluprynt/forms-core",
+    "version": "0.0.0",
+    "private": false,
+    "sideEffects": false,
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.cjs"
+        }
+    },
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "files": ["dist"],
+    "scripts": {
+        "build": "tsdown",
+        "dev": "tsdown --watch",
+        "lint": "biome check .",
+        "check-types": "tsc --noEmit",
+        "test": "jest",
+        "test:watch": "jest --watch",
+        "test:cov": "jest --coverage"
+    },
+    "devDependencies": {
+        "@repo/typescript-config": "workspace:*",
+        "@types/jest": "catalog:",
+        "jest": "catalog:",
+        "ts-jest": "catalog:",
+        "tsdown": "catalog:",
+        "typescript": "catalog:"
+    }
+}

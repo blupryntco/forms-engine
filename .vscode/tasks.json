@@ -1,0 +1,63 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build All",
+			"type": "shell",
+			"command": "pnpm build",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"icon": { "id": "layers", "color": "terminal.ansiYellow" },
+			"problemMatcher": ["$tsc"]
+		},
+		{
+			"label": "Build: Core",
+			"type": "shell",
+			"command": "pnpm --filter @bluprynt/forms-core build",
+			"group": "build",
+			"icon": { "id": "package", "color": "terminal.ansiBlue" },
+			"presentation": { "group": "core" },
+			"problemMatcher": ["$tsc"]
+		},
+		{
+			"label": "Build: React",
+			"type": "shell",
+			"command": "pnpm --filter @bluprynt/forms-react build",
+			"group": "build",
+			"icon": { "id": "package", "color": "terminal.ansiCyan" },
+			"presentation": { "group": "react" },
+			"problemMatcher": ["$tsc"]
+		},
+		{
+			"label": "Test All",
+			"type": "shell",
+			"command": "pnpm test",
+			"group": {
+				"kind": "test",
+				"isDefault": true
+			},
+			"icon": { "id": "beaker", "color": "terminal.ansiYellow" },
+			"problemMatcher": []
+		},
+		{
+			"label": "Test: Core",
+			"type": "shell",
+			"command": "pnpm --filter @bluprynt/forms-core test",
+			"group": "test",
+			"icon": { "id": "beaker", "color": "terminal.ansiBlue" },
+			"presentation": { "group": "core" },
+			"problemMatcher": []
+		},
+		{
+			"label": "Test: React",
+			"type": "shell",
+			"command": "pnpm --filter @bluprynt/forms-react test",
+			"group": "test",
+			"icon": { "id": "beaker", "color": "terminal.ansiCyan" },
+			"presentation": { "group": "react" },
+			"problemMatcher": []
+		}
+	]
+}
