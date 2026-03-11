@@ -22,7 +22,7 @@
 
 ## 2. Content Items
 
-Every item in `content` has a `type`. Types are: `"string"`, `"number"`, `"boolean"`, `"date"`, `"select"`, `"array"`, `"section"`.
+Every item in `content` has a `type`. Types are: `"string"`, `"number"`, `"boolean"`, `"date"`, `"select"`, `"array"`, `"file"`, `"section"`.
 
 Types `"string"` through `"array"` are **fields** — they produce values. Type `"section"` is a **grouping container** — it holds nested content items.
 
@@ -31,7 +31,7 @@ Types `"string"` through `"array"` are **fields** — they produce values. Type 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `id` | `number` | yes | Unique numeric identifier across the entire schema. Must be a positive integer. |
-| `type` | `string` | yes | One of: `"string"`, `"number"`, `"boolean"`, `"date"`, `"select"`, `"array"`, `"section"`. |
+| `type` | `string` | yes | One of: `"string"`, `"number"`, `"boolean"`, `"date"`, `"select"`, `"array"`, `"file"`, `"section"`. |
 | `condition` | `Condition` | no | Visibility condition. When present, the item is only visible (and validated) when the condition evaluates to `true`. See §5. |
 
 ### 2.2 Common Field Properties (all types except `"section"`)
@@ -49,8 +49,6 @@ Types `"string"` through `"array"` are **fields** — they produce values. Type 
 | `title` | `string` | yes | Human-readable section title. |
 | `description` | `string` | no | Section description or instructions. |
 | `content` | `ContentItem[]` | yes | Nested content items (fields and/or sections). At least one item required. |
-
-**Nesting limit:** Sections can be nested up to **3 levels deep** (top-level section → child → grandchild).
 
 When a section's condition evaluates to `false`, all items within (including nested sections' fields) are hidden and excluded from validation.
 
@@ -186,6 +184,34 @@ Relative dates must match the pattern `^[+-]\d+[dwmy]$`.
 
 Relative dates are resolved to absolute ISO 8601 values at evaluation time (validation, condition evaluation). The resolution happens on every evaluation — they are not cached.
 
+### 3.8 File Validation
+
+```json
+{
+  "id": 18,
+  "type": "file",
+  "label": "Resume",
+  "validation": {
+    "required": true
+  }
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `required` | `boolean` | A file must be uploaded. Default: `false`. |
+
+**Value type:** `object` with properties:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `name` | `string` | Original file name. |
+| `mimeType` | `string` | MIME type of the file. |
+| `size` | `number` | File size in bytes. |
+| `url` | `string` | URL where the file can be accessed. |
+
+The engine does not handle actual file upload — the consumer handles upload and produces the file value object.
+
 ### 3.5 Select Validation
 
 ```json
@@ -317,6 +343,24 @@ The `item` object supports all field properties (`type`, `label`, `description`,
 }
 ```
 
+**Array of files:**
+
+```json
+{
+  "id": 9,
+  "type": "array",
+  "label": "Attachments",
+  "item": {
+    "type": "file",
+    "label": "Attachment"
+  },
+  "validation": {
+    "minItems": 1,
+    "maxItems": 5
+  }
+}
+```
+
 ---
 
 ## 5. Conditions
@@ -426,7 +470,8 @@ Form values document links to its form definition via `form` and contains field 
     "3": true,
     "4": "2025-03-01T00:00:00.000Z",
     "5": "contract",
-    "6": ["TypeScript", "React"]
+    "6": ["TypeScript", "React"],
+    "18": {"name": "document.pdf", "mimeType": "application/pdf", "size": 1048576, "url": "https://storage.example.com/files/abc123/document.pdf"}
   }
 }
 ```

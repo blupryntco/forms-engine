@@ -28,6 +28,7 @@ Each field in a form has a type. The following types must be supported:
 | **date** | Date picker |
 | **select** | Single selection from a predefined list of options |
 | **array** | A list of values (any of existing field types described above) |
+| **file** | File upload (stores name, MIME type, size, URL) |
 
 Future consideration: custom field types with type-specific properties.
 
@@ -43,6 +44,7 @@ Each field may have validation rules depending on its type:
 | **date** | required, min date, max date |
 | **select** | required |
 | **array** | min items, max items |
+| **file** | required |
 
 ## 5. Sections
 

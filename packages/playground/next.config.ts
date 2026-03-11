@@ -1,0 +1,7 @@
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+    transpilePackages: ['@bluprynt/forms-core', '@bluprynt/forms-react'],
+}
+
+export default nextConfig

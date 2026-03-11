@@ -12,6 +12,11 @@
         "packages/react": {
             "project": ["src/**/*.ts"],
             "ignoreDependencies": ["react", "@types/react", "@bluprynt/forms-core"]
+        },
+        "packages/playground": {
+            "entry": ["src/app/layout.tsx", "src/app/page.tsx", "next.config.ts"],
+            "project": ["src/**/*.ts", "src/**/*.tsx"],
+            "ignoreDependencies": ["@bluprynt/forms-core", "@bluprynt/forms-react"]
         }
     }
 }

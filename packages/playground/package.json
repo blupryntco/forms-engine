@@ -1,0 +1,28 @@
+{
+    "name": "@bluprynt/playground",
+    "version": "0.0.0",
+    "private": true,
+    "scripts": {
+        "dev": "next dev --turbopack",
+        "build": "next build",
+        "start": "next start",
+        "lint": "biome check .",
+        "check-types": "tsc --noEmit"
+    },
+    "dependencies": {
+        "@bluprynt/forms-core": "workspace:*",
+        "@bluprynt/forms-react": "workspace:*",
+        "@monaco-editor/react": "4.7.0",
+        "@tailwindcss/postcss": "4.2.1",
+        "next": "15.3.4",
+        "react": "catalog:",
+        "react-dom": "19.1.0",
+        "tailwindcss": "4.2.1"
+    },
+    "devDependencies": {
+        "@repo/typescript-config": "workspace:*",
+        "@types/react": "catalog:",
+        "@types/react-dom": "19.1.6",
+        "typescript": "catalog:"
+    }
+}

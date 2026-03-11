@@ -58,6 +58,15 @@
 			"icon": { "id": "beaker", "color": "terminal.ansiCyan" },
 			"presentation": { "group": "react" },
 			"problemMatcher": []
+		},
+		{
+			"label": "Dev: Playground",
+			"type": "shell",
+			"command": "pnpm --filter @bluprynt/playground dev",
+			"isBackground": true,
+			"icon": { "id": "play", "color": "terminal.ansiGreen" },
+			"presentation": { "group": "playground" },
+			"problemMatcher": []
 		}
 	]
 }
