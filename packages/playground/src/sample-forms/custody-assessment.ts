@@ -2,6 +2,7 @@ import type { SampleForm } from './types'
 
 export const CUSTODY_ASSESSMENT: SampleForm = {
     label: 'Custody Assessment (3 levels)',
+    submittedAt: '2025-11-05T09:15:00.000Z',
     definition: {
         id: '2cf77b35-b1c0-45ae-8cac-6694e49b99d8',
         version: '1.0.0',

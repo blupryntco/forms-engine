@@ -1,4 +1,4 @@
-import { ConditionEvaluator } from './condition-eval'
+import { ConditionEvaluator } from './condition-evaluator'
 import { DependencyGraph } from './dependency-graph'
 import type { FieldEntry } from './types'
 import { VisibilityResolver } from './visibility'

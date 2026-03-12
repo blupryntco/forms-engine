@@ -2,6 +2,7 @@ import type { SampleForm } from './types'
 
 export const COMPLIANCE_DISCLOSURE: SampleForm = {
     label: 'Compliance Disclosure',
+    submittedAt: '2025-12-18T11:00:00.000Z',
     definition: {
         id: 'fbee2b4d-1d83-478a-85e2-b25c0a4133a2',
         version: '1.0.0',

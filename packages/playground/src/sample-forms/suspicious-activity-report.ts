@@ -2,6 +2,7 @@ import type { SampleForm } from './types'
 
 export const SUSPICIOUS_ACTIVITY_REPORT: SampleForm = {
     label: 'Suspicious Activity Report',
+    submittedAt: '2025-11-22T08:30:00.000Z',
     definition: {
         id: 'de86a89e-9ab0-43f7-96ab-ca6b2ece3855',
         version: '1.0.0',

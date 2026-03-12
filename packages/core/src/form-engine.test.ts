@@ -1,6 +1,6 @@
 import { FormEngine } from './form-engine'
-import type { ContentItem, FormDefinition, FormDocument, FormValues } from './types'
-import { FormDefinitionError } from './types'
+import type { ContentItem, FormDefinition, FormDocument, FormSnapshot, FormValues } from './types'
+import { FormDefinitionError, FormDocumentLoadError } from './types'
 
 // ── Helpers ──
 
@@ -11,9 +11,12 @@ const baseDef = (content: ContentItem[]): FormDefinition => ({
     content,
 })
 
-const NOW = new Date('2025-06-15T00:00:00Z')
+const SUBMITTED_AT = '2025-06-15T00:00:00.000Z'
 
-const doc = (values: FormValues = {}): FormDocument => ({ form: { id: 'test-form', version: '1.0.0' }, values })
+const doc = (values: FormValues = {}, submittedAt: string = SUBMITTED_AT): FormDocument => ({
+    form: { id: 'test-form', version: '1.0.0', submittedAt },
+    values,
+})
 
 // ════════════════════════════════════════════════════════════════════════════
 // 1. Construction — happy paths
@@ -1303,26 +1306,26 @@ describe('FormEngine — validate: date', () => {
         expect(result.errors[0]!.rule).toBe('maxDate')
     })
 
-    it('relative date minDate with now override', () => {
+    it('relative date minDate with submittedAt', () => {
         const engine = new FormEngine(baseDef([{ id: 1, type: 'date', label: 'D', validation: { minDate: '-7d' } }]))
-        // NOW = 2025-06-15. -7d = 2025-06-08. Value = 2025-06-01 → before min.
-        const result = engine.validate(doc({ '1': '2025-06-01' }), { now: NOW })
+        // SUBMITTED_AT = 2025-06-15. -7d = 2025-06-08. Value = 2025-06-01 → before min.
+        const result = engine.validate(doc({ '1': '2025-06-01' }, SUBMITTED_AT))
         expect(result.valid).toBe(false)
         expect(result.errors[0]!.rule).toBe('minDate')
 
         // Value = 2025-06-10 → within range
-        expect(engine.validate(doc({ '1': '2025-06-10' }), { now: NOW }).valid).toBe(true)
+        expect(engine.validate(doc({ '1': '2025-06-10' }, SUBMITTED_AT)).valid).toBe(true)
     })
 
-    it('relative date maxDate with now override', () => {
+    it('relative date maxDate with submittedAt', () => {
         const engine = new FormEngine(baseDef([{ id: 1, type: 'date', label: 'D', validation: { maxDate: '+7d' } }]))
-        // NOW = 2025-06-15. +7d = 2025-06-22. Value = 2025-07-01 → after max.
-        const result = engine.validate(doc({ '1': '2025-07-01' }), { now: NOW })
+        // SUBMITTED_AT = 2025-06-15. +7d = 2025-06-22. Value = 2025-07-01 → after max.
+        const result = engine.validate(doc({ '1': '2025-07-01' }, SUBMITTED_AT))
         expect(result.valid).toBe(false)
         expect(result.errors[0]!.rule).toBe('maxDate')
 
         // Value = 2025-06-20 → within range
-        expect(engine.validate(doc({ '1': '2025-06-20' }), { now: NOW }).valid).toBe(true)
+        expect(engine.validate(doc({ '1': '2025-06-20' }, SUBMITTED_AT)).valid).toBe(true)
     })
 
     it('optional date passes when empty', () => {
@@ -1565,7 +1568,7 @@ describe('FormEngine — validate: array', () => {
                 },
             ]),
         )
-        const result = engine.validate(doc({ '1': ['2025-06-15', '2024-06-15'] }), { now: NOW })
+        const result = engine.validate(doc({ '1': ['2025-06-15', '2024-06-15'] }, SUBMITTED_AT))
         expect(result.valid).toBe(false)
         expect(result.errors[0]!.itemIndex).toBe(1)
         expect(result.errors[0]!.rule).toBe('minDate')
@@ -1612,7 +1615,7 @@ describe('FormEngine — validate: file', () => {
         const engine = new FormEngine(
             baseDef([{ id: 1, type: 'file', label: 'Resume', validation: { required: true } }]),
         )
-        const result = engine.validate(doc({ '1': validFile }), { now: NOW })
+        const result = engine.validate(doc({ '1': validFile }, SUBMITTED_AT))
         expect(result.valid).toBe(true)
     })
 
@@ -1620,14 +1623,14 @@ describe('FormEngine — validate: file', () => {
         const engine = new FormEngine(
             baseDef([{ id: 1, type: 'file', label: 'Resume', validation: { required: true } }]),
         )
-        const result = engine.validate(doc({}), { now: NOW })
+        const result = engine.validate(doc({}, SUBMITTED_AT))
         expect(result.valid).toBe(false)
         expect(result.errors[0]).toMatchObject({ fieldId: 1, rule: 'required' })
     })
 
     it('optional file passes when missing', () => {
         const engine = new FormEngine(baseDef([{ id: 1, type: 'file', label: 'Resume' }]))
-        const result = engine.validate(doc({}), { now: NOW })
+        const result = engine.validate(doc({}, SUBMITTED_AT))
         expect(result.valid).toBe(true)
     })
 
@@ -1655,7 +1658,7 @@ describe('FormEngine — validate: file', () => {
                 },
             ]),
         )
-        const result = engine.validate(doc({ '1': false }), { now: NOW })
+        const result = engine.validate(doc({ '1': false }, SUBMITTED_AT))
         expect(result.valid).toBe(true)
     })
 
@@ -1671,14 +1674,14 @@ describe('FormEngine — validate: file', () => {
                 },
             ]),
         )
-        const result = engine.validate(doc({ '1': [validFile, validFile] }), { now: NOW })
+        const result = engine.validate(doc({ '1': [validFile, validFile] }, SUBMITTED_AT))
         expect(result.valid).toBe(true)
 
-        const resultEmpty = engine.validate(doc({ '1': [] }), { now: NOW })
+        const resultEmpty = engine.validate(doc({ '1': [] }, SUBMITTED_AT))
         expect(resultEmpty.valid).toBe(false)
         expect(resultEmpty.errors[0]?.rule).toBe('minItems')
 
-        const resultInvalid = engine.validate(doc({ '1': [validFile, 'bad'] }), { now: NOW })
+        const resultInvalid = engine.validate(doc({ '1': [validFile, 'bad'] }, SUBMITTED_AT))
         expect(resultInvalid.valid).toBe(false)
         expect(resultInvalid.errors[0]).toMatchObject({ rule: 'type', itemIndex: 1 })
     })
@@ -1849,18 +1852,18 @@ describe('FormEngine — validate: multiple fields', () => {
 })
 
 // ════════════════════════════════════════════════════════════════════════════
-// 17. Validation — EngineOptions.now
+// 17. Validation — submittedAt as reference date
 // ════════════════════════════════════════════════════════════════════════════
 
-describe('FormEngine — validate: EngineOptions.now', () => {
-    it('now option affects relative date resolution in conditions', () => {
+describe('FormEngine — validate: submittedAt as reference date', () => {
+    it('submittedAt affects relative date resolution', () => {
         const engine = new FormEngine(
             baseDef([{ id: 1, type: 'date', label: 'D', validation: { minDate: '-7d', maxDate: '+7d' } }]),
         )
-        // With NOW = 2025-06-15, range is [2025-06-08, 2025-06-22]
-        expect(engine.validate(doc({ '1': '2025-06-15' }), { now: NOW }).valid).toBe(true)
-        expect(engine.validate(doc({ '1': '2025-06-01' }), { now: NOW }).valid).toBe(false)
-        expect(engine.validate(doc({ '1': '2025-06-30' }), { now: NOW }).valid).toBe(false)
+        // With SUBMITTED_AT = 2025-06-15, range is [2025-06-08, 2025-06-22]
+        expect(engine.validate(doc({ '1': '2025-06-15' }, SUBMITTED_AT)).valid).toBe(true)
+        expect(engine.validate(doc({ '1': '2025-06-01' }, SUBMITTED_AT)).valid).toBe(false)
+        expect(engine.validate(doc({ '1': '2025-06-30' }, SUBMITTED_AT)).valid).toBe(false)
     })
 })
 
@@ -1937,6 +1940,11 @@ describe('FormEngine — end-to-end realistic form', () => {
         ],
     }
 
+    const jobDoc = (values: FormValues = {}, submittedAt: string = SUBMITTED_AT): FormDocument => ({
+        form: { id: 'job-application', version: '1.0.0', submittedAt },
+        values,
+    })
+
     let engine: FormEngine
 
     beforeEach(() => {
@@ -1957,7 +1965,7 @@ describe('FormEngine — end-to-end realistic form', () => {
             '6': true,
             '7': 'https://github.com/johndoe',
         }
-        const result = engine.validate(doc(values), { now: NOW })
+        const result = engine.validate(jobDoc(values, SUBMITTED_AT))
         expect(result.valid).toBe(true)
     })
 
@@ -1970,7 +1978,7 @@ describe('FormEngine — end-to-end realistic form', () => {
             '5': [],
             '6': false,
         }
-        const result = engine.validate(doc(values), { now: NOW })
+        const result = engine.validate(jobDoc(values, SUBMITTED_AT))
         expect(result.valid).toBe(false)
         expect(result.errors.some((e) => e.fieldId === 5 && e.rule === 'minItems')).toBe(true)
     })
@@ -1985,7 +1993,7 @@ describe('FormEngine — end-to-end realistic form', () => {
             '6': true,
             // '7' missing
         }
-        const result = engine.validate(doc(values), { now: NOW })
+        const result = engine.validate(jobDoc(values, SUBMITTED_AT))
         expect(result.valid).toBe(false)
         expect(result.errors.some((e) => e.fieldId === 7 && e.rule === 'required')).toBe(true)
     })
@@ -1997,10 +2005,10 @@ describe('FormEngine — end-to-end realistic form', () => {
             '3': 2,
             '4': 'design',
         }
-        const result = engine.validate(doc(values), { now: NOW })
+        const result = engine.validate(jobDoc(values, SUBMITTED_AT))
         expect(result.valid).toBe(true)
         // Developer section fields should be hidden
-        const vis = engine.getVisibilityMap(doc(values))
+        const vis = engine.getVisibilityMap(jobDoc(values))
         expect(vis.get(100)).toBe(false) // section
         expect(vis.get(5)).toBe(false) // array inside section
         expect(vis.get(7)).toBe(false) // nested conditional
@@ -2013,7 +2021,7 @@ describe('FormEngine — end-to-end realistic form', () => {
             '3': 10,
             '4': 'pm',
         }
-        const vis = engine.getVisibilityMap(doc(values))
+        const vis = engine.getVisibilityMap(jobDoc(values))
         expect(vis.get(200)).toBe(true)
         expect(vis.get(8)).toBe(true)
         expect(vis.get(9)).toBe(true)
@@ -2026,7 +2034,7 @@ describe('FormEngine — end-to-end realistic form', () => {
             '3': 2,
             '4': 'dev',
         }
-        const vis = engine.getVisibilityMap(doc(values))
+        const vis = engine.getVisibilityMap(jobDoc(values))
         expect(vis.get(200)).toBe(false)
         expect(vis.get(8)).toBe(false)
     })
@@ -2038,7 +2046,7 @@ describe('FormEngine — end-to-end realistic form', () => {
             '3': 1,
             '4': 'pm',
         }
-        const result = engine.validate(doc(values), { now: NOW })
+        const result = engine.validate(jobDoc(values, SUBMITTED_AT))
         expect(result.valid).toBe(false)
         const emailErr = result.errors.find((e) => e.fieldId === 2)
         expect(emailErr?.rule).toBe('pattern')
@@ -2062,8 +2070,8 @@ describe('FormEngine — end-to-end realistic form', () => {
         const devValues: FormValues = { '1': 'Name', '2': 'a@b', '3': 2, '4': 'dev' }
         const designValues: FormValues = { '1': 'Name', '2': 'a@b', '3': 2, '4': 'design' }
 
-        const devVis = engine.getVisibilityMap(doc(devValues))
-        const designVis = engine.getVisibilityMap(doc(designValues))
+        const devVis = engine.getVisibilityMap(jobDoc(devValues))
+        const designVis = engine.getVisibilityMap(jobDoc(designValues))
 
         expect(devVis.get(100)).toBe(true)
         expect(designVis.get(100)).toBe(false)
@@ -2388,5 +2396,300 @@ describe('FormEngine — visibility/validation interplay', () => {
 
         // Dev, OSS, with GitHub → valid
         expect(engine.validate(doc({ '1': true, '2': true, '3': 'https://github.com/user' })).valid).toBe(true)
+    })
+})
+
+// ════════════════════════════════════════════════════════════════════════════
+// 21. Form document compatibility
+// ════════════════════════════════════════════════════════════════════════════
+
+describe('FormEngine — form document compatibility', () => {
+    const engine = new FormEngine(
+        baseDef([
+            { id: 1, type: 'string', label: 'Name', validation: { required: true } },
+            { id: 2, type: 'number', label: 'Age' },
+        ]),
+    )
+
+    // ── validate() checks ──
+
+    it('mismatched form.id → documentErrors contains FORM_ID_MISMATCH, valid: false', () => {
+        const d: FormDocument = {
+            form: { id: 'wrong-id', version: '1.0.0', submittedAt: SUBMITTED_AT },
+            values: { '1': 'Alice' },
+        }
+        const result = engine.validate(d)
+        expect(result.valid).toBe(false)
+        expect(result.documentErrors).toBeDefined()
+        expect(result.documentErrors!.length).toBe(1)
+        expect(result.documentErrors![0]!.code).toBe('FORM_ID_MISMATCH')
+    })
+
+    it('mismatched form.version → documentErrors contains FORM_VERSION_MISMATCH, valid: false', () => {
+        const d: FormDocument = {
+            form: { id: 'test-form', version: '9.9.9', submittedAt: SUBMITTED_AT },
+            values: { '1': 'Alice' },
+        }
+        const result = engine.validate(d)
+        expect(result.valid).toBe(false)
+        expect(result.documentErrors).toBeDefined()
+        expect(result.documentErrors!.length).toBe(1)
+        expect(result.documentErrors![0]!.code).toBe('FORM_VERSION_MISMATCH')
+    })
+
+    it('both id and version mismatched → documentErrors has 2 entries', () => {
+        const d: FormDocument = {
+            form: { id: 'wrong-id', version: '9.9.9', submittedAt: SUBMITTED_AT },
+            values: { '1': 'Alice' },
+        }
+        const result = engine.validate(d)
+        expect(result.valid).toBe(false)
+        expect(result.documentErrors).toBeDefined()
+        expect(result.documentErrors!.length).toBe(2)
+        const rules = result.documentErrors!.map((e) => e.code)
+        expect(rules).toContain('FORM_ID_MISMATCH')
+        expect(rules).toContain('FORM_VERSION_MISMATCH')
+    })
+
+    it('matching id and version → no documentErrors', () => {
+        const result = engine.validate(doc({ '1': 'Alice' }))
+        expect(result.valid).toBe(true)
+        expect(result.documentErrors).toBeUndefined()
+    })
+
+    it('field errors still returned alongside document errors', () => {
+        const d: FormDocument = { form: { id: 'wrong-id', version: '1.0.0', submittedAt: SUBMITTED_AT }, values: {} }
+        const result = engine.validate(d)
+        expect(result.valid).toBe(false)
+        // document error present
+        expect(result.documentErrors).toBeDefined()
+        expect(result.documentErrors!.some((e) => e.code === 'FORM_ID_MISMATCH')).toBe(true)
+        // field error present (required field 1 is missing)
+        expect(result.errors.length).toBeGreaterThanOrEqual(1)
+        expect(result.errors.some((e) => e.fieldId === 1 && e.rule === 'required')).toBe(true)
+    })
+
+    it('createFormDocument() produces documents that pass without document errors', () => {
+        const d = engine.createFormDocument({ '1': 'Alice' })
+        const result = engine.validate(d)
+        expect(result.valid).toBe(true)
+        expect(result.documentErrors).toBeUndefined()
+    })
+
+    // ── Edge cases ──
+
+    it('error params contain expected and actual values for id mismatch', () => {
+        const d: FormDocument = {
+            form: { id: 'other-form', version: '1.0.0', submittedAt: SUBMITTED_AT },
+            values: { '1': 'Alice' },
+        }
+        const result = engine.validate(d)
+        const err = result.documentErrors!.find((e) => e.code === 'FORM_ID_MISMATCH')!
+        expect(err.params).toBeDefined()
+        expect(err.params!.expected).toBe('test-form')
+        expect(err.params!.actual).toBe('other-form')
+    })
+
+    it('error params contain expected and actual values for version mismatch', () => {
+        const d: FormDocument = {
+            form: { id: 'test-form', version: '2.0.0', submittedAt: SUBMITTED_AT },
+            values: { '1': 'Alice' },
+        }
+        const result = engine.validate(d)
+        const err = result.documentErrors!.find((e) => e.code === 'FORM_VERSION_MISMATCH')!
+        expect(err.params).toBeDefined()
+        expect(err.params!.expected).toBe('1.0.0')
+        expect(err.params!.actual).toBe('2.0.0')
+    })
+
+    it('mismatched id with matching version → only FORM_ID_MISMATCH', () => {
+        const d: FormDocument = {
+            form: { id: 'wrong-id', version: '1.0.0', submittedAt: SUBMITTED_AT },
+            values: { '1': 'Alice' },
+        }
+        const result = engine.validate(d)
+        expect(result.documentErrors!.length).toBe(1)
+        expect(result.documentErrors![0]!.code).toBe('FORM_ID_MISMATCH')
+    })
+
+    it('mismatched version with matching id → only FORM_VERSION_MISMATCH', () => {
+        const d: FormDocument = {
+            form: { id: 'test-form', version: '3.0.0', submittedAt: SUBMITTED_AT },
+            values: { '1': 'Alice' },
+        }
+        const result = engine.validate(d)
+        expect(result.documentErrors!.length).toBe(1)
+        expect(result.documentErrors![0]!.code).toBe('FORM_VERSION_MISMATCH')
+    })
+})
+
+// ════════════════════════════════════════════════════════════════════════════
+// 22. submittedAt behavior
+// ════════════════════════════════════════════════════════════════════════════
+
+describe('FormEngine — submittedAt behavior', () => {
+    it('submittedAt is parsed and used as now for relative date validation', () => {
+        const engine = new FormEngine(
+            baseDef([{ id: 1, type: 'date', label: 'D', validation: { minDate: '-7d', maxDate: '+7d' } }]),
+        )
+        // submittedAt = 2025-06-15 → range is [2025-06-08, 2025-06-22]
+        expect(engine.validate(doc({ '1': '2025-06-15' }, SUBMITTED_AT)).valid).toBe(true)
+        expect(engine.validate(doc({ '1': '2025-06-01' }, SUBMITTED_AT)).valid).toBe(false)
+        expect(engine.validate(doc({ '1': '2025-06-30' }, SUBMITTED_AT)).valid).toBe(false)
+    })
+
+    it('malformed submittedAt falls back gracefully and produces FORM_SUBMITTED_AT_INVALID', () => {
+        const engine = new FormEngine(
+            baseDef([{ id: 1, type: 'date', label: 'D', validation: { minDate: '-9999d', maxDate: '+9999d' } }]),
+        )
+        // Malformed submittedAt → falls back to new Date(), but produces document error
+        const result = engine.validate(doc({ '1': '2025-06-15' }, 'not-a-date'))
+        expect(result.valid).toBe(false)
+        expect(result.documentErrors).toBeDefined()
+        expect(result.documentErrors!.some((e) => e.code === 'FORM_SUBMITTED_AT_INVALID')).toBe(true)
+    })
+
+    it('createFormDocument() includes submittedAt', () => {
+        const engine = new FormEngine(baseDef([{ id: 1, type: 'string', label: 'A' }]))
+        const before = new Date().toISOString()
+        const d = engine.createFormDocument({ '1': 'hello' })
+        const after = new Date().toISOString()
+
+        expect(d.form.submittedAt).toBeDefined()
+        expect(typeof d.form.submittedAt).toBe('string')
+        // submittedAt should be between before and after timestamps
+        expect(d.form.submittedAt >= before).toBe(true)
+        expect(d.form.submittedAt <= after).toBe(true)
+    })
+
+    it('missing submittedAt produces FORM_SUBMITTED_AT_MISSING document error', () => {
+        const engine = new FormEngine(baseDef([{ id: 1, type: 'string', label: 'A' }]))
+        const d = {
+            form: { id: 'test-form', version: '1.0.0', submittedAt: '' },
+            values: { '1': 'hello' },
+        } as FormDocument
+        const result = engine.validate(d)
+        expect(result.valid).toBe(false)
+        expect(result.documentErrors).toBeDefined()
+        expect(result.documentErrors!.some((e) => e.code === 'FORM_SUBMITTED_AT_MISSING')).toBe(true)
+    })
+
+    it('invalid submittedAt produces FORM_SUBMITTED_AT_INVALID document error', () => {
+        const engine = new FormEngine(baseDef([{ id: 1, type: 'string', label: 'A' }]))
+        const d: FormDocument = {
+            form: { id: 'test-form', version: '1.0.0', submittedAt: 'garbage-date' },
+            values: { '1': 'hello' },
+        }
+        const result = engine.validate(d)
+        expect(result.valid).toBe(false)
+        expect(result.documentErrors).toBeDefined()
+        expect(result.documentErrors!.some((e) => e.code === 'FORM_SUBMITTED_AT_INVALID')).toBe(true)
+        const err = result.documentErrors!.find((e) => e.code === 'FORM_SUBMITTED_AT_INVALID')!
+        expect(err.params).toBeDefined()
+        expect(err.params!.actual).toBe('garbage-date')
+    })
+})
+
+// ════════════════════════════════════════════════════════════════════════════
+// 23. dumpDocument / loadDocument
+// ════════════════════════════════════════════════════════════════════════════
+
+describe('FormEngine — dumpDocument / loadDocument', () => {
+    const definition = baseDef([
+        { id: 1, type: 'string', label: 'Name' },
+        { id: 2, type: 'number', label: 'Age' },
+        { id: 3, type: 'boolean', label: 'Active' },
+        { id: 4, type: 'date', label: 'DOB' },
+        {
+            id: 5,
+            type: 'select',
+            label: 'Color',
+            options: [
+                { value: 'r', label: 'Red' },
+                { value: 'g', label: 'Green' },
+            ],
+        },
+    ])
+
+    it('dumpDocument() returns snapshot with definition and document', () => {
+        const engine = new FormEngine(definition)
+        const d = doc({ '1': 'Alice' })
+        const snapshot = engine.dumpDocument(d)
+
+        expect(snapshot.definition).toEqual(definition)
+        expect(snapshot.document).toEqual(d)
+    })
+
+    it('dumpDocument() → loadDocument() roundtrip', () => {
+        const engine = new FormEngine(definition)
+        const d = doc({ '1': 'Bob', '2': 42 })
+        const snapshot = engine.dumpDocument(d)
+        const loaded = engine.loadDocument(snapshot)
+
+        expect(loaded).toEqual(d)
+    })
+
+    it('loadDocument() succeeds with matching id and version', () => {
+        const engine = new FormEngine(definition)
+        const d = doc({ '1': 'Charlie' })
+        const snapshot: FormSnapshot = { definition, document: d }
+
+        expect(() => engine.loadDocument(snapshot)).not.toThrow()
+        const loaded = engine.loadDocument(snapshot)
+        const result = engine.validate(loaded)
+        expect(result.valid).toBe(true)
+    })
+
+    it('loadDocument() throws on definition id mismatch', () => {
+        const engine = new FormEngine(definition)
+        const d = doc({ '1': 'Dave' })
+        const mismatchedDef = { ...definition, id: 'wrong-id' }
+        const snapshot: FormSnapshot = { definition: mismatchedDef, document: d }
+
+        expect(() => engine.loadDocument(snapshot)).toThrow(FormDocumentLoadError)
+        try {
+            engine.loadDocument(snapshot)
+        } catch (e) {
+            expect(e).toBeInstanceOf(FormDocumentLoadError)
+            const err = e as FormDocumentLoadError
+            expect(err.errors.some((e) => e.code === 'FORM_ID_MISMATCH')).toBe(true)
+        }
+    })
+
+    it('loadDocument() throws on definition version mismatch', () => {
+        const engine = new FormEngine(definition)
+        const d = doc({ '1': 'Eve' })
+        const mismatchedDef = { ...definition, version: '9.9.9' }
+        const snapshot: FormSnapshot = { definition: mismatchedDef, document: d }
+
+        expect(() => engine.loadDocument(snapshot)).toThrow(FormDocumentLoadError)
+        try {
+            engine.loadDocument(snapshot)
+        } catch (e) {
+            expect(e).toBeInstanceOf(FormDocumentLoadError)
+            const err = e as FormDocumentLoadError
+            expect(err.errors.some((e) => e.code === 'FORM_VERSION_MISMATCH')).toBe(true)
+        }
+    })
+
+    it('loadDocument() preserves all field values', () => {
+        const engine = new FormEngine(definition)
+        const values: FormValues = {
+            '1': 'Frank',
+            '2': 99,
+            '3': true,
+            '4': '1990-01-15',
+            '5': 'r',
+        }
+        const d = doc(values)
+        const snapshot = engine.dumpDocument(d)
+        const loaded = engine.loadDocument(snapshot)
+
+        expect(loaded.values).toEqual(values)
+        expect(loaded.values['1']).toBe('Frank')
+        expect(loaded.values['2']).toBe(99)
+        expect(loaded.values['3']).toBe(true)
+        expect(loaded.values['4']).toBe('1990-01-15')
+        expect(loaded.values['5']).toBe('r')
     })
 })

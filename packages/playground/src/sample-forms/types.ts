@@ -4,4 +4,5 @@ export type SampleForm = {
     label: string
     definition: FormDefinition
     values: FormValues
+    submittedAt: string
 }

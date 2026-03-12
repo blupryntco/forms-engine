@@ -13,7 +13,7 @@ const validateFn = ajv.compile(schema)
  * for every schema violation found. Returns an empty array when the input
  * conforms to the schema.
  */
-export function validateSchema(input: unknown): FormDefinitionIssue[] {
+export function validateFormDefinitionSchema(input: unknown): FormDefinitionIssue[] {
     if (validateFn(input)) return []
 
     return (validateFn.errors ?? []).map((err) => {

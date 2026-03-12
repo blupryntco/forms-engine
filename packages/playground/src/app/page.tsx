@@ -1,8 +1,14 @@
 'use client'
 
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import type { FormDefinition, FormDocument, FormValues, SectionContentItem } from '@bluprynt/forms-core'
+import type {
+    DocumentValidationError,
+    FormDefinition,
+    FormDocument,
+    FormValues,
+    SectionContentItem,
+} from '@bluprynt/forms-core'
 import { FormEngine } from '@bluprynt/forms-core'
 import formDefinitionSchema from '@bluprynt/forms-core/schemas/form-definition.schema.json'
 import { FormEditor, FormViewer, ROOT } from '@bluprynt/forms-react'
@@ -36,8 +42,8 @@ const tryParseJson = <T,>(text: string): ParseResult<T> => {
     }
 }
 
-const buildFormDocument = (definition: FormDefinition, values: FormValues): FormDocument => ({
-    form: { id: definition.id, version: definition.version },
+const buildFormDocument = (definition: FormDefinition, values: FormValues, submittedAt?: string): FormDocument => ({
+    form: { id: definition.id, version: definition.version, submittedAt: submittedAt ?? new Date().toISOString() },
     values,
 })
 
@@ -75,13 +81,20 @@ export default function Home() {
     const [selectedIndex, setSelectedIndex] = useState(0)
     const [definitionText, setDefinitionText] = useState(() => JSON.stringify(initial.definition, null, 2))
     const [valuesText, setValuesText] = useState(() =>
-        JSON.stringify(buildFormDocument(initial.definition, initial.values), null, 2),
+        JSON.stringify(buildFormDocument(initial.definition, initial.values, initial.submittedAt), null, 2),
     )
-    const [formDoc, setFormDoc] = useState<FormDocument>(() => buildFormDocument(initial.definition, initial.values))
+    const [formDoc, setFormDoc] = useState<FormDocument>(() =>
+        buildFormDocument(initial.definition, initial.values, initial.submittedAt),
+    )
     const [showValidation, setShowValidation] = useState(false)
     const [sectionSteps, setSectionSteps] = useState(false)
     const [activeTabKey, setActiveTabKey] = useState('root')
+    const [documentErrors, setDocumentErrors] = useState<DocumentValidationError[]>([])
     const monacoRef = useRef<Monaco | null>(null)
+
+    const handleDocumentError = useCallback((errors: DocumentValidationError[]) => {
+        setDocumentErrors(errors)
+    }, [])
 
     const handleMonacoBeforeMount = useCallback((monaco: Monaco) => {
         monacoRef.current = monaco
@@ -101,13 +114,19 @@ export default function Home() {
 
     const handleSelectForm = useCallback((index: number) => {
         const sample = SAMPLE_FORMS[index]!
-        const doc = buildFormDocument(sample.definition, sample.values)
+        const doc = buildFormDocument(sample.definition, sample.values, sample.submittedAt)
         setSelectedIndex(index)
         setDefinitionText(JSON.stringify(sample.definition, null, 2))
         setValuesText(JSON.stringify(doc, null, 2))
         setFormDoc(doc)
         setActiveTabKey('root')
+        setDocumentErrors([])
     }, [])
+
+    // Clear document errors when inputs change (callback will re-set if still present)
+    useEffect(() => {
+        setDocumentErrors([])
+    }, [definitionText, formDoc])
 
     // Parse definition and build engine
     const engineResult: EngineResult = useMemo(() => {
@@ -266,6 +285,16 @@ export default function Home() {
                         <span className="text-xs font-medium text-gray-500 uppercase">Viewer (read-only)</span>
                     </div>
                     {renderSectionTabs()}
+                    {documentErrors.length > 0 && (
+                        <div className="border-b border-amber-200 bg-amber-50 px-3 py-2">
+                            <p className="text-xs font-medium text-amber-800">Document compatibility errors:</p>
+                            <ul className="mt-1 list-inside list-disc text-xs text-amber-700">
+                                {documentErrors.map((err) => (
+                                    <li key={err.code}>{err.message}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
                     <div className="flex-1 overflow-y-auto p-4">
                         {engineResult.ok ? (
                             <FormViewer
@@ -274,6 +303,7 @@ export default function Home() {
                                 components={viewerComponents}
                                 showValidation={showValidation}
                                 section={activeSection}
+                                onDocumentError={handleDocumentError}
                             />
                         ) : (
                             <p className="text-sm text-gray-400 italic">Fix definition errors to preview</p>
@@ -287,6 +317,16 @@ export default function Home() {
                         <span className="text-xs font-medium text-gray-500 uppercase">Editor</span>
                     </div>
                     {renderSectionTabs()}
+                    {documentErrors.length > 0 && (
+                        <div className="border-b border-amber-200 bg-amber-50 px-3 py-2">
+                            <p className="text-xs font-medium text-amber-800">Document compatibility errors:</p>
+                            <ul className="mt-1 list-inside list-disc text-xs text-amber-700">
+                                {documentErrors.map((err) => (
+                                    <li key={err.code}>{err.message}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
                     <div className="flex-1 overflow-y-auto p-4">
                         {engineResult.ok ? (
                             <FormEditor
@@ -296,6 +336,7 @@ export default function Home() {
                                 onChange={handleEditorChange}
                                 showValidation={showValidation}
                                 section={activeSection}
+                                onDocumentError={handleDocumentError}
                             />
                         ) : (
                             <p className="text-sm text-gray-400 italic">Fix definition errors to preview</p>

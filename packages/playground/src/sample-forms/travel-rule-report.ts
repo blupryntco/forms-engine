@@ -2,6 +2,7 @@ import type { SampleForm } from './types'
 
 export const TRAVEL_RULE_REPORT: SampleForm = {
     label: 'Travel Rule Report',
+    submittedAt: '2025-12-05T14:45:00.000Z',
     definition: {
         id: 'c7e2a4f0-8b1d-4e3a-9f6c-d5a2b8e1c4f7',
         version: '1.0.0',

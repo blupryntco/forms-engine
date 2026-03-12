@@ -2,6 +2,7 @@ import type { SampleForm } from './types'
 
 export const VASP_REGISTRATION: SampleForm = {
     label: 'VASP Registration',
+    submittedAt: '2025-10-08T16:20:00.000Z',
     definition: {
         id: '3396368d-6a02-48c4-a2e9-8ffb458d3f81',
         version: '1.0.0',

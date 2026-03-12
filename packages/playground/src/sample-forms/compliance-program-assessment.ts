@@ -2,6 +2,7 @@ import type { SampleForm } from './types'
 
 export const COMPLIANCE_PROGRAM_ASSESSMENT: SampleForm = {
     label: 'Compliance Program Assessment',
+    submittedAt: '2025-12-31T14:30:00.000Z',
     definition: {
         id: '0f6b8e5d-cc6b-4d4d-809e-b996967d828b',
         version: '1.0.0',

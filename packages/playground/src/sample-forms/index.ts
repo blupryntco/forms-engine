@@ -1,6 +1,7 @@
 export { COMPLIANCE_DISCLOSURE } from './compliance-disclosure'
 export { COMPLIANCE_PROGRAM_ASSESSMENT } from './compliance-program-assessment'
 export { CUSTODY_ASSESSMENT } from './custody-assessment'
+export { PORTFOLIO_DECLARATION } from './portfolio-declaration'
 export { REGULATORY_COMPLIANCE } from './regulatory-compliance'
 export { SUSPICIOUS_ACTIVITY_REPORT } from './suspicious-activity-report'
 export { TOKEN_LISTING_APPLICATION } from './token-listing-application'
@@ -11,6 +12,7 @@ export { VASP_REGISTRATION } from './vasp-registration'
 import { COMPLIANCE_DISCLOSURE } from './compliance-disclosure'
 import { COMPLIANCE_PROGRAM_ASSESSMENT } from './compliance-program-assessment'
 import { CUSTODY_ASSESSMENT } from './custody-assessment'
+import { PORTFOLIO_DECLARATION } from './portfolio-declaration'
 import { REGULATORY_COMPLIANCE } from './regulatory-compliance'
 import { SUSPICIOUS_ACTIVITY_REPORT } from './suspicious-activity-report'
 import { TOKEN_LISTING_APPLICATION } from './token-listing-application'
@@ -26,5 +28,6 @@ export const SAMPLE_FORMS: SampleForm[] = [
     CUSTODY_ASSESSMENT,
     COMPLIANCE_DISCLOSURE,
     TRAVEL_RULE_REPORT,
+    PORTFOLIO_DECLARATION,
     REGULATORY_COMPLIANCE,
 ]

@@ -1,4 +1,4 @@
-import { validateSchema } from './schema-validator'
+import { validateFormDefinitionSchema } from './schema-validator'
 
 const minimal = {
     id: 'test-form',
@@ -9,14 +9,14 @@ const minimal = {
 
 // ── Helpers ──
 
-const issues = (input: unknown) => validateSchema(input)
-const valid = (input: unknown) => validateSchema(input).length === 0
+const issues = (input: unknown) => validateFormDefinitionSchema(input)
+const valid = (input: unknown) => validateFormDefinitionSchema(input).length === 0
 
 // ════════════════════════════════════════════════════════════════════════════
 // Valid schemas
 // ════════════════════════════════════════════════════════════════════════════
 
-describe('validateSchema — valid inputs', () => {
+describe('validateFormDefinitionSchema — valid inputs', () => {
     it('accepts minimal form definition', () => {
         expect(valid(minimal)).toBe(true)
     })
@@ -77,7 +77,7 @@ describe('validateSchema — valid inputs', () => {
 // Top-level structure
 // ════════════════════════════════════════════════════════════════════════════
 
-describe('validateSchema — top-level structure', () => {
+describe('validateFormDefinitionSchema — top-level structure', () => {
     it('rejects non-object input', () => {
         expect(valid(null)).toBe(false)
         expect(valid('string')).toBe(false)
@@ -116,7 +116,7 @@ describe('validateSchema — top-level structure', () => {
 // Field IDs
 // ════════════════════════════════════════════════════════════════════════════
 
-describe('validateSchema — field id constraints', () => {
+describe('validateFormDefinitionSchema — field id constraints', () => {
     it('rejects non-integer id', () => {
         expect(valid({ ...minimal, content: [{ id: 1.5, type: 'string', label: 'A' }] })).toBe(false)
     })
@@ -138,7 +138,7 @@ describe('validateSchema — field id constraints', () => {
 // Validation rules per field type
 // ════════════════════════════════════════════════════════════════════════════
 
-describe('validateSchema — field validation rules', () => {
+describe('validateFormDefinitionSchema — field validation rules', () => {
     it('accepts string with all validation options', () => {
         expect(
             valid({
@@ -253,7 +253,7 @@ describe('validateSchema — field validation rules', () => {
 // File fields
 // ════════════════════════════════════════════════════════════════════════════
 
-describe('validateSchema — file fields', () => {
+describe('validateFormDefinitionSchema — file fields', () => {
     it('accepts valid file field', () => {
         expect(valid({ ...minimal, content: [{ id: 1, type: 'file', label: 'Resume' }] })).toBe(true)
     })
@@ -307,7 +307,7 @@ describe('validateSchema — file fields', () => {
 // Select fields
 // ════════════════════════════════════════════════════════════════════════════
 
-describe('validateSchema — select fields', () => {
+describe('validateFormDefinitionSchema — select fields', () => {
     it('accepts select with string options', () => {
         expect(
             valid({
@@ -339,7 +339,7 @@ describe('validateSchema — select fields', () => {
 // Array fields
 // ════════════════════════════════════════════════════════════════════════════
 
-describe('validateSchema — array fields', () => {
+describe('validateFormDefinitionSchema — array fields', () => {
     it('rejects array without item', () => {
         expect(valid({ ...minimal, content: [{ id: 1, type: 'array', label: 'A' }] })).toBe(false)
     })
@@ -385,7 +385,7 @@ describe('validateSchema — array fields', () => {
 // Conditions
 // ════════════════════════════════════════════════════════════════════════════
 
-describe('validateSchema — conditions', () => {
+describe('validateFormDefinitionSchema — conditions', () => {
     it('accepts set/notset without value', () => {
         expect(
             valid({
@@ -559,7 +559,7 @@ describe('validateSchema — conditions', () => {
 // Sections
 // ════════════════════════════════════════════════════════════════════════════
 
-describe('validateSchema — sections', () => {
+describe('validateFormDefinitionSchema — sections', () => {
     it('accepts section with fields', () => {
         expect(
             valid({
@@ -606,7 +606,7 @@ describe('validateSchema — sections', () => {
 // Error output format
 // ════════════════════════════════════════════════════════════════════════════
 
-describe('validateSchema — error output', () => {
+describe('validateFormDefinitionSchema — error output', () => {
     it('all issues have code SCHEMA_INVALID', () => {
         const result = issues({})
         expect(result.length).toBeGreaterThan(0)

@@ -2,6 +2,7 @@ import type { ComponentType, ReactNode } from 'react'
 
 import type {
     ArrayItemDef,
+    DocumentValidationError,
     FieldContentItem,
     FieldValidationError,
     FileValue,
@@ -150,6 +151,7 @@ export type FormViewerProps = {
     section?: ROOT | number
     includeSectionHeader?: boolean
     showValidation?: boolean
+    onDocumentError?: (errors: DocumentValidationError[]) => void
 }
 
 export type FormEditorProps = {
@@ -160,4 +162,5 @@ export type FormEditorProps = {
     section?: ROOT | number
     includeSectionHeader?: boolean
     showValidation?: boolean
+    onDocumentError?: (errors: DocumentValidationError[]) => void
 }

@@ -4,17 +4,21 @@
 export type {
     ArrayItemDef,
     ContentItem,
+    DocumentValidationError,
+    DocumentValidationErrorCode,
     FieldContentItem,
     FieldType,
     FieldValidationError,
     FileValue,
     FormDefinition,
     FormDocument,
+    FormSnapshot,
     FormValidationResult,
     FormValues,
     SectionContentItem,
     SelectOption,
 } from '@bluprynt/forms-core'
+export { FormDocumentLoadError } from '@bluprynt/forms-core'
 
 // Symbol
 export { ROOT } from './constants'

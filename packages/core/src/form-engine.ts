@@ -1,17 +1,18 @@
-import { ConditionEvaluator } from './condition-eval'
+import { ConditionEvaluator } from './condition-evaluator'
 import { DependencyGraph } from './dependency-graph'
-import { validateSchema } from './schema-validator'
+import { validateFormDefinitionSchema } from './schema-validator'
 import { SemanticValidator } from './semantic-validator'
 import type {
     ContentItem,
-    EngineOptions,
+    DocumentValidationError,
     FieldEntry,
     FormDefinition,
     FormDocument,
+    FormSnapshot,
     FormValidationResult,
     FormValues,
 } from './types'
-import { FormDefinitionError } from './types'
+import { FormDefinitionError, FormDocumentLoadError } from './types'
 import { FieldValidator } from './validate'
 import { VisibilityResolver } from './visibility'
 
@@ -51,6 +52,7 @@ export class FormEngine {
     private readonly depGraph: DependencyGraph
     private readonly visibilityResolver: VisibilityResolver
     private readonly fieldValidator: FieldValidator
+    private readonly definition: FormDefinition
     private readonly formId: string
     private readonly formVersion: string
 
@@ -69,7 +71,7 @@ export class FormEngine {
      */
     constructor(definition: FormDefinition) {
         // 0. JSON schema validation
-        const schemaIssues = validateSchema(definition)
+        const schemaIssues = validateFormDefinitionSchema(definition)
         if (schemaIssues.length > 0) {
             throw new FormDefinitionError(schemaIssues)
         }
@@ -106,6 +108,7 @@ export class FormEngine {
 
         this.registry = registry
         this.contentOrder = contentOrder
+        this.definition = definition
         this.formId = definition.id
         this.formVersion = definition.version
     }
@@ -119,9 +122,60 @@ export class FormEngine {
      */
     createFormDocument(values?: FormValues): FormDocument {
         return {
-            form: { id: this.formId, version: this.formVersion },
+            form: { id: this.formId, version: this.formVersion, submittedAt: new Date().toISOString() },
             values: values ?? {},
         }
+    }
+
+    /**
+     * Serializes the form definition and document into a single {@link FormSnapshot}.
+     *
+     * The snapshot contains the original {@link FormDefinition} used to construct
+     * the engine and the provided {@link FormDocument}. No validation is performed;
+     * call {@link validate} separately if needed.
+     *
+     * @param doc - The form document to include in the snapshot.
+     * @returns A snapshot containing both the definition and the document.
+     */
+    dumpDocument(doc: FormDocument): FormSnapshot {
+        return {
+            definition: this.definition,
+            document: doc,
+        }
+    }
+
+    /**
+     * Loads a {@link FormDocument} from a previously created {@link FormSnapshot}.
+     *
+     * Verifies that the snapshot's form definition matches the engine's
+     * compiled definition by comparing id and version. Throws a
+     * {@link FormDocumentLoadError} if there is a mismatch.
+     *
+     * @param snapshot - A snapshot previously produced by {@link dumpDocument}.
+     * @returns The form document from the snapshot.
+     * @throws {FormDocumentLoadError} If the snapshot's definition id or version
+     *   does not match the engine's.
+     */
+    loadDocument(snapshot: FormSnapshot): FormDocument {
+        const errors: DocumentValidationError[] = []
+        if (snapshot.definition.id !== this.formId) {
+            errors.push({
+                code: 'FORM_ID_MISMATCH',
+                message: `Snapshot form id "${snapshot.definition.id}" does not match expected "${this.formId}"`,
+                params: { expected: this.formId, actual: snapshot.definition.id },
+            })
+        }
+        if (snapshot.definition.version !== this.formVersion) {
+            errors.push({
+                code: 'FORM_VERSION_MISMATCH',
+                message: `Snapshot form version "${snapshot.definition.version}" does not match expected "${this.formVersion}"`,
+                params: { expected: this.formVersion, actual: snapshot.definition.version },
+            })
+        }
+        if (errors.length > 0) {
+            throw new FormDocumentLoadError(errors)
+        }
+        return snapshot.document
     }
 
     /**
@@ -175,14 +229,66 @@ export class FormEngine {
      * Sections are never validated directly. For array fields, each item is
      * validated individually according to the array's item definition.
      *
+     * The reference time for relative date validation is derived from
+     * `doc.form.submittedAt`. If that value is missing or unparseable, a
+     * document-level error is reported and `new Date()` is used as fallback.
+     *
      * @param doc - Current form document to validate.
-     * @param options - Optional overrides (e.g. custom `now` for date validation).
      * @returns Validation result with a `valid` flag and an array of errors.
      */
-    validate(doc: FormDocument, options?: EngineOptions): FormValidationResult {
-        const now = options?.now ?? new Date()
+    validate(doc: FormDocument): FormValidationResult {
+        // Document compatibility check
+        const documentErrors: DocumentValidationError[] = []
+        if (doc.form.id !== this.formId) {
+            documentErrors.push({
+                code: 'FORM_ID_MISMATCH',
+                message: `Document form id "${doc.form.id}" does not match expected "${this.formId}"`,
+                params: { expected: this.formId, actual: doc.form.id },
+            })
+        }
+        if (doc.form.version !== this.formVersion) {
+            documentErrors.push({
+                code: 'FORM_VERSION_MISMATCH',
+                message: `Document form version "${doc.form.version}" does not match expected "${this.formVersion}"`,
+                params: { expected: this.formVersion, actual: doc.form.version },
+            })
+        }
+
+        // Derive `now` from submittedAt; report document errors for missing/invalid values
+        let now: Date
+        if (!doc.form.submittedAt) {
+            documentErrors.push({
+                code: 'FORM_SUBMITTED_AT_MISSING',
+                message: 'Document form submittedAt is missing',
+            })
+            now = new Date()
+        } else {
+            const parsedSubmittedAt = new Date(doc.form.submittedAt)
+            if (isNaN(parsedSubmittedAt.getTime())) {
+                documentErrors.push({
+                    code: 'FORM_SUBMITTED_AT_INVALID',
+                    message: `Document form submittedAt "${doc.form.submittedAt}" is not a valid date`,
+                    params: { actual: doc.form.submittedAt },
+                })
+                now = new Date()
+            } else {
+                now = parsedSubmittedAt
+            }
+        }
+
+        // Field validation still runs even when document errors are present
         const visibilityMap = this.visibilityResolver.getVisibilityMap(doc.values, now)
-        return this.fieldValidator.validate(doc.values, visibilityMap, now)
+        const result = this.fieldValidator.validate(doc.values, visibilityMap, now)
+
+        if (documentErrors.length > 0) {
+            return {
+                valid: false,
+                errors: result.errors,
+                documentErrors,
+            }
+        }
+
+        return result
     }
 
     /**

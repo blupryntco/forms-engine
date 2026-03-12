@@ -464,7 +464,7 @@ packages/core/src/
 ├── engine/
 │   ├── types.ts                 — All TypeScript types for the engine
 │   ├── prepare.ts               — prepare() function: builds registry, dep graph, topo sort
-│   ├── condition-eval.ts        — evalCondition(): pure function, all 10 operators + and/or
+│   ├── condition-evaluator.ts        — evalCondition(): pure function, all 10 operators + and/or
 │   ├── visibility.ts            — isVisible(), getVisibilityMap(), getAffectedIds()
 │   ├── validate.ts              — validate(): type-specific validation for all 6 field types
 │   ├── dependency-graph.ts      — buildDependencyGraph(), detectCycles(), topoSort()
@@ -484,9 +484,9 @@ packages/core/src/
 prepare.ts
   ├── semantic-validator.ts
   ├── dependency-graph.ts
-  ├── condition-eval.ts  (used at prepare time only for type checking)
+  ├── condition-evaluator.ts  (used at prepare time only for type checking)
   ├── visibility.ts
-  │   └── condition-eval.ts
+  │   └── condition-evaluator.ts
   │       └── date-utils.ts
   └── validate.ts
       ├── visibility.ts
@@ -564,7 +564,7 @@ During `getVisibilityMap`, items are processed in topological order. When evalua
 
 | Module | Test focus |
 |--------|-----------|
-| `condition-eval.ts` | All 10 operators with various types. Compound conditions. Short-circuit behavior. Hidden-field references. Relative date resolution in condition values. Edge cases (null, undefined, empty string, type mismatch). |
+| `condition-evaluator.ts` | All 10 operators with various types. Compound conditions. Short-circuit behavior. Hidden-field references. Relative date resolution in condition values. Edge cases (null, undefined, empty string, type mismatch). |
 | `dependency-graph.ts` | Graph construction from conditions. Cycle detection (simple cycle, transitive cycle). Transitive dependency expansion. |
 | `visibility.ts` | Single-field visibility. Parent chain cascading. Hidden-field-references-hidden-field chains. Bulk visibility map. `getAffectedIds` results. |
 | `validate.ts` | All 6 field types with all validation rules. Required + optional combinations. Array item validation. Skip-hidden-fields behavior. Type mismatch errors. Relative date resolution in minDate/maxDate. |
@@ -672,10 +672,10 @@ This `now` parameter is threaded through to `resolveRelativeDate` and `evalCondi
 |------|--------|-----------|-------------|
 | 1 | `types.ts` | — | All type definitions |
 | 2 | `date-utils.ts` | — | Relative date resolution |
-| 3 | `condition-eval.ts` | `types.ts`, `date-utils.ts` | Condition evaluator (all operators) |
+| 3 | `condition-evaluator.ts` | `types.ts`, `date-utils.ts` | Condition evaluator (all operators) |
 | 4 | `dependency-graph.ts` | `types.ts` | Graph construction, cycle detection, topo sort |
 | 5 | `semantic-validator.ts` | `types.ts` | All semantic checks |
-| 6 | `visibility.ts` | `types.ts`, `condition-eval.ts` | isVisible, getVisibilityMap, getAffectedIds |
+| 6 | `visibility.ts` | `types.ts`, `condition-evaluator.ts` | isVisible, getVisibilityMap, getAffectedIds |
 | 7 | `validate.ts` | `types.ts`, `date-utils.ts`, `visibility.ts` | Type-specific field validation |
 | 8 | `prepare.ts` | all above | Orchestrates building, returns FormEngine |
 | 9 | `engine/index.ts` | `prepare.ts`, `types.ts` | Re-exports |

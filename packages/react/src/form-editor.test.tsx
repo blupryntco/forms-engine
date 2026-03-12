@@ -5,6 +5,7 @@
 import { createElement, type FC, type ReactNode } from 'react'
 
 import type {
+    DocumentValidationError,
     FieldContentItem,
     FieldValidationError,
     FormDefinition,
@@ -112,7 +113,10 @@ const baseDef = (content: FormDefinition['content']): FormDefinition => ({
 
 const noop = jest.fn()
 
-const doc = (values: FormValues = {}): FormDocument => ({ form: { id: 'test-form', version: '1.0.0' }, values })
+const doc = (values: FormValues = {}, submittedAt: string = '2025-06-15T00:00:00.000Z'): FormDocument => ({
+    form: { id: 'test-form', version: '1.0.0', submittedAt },
+    values,
+})
 
 /** Extract the last call props for a given mock component */
 const lastCallProps = (mock: jest.Mock): Record<string, unknown> => {
@@ -753,6 +757,171 @@ describe('FormEditor', () => {
             expect(onChange).toHaveBeenCalledTimes(1)
             const [newDoc] = onChange.mock.calls[0] as [FormDocument]
             expect(newDoc.values['1']).toEqual(['foo', 'baz'])
+        })
+    })
+
+    // 12. submittedAt preservation
+    describe('submittedAt', () => {
+        it('preserves submittedAt in onChange', () => {
+            const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
+            const onChange = jest.fn()
+
+            render(
+                createElement(FormEditor, {
+                    definition,
+                    data: doc({ '1': 'Alice' }, '2026-01-15T10:00:00.000Z'),
+                    components: makeComponents(),
+                    onChange,
+                }),
+            )
+
+            const stringProps = lastCallProps(MockString as jest.Mock)
+            const fieldOnChange = stringProps.onChange as (value: unknown) => void
+            fieldOnChange('Bob')
+
+            expect(onChange).toHaveBeenCalledTimes(1)
+            const [newDoc] = onChange.mock.calls[0] as [FormDocument]
+            expect(newDoc.form.submittedAt).toBe('2026-01-15T10:00:00.000Z')
+        })
+    })
+
+    // 13. onDocumentError callback
+    describe('onDocumentError', () => {
+        it('calls onDocumentError when document form id does not match definition', () => {
+            const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
+            const mismatchedDoc: FormDocument = {
+                form: { id: 'wrong-form', version: '1.0.0', submittedAt: '2025-06-15T00:00:00.000Z' },
+                values: { '1': 'Alice' },
+            }
+            const onDocumentError = jest.fn()
+
+            render(
+                createElement(FormEditor, {
+                    definition,
+                    data: mismatchedDoc,
+                    components: makeComponents(),
+                    onChange: noop,
+                    onDocumentError,
+                }),
+            )
+
+            expect(onDocumentError).toHaveBeenCalledTimes(1)
+            const errors = onDocumentError.mock.calls[0][0] as DocumentValidationError[]
+            expect(errors.length).toBe(1)
+            expect(errors[0]).toMatchObject({ code: 'FORM_ID_MISMATCH' })
+        })
+
+        it('calls onDocumentError when document form version does not match definition', () => {
+            const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
+            const mismatchedDoc: FormDocument = {
+                form: { id: 'test-form', version: '2.0.0', submittedAt: '2025-06-15T00:00:00.000Z' },
+                values: { '1': 'Alice' },
+            }
+            const onDocumentError = jest.fn()
+
+            render(
+                createElement(FormEditor, {
+                    definition,
+                    data: mismatchedDoc,
+                    components: makeComponents(),
+                    onChange: noop,
+                    onDocumentError,
+                }),
+            )
+
+            expect(onDocumentError).toHaveBeenCalledTimes(1)
+            const errors = onDocumentError.mock.calls[0][0] as DocumentValidationError[]
+            expect(errors.length).toBe(1)
+            expect(errors[0]).toMatchObject({ code: 'FORM_VERSION_MISMATCH' })
+        })
+
+        it('calls onDocumentError with both errors when id and version mismatch', () => {
+            const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
+            const mismatchedDoc: FormDocument = {
+                form: { id: 'wrong-form', version: '2.0.0', submittedAt: '2025-06-15T00:00:00.000Z' },
+                values: { '1': 'Alice' },
+            }
+            const onDocumentError = jest.fn()
+
+            render(
+                createElement(FormEditor, {
+                    definition,
+                    data: mismatchedDoc,
+                    components: makeComponents(),
+                    onChange: noop,
+                    onDocumentError,
+                }),
+            )
+
+            expect(onDocumentError).toHaveBeenCalledTimes(1)
+            const errors = onDocumentError.mock.calls[0][0] as DocumentValidationError[]
+            expect(errors.length).toBe(2)
+            expect(errors.map((e) => e.code)).toEqual(['FORM_ID_MISMATCH', 'FORM_VERSION_MISMATCH'])
+        })
+
+        it('does not call onDocumentError when document matches definition', () => {
+            const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
+            const onDocumentError = jest.fn()
+
+            render(
+                createElement(FormEditor, {
+                    definition,
+                    data: doc({ '1': 'Alice' }),
+                    components: makeComponents(),
+                    onChange: noop,
+                    onDocumentError,
+                }),
+            )
+
+            expect(onDocumentError).not.toHaveBeenCalled()
+        })
+
+        it('does not throw when onDocumentError is not provided and document mismatches', () => {
+            const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
+            const mismatchedDoc: FormDocument = {
+                form: { id: 'wrong-form', version: '2.0.0', submittedAt: '2025-06-15T00:00:00.000Z' },
+                values: { '1': 'Alice' },
+            }
+
+            expect(() =>
+                render(
+                    createElement(FormEditor, {
+                        definition,
+                        data: mismatchedDoc,
+                        components: makeComponents(),
+                        onChange: noop,
+                    }),
+                ),
+            ).not.toThrow()
+        })
+
+        it('onChange still includes documentErrors in validation result', () => {
+            const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
+            const mismatchedDoc: FormDocument = {
+                form: { id: 'wrong-form', version: '1.0.0', submittedAt: '2025-06-15T00:00:00.000Z' },
+                values: { '1': 'Alice' },
+            }
+            const onChange = jest.fn()
+
+            render(
+                createElement(FormEditor, {
+                    definition,
+                    data: mismatchedDoc,
+                    components: makeComponents(),
+                    onChange,
+                }),
+            )
+
+            // Trigger field change
+            const stringProps = lastCallProps(MockString as jest.Mock)
+            const fieldOnChange = stringProps.onChange as (value: unknown) => void
+            fieldOnChange('Bob')
+
+            expect(onChange).toHaveBeenCalledTimes(1)
+            const [, validation] = onChange.mock.calls[0] as [FormDocument, FormValidationResult]
+            expect(validation.documentErrors).toBeDefined()
+            expect(validation.documentErrors!.length).toBe(1)
+            expect(validation.documentErrors![0]).toMatchObject({ code: 'FORM_ID_MISMATCH' })
         })
     })
 })

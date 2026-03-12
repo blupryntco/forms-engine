@@ -1,4 +1,4 @@
-import { ConditionEvaluator } from './condition-eval'
+import { ConditionEvaluator } from './condition-evaluator'
 import type { Condition } from './types'
 
 const evaluator = new ConditionEvaluator()

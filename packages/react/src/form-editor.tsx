@@ -1,4 +1,4 @@
-import { type FC, Fragment, useCallback, useRef } from 'react'
+import { type FC, Fragment, useCallback, useEffect, useRef } from 'react'
 
 import type { FieldContentItem, FormDocument, FormValidationResult, FormValues } from '@bluprynt/forms-core'
 
@@ -14,10 +14,17 @@ export const FormEditor: FC<FormEditorProps> = ({
     section,
     includeSectionHeader = true,
     showValidation = false,
+    onDocumentError,
 }) => {
     const engine = useFormEngine(definition)
     const visibilityMap = engine.getVisibilityMap(data)
     const validation = engine.validate(data)
+
+    useEffect(() => {
+        if (onDocumentError && validation.documentErrors && validation.documentErrors.length > 0) {
+            onDocumentError(validation.documentErrors)
+        }
+    }, [onDocumentError, validation.documentErrors])
 
     // Stable ref so memoized callbacks always read fresh state
     const stateRef = useRef({ data, onChange, engine })

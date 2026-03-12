@@ -2,6 +2,7 @@ import type { SampleForm } from './types'
 
 export const TOKEN_LISTING_APPLICATION: SampleForm = {
     label: 'Token Listing Application',
+    submittedAt: '2025-12-15T10:45:00.000Z',
     definition: {
         id: '3d64b5aa-a181-4a27-a99f-29383daa33d8',
         version: '1.0.0',

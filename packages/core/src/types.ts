@@ -335,6 +335,7 @@ export type FormDocument = {
     form: {
         id: string
         version: string
+        submittedAt: string
     }
     values: FormValues
 }
@@ -360,14 +361,58 @@ export type FieldValidationError = {
 }
 
 /**
+ * Machine-readable codes for all document-level validation errors.
+ *
+ * | Code | Description |
+ * |------|-------------|
+ * | `FORM_ID_MISMATCH` | The document's form id does not match the engine's form definition id. |
+ * | `FORM_VERSION_MISMATCH` | The document's form version does not match the engine's form definition version. |
+ */
+export type DocumentValidationErrorCode =
+    | 'FORM_ID_MISMATCH'
+    | 'FORM_VERSION_MISMATCH'
+    | 'FORM_SUBMITTED_AT_MISSING'
+    | 'FORM_SUBMITTED_AT_INVALID'
+
+/**
+ * A document-level validation error indicating a compatibility mismatch
+ * between the form document and the engine's form definition.
+ *
+ * @property code - Machine-readable error code from {@link DocumentValidationErrorCode}.
+ * @property message - Human-readable error description.
+ * @property params - Optional parameters providing context (e.g. `{ expected, actual }`).
+ */
+export type DocumentValidationError = {
+    code: DocumentValidationErrorCode
+    message: string
+    params?: Record<string, unknown>
+}
+
+/**
  * Aggregated result of validating all visible form fields.
  *
  * @property valid - `true` when no errors were found.
  * @property errors - List of all validation errors (empty when `valid` is `true`).
+ * @property documentErrors - Document-level compatibility errors, if any.
  */
 export type FormValidationResult = {
     valid: boolean
     errors: FieldValidationError[]
+    documentErrors?: DocumentValidationError[]
+}
+
+// ── Form snapshot ──
+
+/**
+ * A point-in-time snapshot pairing a {@link FormDefinition} with a
+ * {@link FormDocument}.
+ *
+ * @property definition - The form schema that describes the structure.
+ * @property document - The filled form data.
+ */
+export type FormSnapshot = {
+    definition: FormDefinition
+    document: FormDocument
 }
 
 // ── Semantic validation errors (thrown by prepare) ──
@@ -438,6 +483,16 @@ export type FormDefinitionIssue = {
  * }
  * ```
  */
+export class FormDocumentLoadError extends Error {
+    readonly errors: DocumentValidationError[]
+    constructor(errors: DocumentValidationError[]) {
+        const summary = errors.map((e) => e.message).join('; ')
+        super(`Cannot load document: ${summary}`)
+        this.name = 'FormDocumentLoadError'
+        this.errors = errors
+    }
+}
+
 export class FormDefinitionError extends Error {
     /** Structured list of all semantic issues found in the form definition. */
     readonly issues: FormDefinitionIssue[]
@@ -451,16 +506,4 @@ export class FormDefinitionError extends Error {
         this.name = 'FormDefinitionError'
         this.issues = issues
     }
-}
-
-// ── Engine options ──
-
-/**
- * Options that can be passed to engine methods at call time.
- *
- * @property now - Override for the current date/time. Used when resolving
- *   relative date expressions (e.g. `"+7d"`). Defaults to `new Date()`.
- */
-export type EngineOptions = {
-    now?: Date
 }

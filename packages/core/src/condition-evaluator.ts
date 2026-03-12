@@ -11,7 +11,7 @@ import type { Condition, SimpleCondition } from './types'
  * @property now - Reference date for resolving relative date expressions in
  *   condition values.
  */
-export type EvalContext = {
+export type EvaluationContext = {
     values: Record<string, unknown>
     visibilityMap?: Map<number, boolean>
     now?: Date
@@ -44,7 +44,7 @@ export class ConditionEvaluator {
      *   visibility/date overrides.
      * @returns `true` if the condition is satisfied, `false` otherwise.
      */
-    evalCondition(condition: Condition, ctx: EvalContext): boolean {
+    evalCondition(condition: Condition, ctx: EvaluationContext): boolean {
         if ('and' in condition) {
             return condition.and.every((c) => this.evalCondition(c, ctx))
         }
@@ -54,7 +54,7 @@ export class ConditionEvaluator {
         return this.evalSimple(condition as SimpleCondition, ctx)
     }
 
-    private evalSimple(cond: SimpleCondition, ctx: EvalContext): boolean {
+    private evalSimple(cond: SimpleCondition, ctx: EvaluationContext): boolean {
         // Hidden-field rule: if the referenced field is hidden, treat as not set
         if (ctx.visibilityMap && ctx.visibilityMap.get(cond.field) === false) {
             return cond.op === 'notset'

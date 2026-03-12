@@ -2,6 +2,7 @@ import type { SampleForm } from './types'
 
 export const REGULATORY_COMPLIANCE: SampleForm = {
     label: 'Regulatory Compliance',
+    submittedAt: '2026-01-15T10:30:00.000Z',
     definition: {
         id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
         version: '1.0.0',
