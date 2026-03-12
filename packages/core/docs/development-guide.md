@@ -64,6 +64,7 @@ Each module has its own test file:
 | `semantic-validator.ts` | `semantic-validator.test.ts` | All semantic checks |
 | `date-utils.ts` | `date-utils.test.ts` | Relative date parsing and resolution |
 | `form-definition-editor.ts` | `form-definition-editor.test.ts` | CRUD operations, move, fluent chaining |
+| `form-values-editor.ts` | `form-values-editor.test.ts` | Field value get/set/clear, array operations, validation, visibility |
 
 ## Adding a New Field Type
 
@@ -171,7 +172,7 @@ Consumers can import from two entry points:
 
 ```ts
 // Main API
-import { FormEngine, FormDefinitionEditor } from '@bluprynt/forms-core'
+import { FormEngine, FormDefinitionEditor, FormValuesEditor } from '@bluprynt/forms-core'
 
 // JSON Schema (for external validation tools)
 import schema from '@bluprynt/forms-core/schemas/form-definition.schema.json'

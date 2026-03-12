@@ -8,7 +8,8 @@ Framework-agnostic engine for JSON-driven dynamic forms. Given a form schema (JS
 - **Conditional visibility** — shows/hides fields and sections dynamically based on other field values, with cascading parent-child visibility and topological evaluation order.
 - **Type-aware validation** — validates form values against per-field rules (required, min/max, pattern, date ranges, array constraints, etc.), skipping hidden fields automatically.
 - **Document compatibility validation** — verifies that a form document's `form.id` and `form.version` match the engine's definition before field validation.
-- **Form definition editing** — fluent builder API for programmatically constructing and modifying form schemas.
+- **Form definition editing** — fluent builder API (`FormDefinitionEditor`) for programmatically constructing and modifying form schemas.
+- **Form values editing** — fluent editor API (`FormValuesEditor`) for programmatically reading and writing form values against a definition, with array manipulation, validation, and visibility queries.
 - **Relative dates** — date boundaries like `"+7d"` or `"-1m"` are resolved at evaluation time against the form's required `submittedAt` timestamp, enabling dynamic yet reproducible date constraints.
 
 ## Quick Start
@@ -33,6 +34,27 @@ if (!result.valid) {
     console.log(`Field ${err.fieldId}: ${err.message}`)
   }
 }
+```
+
+### Editing Form Values
+
+```ts
+import { FormValuesEditor } from '@bluprynt/forms-core'
+
+// 1. Create an editor (optionally pre-populate from an existing document)
+const editor = new FormValuesEditor(formDefinition)
+
+// 2. Set field values (fluent chaining)
+editor
+  .setFieldValue(1, 'Alice')
+  .setFieldValue(2, 30)
+  .addArrayItem(6, 'TypeScript')
+  .addArrayItem(6, 'React')
+  .setSubmittedAt('2025-01-01T00:00:00Z')
+
+// 3. Validate and extract the document
+const result = editor.validate()
+const doc = editor.getDocument()
 ```
 
 ## Documentation

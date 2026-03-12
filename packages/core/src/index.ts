@@ -4,6 +4,7 @@ export { DependencyGraph } from './dependency-graph'
 export type { ContentItemInfo, FieldDescriptor, SectionDescriptor } from './form-definition-editor'
 export { FormDefinitionEditor } from './form-definition-editor'
 export { FormEngine } from './form-engine'
+export { FormValuesEditor } from './form-values-editor'
 export { validateFormDefinitionSchema } from './schema-validator'
 export { SemanticValidator } from './semantic-validator'
 export type {

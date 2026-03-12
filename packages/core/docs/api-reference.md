@@ -240,6 +240,153 @@ Returns a deep clone of the current definition.
 
 ---
 
+### FormValuesEditor
+
+Fluent editor for programmatically reading and writing form values against a form definition. Wraps a `FormEngine` and a mutable `FormDocument`. All mutating methods return `this` for chaining.
+
+```ts
+import { FormValuesEditor } from '@bluprynt/forms-core'
+```
+
+#### `constructor(definition: FormDefinition, doc?: FormDocument)`
+
+Creates a new editor for the given form definition. If `doc` is provided, it is deep-cloned internally. When omitted, a blank document is created via `FormEngine.createFormDocument()`.
+
+```ts
+// Start from scratch
+const editor = new FormValuesEditor(definition)
+
+// Pre-populate from an existing document
+const editor = new FormValuesEditor(definition, existingDoc)
+```
+
+#### Field Value Methods
+
+##### `getFieldValue(fieldId: number): unknown`
+
+Returns the current value of a field, or `undefined` if not set.
+
+```ts
+const name = editor.getFieldValue(1) // "Alice"
+```
+
+##### `setFieldValue(fieldId: number, value: unknown): this`
+
+Sets the value of a field.
+
+**Throws:** If `fieldId` is unknown or references a section.
+
+```ts
+editor.setFieldValue(1, 'Alice').setFieldValue(2, 30)
+```
+
+##### `clearFieldValue(fieldId: number): this`
+
+Removes the value of a field (deletes the key from the values map).
+
+```ts
+editor.clearFieldValue(1)
+```
+
+#### Array Methods
+
+##### `addArrayItem(fieldId: number, value?: unknown): this`
+
+Appends an item to an array field. Initializes the field to `[]` if no value is currently set.
+
+**Throws:** If `fieldId` is not an array field.
+
+```ts
+editor.addArrayItem(6, 'TypeScript').addArrayItem(6, 'React')
+```
+
+##### `removeArrayItem(fieldId: number, index: number): this`
+
+Removes an item from an array field by zero-based index.
+
+**Throws:** If `fieldId` is not an array field or the index is out of bounds.
+
+```ts
+editor.removeArrayItem(6, 0)
+```
+
+##### `moveArrayItem(fieldId: number, fromIndex: number, toIndex: number): this`
+
+Moves an item within an array field from one index to another.
+
+**Throws:** If `fieldId` is not an array field or either index is out of bounds.
+
+```ts
+editor.moveArrayItem(6, 0, 2) // move first item to third position
+```
+
+##### `setArrayItem(fieldId: number, index: number, value: unknown): this`
+
+Sets the value of an item at a specific index in an array field.
+
+**Throws:** If `fieldId` is not an array field or the index is out of bounds.
+
+```ts
+editor.setArrayItem(6, 0, 'Updated Value')
+```
+
+#### Document Metadata
+
+##### `setSubmittedAt(submittedAt: string): this`
+
+Sets the `submittedAt` ISO 8601 timestamp on the document.
+
+```ts
+editor.setSubmittedAt('2025-01-01T00:00:00Z')
+```
+
+#### Validation & Visibility
+
+##### `validate(): FormValidationResult`
+
+Validates the current document against the form definition. Delegates to `FormEngine.validate()`.
+
+```ts
+const result = editor.validate()
+if (!result.valid) {
+  result.errors.forEach(e => console.log(e.fieldId, e.message))
+}
+```
+
+##### `getVisibilityMap(): Map<number, boolean>`
+
+Computes visibility for every field and section. Delegates to `FormEngine.getVisibilityMap()`.
+
+```ts
+const vis = editor.getVisibilityMap()
+```
+
+##### `isVisible(id: number): boolean`
+
+Determines whether a field or section is visible given current values. Delegates to `FormEngine.isVisible()`.
+
+```ts
+if (editor.isVisible(5)) {
+  // render field 5
+}
+```
+
+#### Output
+
+##### `getDocument(): FormDocument`
+
+Returns a deep clone of the current form document.
+
+```ts
+const doc = editor.getDocument()
+```
+
+##### `toJSON(): FormDocument`
+
+Alias for `getDocument()`.
+
+---
+
 ### ConditionEvaluator
 
 Evaluates conditions against form values. Used internally by `VisibilityResolver`, but exported for advanced use cases.

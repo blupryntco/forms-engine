@@ -18,7 +18,7 @@ export type {
     SectionContentItem,
     SelectOption,
 } from '@bluprynt/forms-core'
-export { FormDocumentLoadError } from '@bluprynt/forms-core'
+export { FormDocumentLoadError, FormValuesEditor } from '@bluprynt/forms-core'
 
 // Symbol
 export { ROOT } from './constants'

@@ -9,6 +9,7 @@ packages/core/
 │   ├── types.ts                       # All type definitions
 │   ├── form-engine.ts                 # FormEngine — main entry point
 │   ├── form-definition-editor.ts      # FormDefinitionEditor — schema builder
+│   ├── form-values-editor.ts          # FormValuesEditor — values editor
 │   ├── condition-evaluator.ts              # ConditionEvaluator — condition logic
 │   ├── visibility.ts                  # VisibilityResolver — visibility computation
 │   ├── validate.ts                    # FieldValidator — value validation
@@ -43,9 +44,12 @@ FormEngine (form-engine.ts)
 
 FormDefinitionEditor (form-definition-editor.ts)
 └── types.ts (standalone, no engine dependencies)
+
+FormValuesEditor (form-values-editor.ts)
+└── FormEngine (form-engine.ts)
 ```
 
-Key observation: `FormEngine` is the composition root. It orchestrates all other modules but none of the submodules depend on it. `FormDefinitionEditor` is fully independent — it operates on raw `FormDefinition` JSON without needing the engine.
+Key observation: `FormEngine` is the composition root. It orchestrates all other modules but none of the submodules depend on it. `FormDefinitionEditor` is fully independent — it operates on raw `FormDefinition` JSON without needing the engine. `FormValuesEditor` depends on `FormEngine` — it wraps an engine instance and a mutable `FormDocument` to provide a fluent API for reading/writing form values.
 
 ## Engine Construction Lifecycle
 
@@ -261,6 +265,10 @@ This means date constraints are anchored to the submission time, ensuring consis
 ### Fluent Builder (FormDefinitionEditor)
 
 `FormDefinitionEditor` wraps a deep-cloned `FormDefinition` and exposes chainable mutation methods (`addField`, `removeItem`, `moveItem`, etc.). It auto-generates IDs when omitted, prevents structural violations (e.g., moving a section into its own descendant), and outputs a clean `FormDefinition` via `toJSON()`.
+
+### Fluent Values Editor (FormValuesEditor)
+
+`FormValuesEditor` wraps a `FormEngine` and a mutable `FormDocument`. It provides chainable methods for setting/clearing field values, manipulating array items (add, remove, move, set), setting `submittedAt`, and delegating to the engine for validation and visibility. The document is deep-cloned on construction and on output (`getDocument()` / `toJSON()`) to prevent external mutation.
 
 ## External Dependencies
 
