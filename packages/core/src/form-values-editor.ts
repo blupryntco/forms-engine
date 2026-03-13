@@ -1,5 +1,7 @@
 import { FormEngine } from './form-engine'
-import type { FormDefinition, FormDocument, FormValidationResult } from './types'
+import type { FormDefinition } from './types/form-definition'
+import type { FormDocument } from './types/form-values'
+import type { FormValidationResult } from './types/validation-results'
 
 /**
  * Mutable editor for building and modifying form values against a {@link FormDefinition}.
@@ -16,7 +18,7 @@ import type { FormDefinition, FormDocument, FormValidationResult } from './types
  *   .setSubmittedAt('2025-01-01T00:00:00Z')
  *
  * const result = editor.validate()
- * const doc = editor.getDocument()
+ * const doc = editor.toJSON()
  * ```
  */
 export class FormValuesEditor {
@@ -34,8 +36,6 @@ export class FormValuesEditor {
         this.engine = new FormEngine(definition)
         this.doc = doc ? JSON.parse(JSON.stringify(doc)) : this.engine.createFormDocument()
     }
-
-    // ── Field values ──
 
     /**
      * Returns the current value of a field.
@@ -71,8 +71,6 @@ export class FormValuesEditor {
         delete this.doc.values[String(fieldId)]
         return this
     }
-
-    // ── Array operations ──
 
     /**
      * Appends an item to an array field.
@@ -148,8 +146,6 @@ export class FormValuesEditor {
         return this
     }
 
-    // ── Document metadata ──
-
     /**
      * Sets the `submittedAt` timestamp on the document.
      *
@@ -160,8 +156,6 @@ export class FormValuesEditor {
         this.doc.form.submittedAt = submittedAt
         return this
     }
-
-    // ── Validation & visibility ──
 
     /**
      * Validates the current document against the form definition.
@@ -197,39 +191,23 @@ export class FormValuesEditor {
         return this.engine.isVisible(id, this.doc)
     }
 
-    // ── Output ──
-
     /**
      * Returns a deep clone of the current form document.
      *
-     * @returns A new {@link FormDocument} instance.
-     */
-    getDocument(): FormDocument {
-        return JSON.parse(JSON.stringify(this.doc))
-    }
-
-    /**
-     * Alias for {@link getDocument}. Returns a deep clone of the current form document.
-     *
-     * @returns A new {@link FormDocument} instance.
+     * @returns A new serializable {@link FormDocument} instance.
      */
     toJSON(): FormDocument {
-        return this.getDocument()
+        return JSON.parse(JSON.stringify(this.doc))
     }
-
-    // ── Private helpers ──
 
     /**
      * Asserts that `fieldId` exists in the registry and is not a section.
      */
     private assertField(fieldId: number): void {
         const entry = this.engine.getFieldDef(fieldId)
-        if (!entry) {
-            throw new Error(`Field with id ${fieldId} not found`)
-        }
-        if (entry.type === 'section') {
-            throw new Error(`Item ${fieldId} is a section, not a field`)
-        }
+
+        if (!entry) throw new Error(`Field with id ${fieldId} not found`)
+        if (entry.type === 'section') throw new Error(`Item ${fieldId} is a section, not a field`)
     }
 
     /**
@@ -238,16 +216,13 @@ export class FormValuesEditor {
      */
     private assertArray(fieldId: number): unknown[] {
         const entry = this.engine.getFieldDef(fieldId)
-        if (!entry) {
-            throw new Error(`Field with id ${fieldId} not found`)
-        }
-        if (entry.type !== 'array') {
-            throw new Error(`Field ${fieldId} is not an array field`)
-        }
+        if (!entry) throw new Error(`Field with id ${fieldId} not found`)
+
+        if (entry.type !== 'array') throw new Error(`Field ${fieldId} is not an array field`)
+
         const val = this.doc.values[String(fieldId)]
-        if (!Array.isArray(val)) {
-            throw new Error(`Field ${fieldId} does not currently hold an array value`)
-        }
+        if (!Array.isArray(val)) throw new Error(`Field ${fieldId} does not currently hold an array value`)
+
         return val
     }
 
@@ -256,18 +231,17 @@ export class FormValuesEditor {
      */
     private getOrInitArray(fieldId: number): unknown[] {
         const entry = this.engine.getFieldDef(fieldId)
-        if (!entry) {
-            throw new Error(`Field with id ${fieldId} not found`)
-        }
-        if (entry.type !== 'array') {
-            throw new Error(`Field ${fieldId} is not an array field`)
-        }
+        if (!entry) throw new Error(`Field with id ${fieldId} not found`)
+
+        if (entry.type !== 'array') throw new Error(`Field ${fieldId} is not an array field`)
+
         const key = String(fieldId)
         let val = this.doc.values[key]
         if (!Array.isArray(val)) {
             val = []
             this.doc.values[key] = val
         }
+
         return val as unknown[]
     }
 }

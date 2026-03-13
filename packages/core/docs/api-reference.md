@@ -373,17 +373,13 @@ if (editor.isVisible(5)) {
 
 #### Output
 
-##### `getDocument(): FormDocument`
+##### `toJSON(): FormDocument`
 
 Returns a deep clone of the current form document.
 
 ```ts
-const doc = editor.getDocument()
+const doc = editor.toJSON()
 ```
-
-##### `toJSON(): FormDocument`
-
-Alias for `getDocument()`.
 
 ---
 
@@ -459,27 +455,23 @@ Detects circular dependencies. Returns a cycle path string (e.g., `"1 → 2 → 
 
 Returns transitive dependents via BFS. Results are memoized.
 
-#### `topoOrder: readonly number[]`
+#### `topologicalOrder: readonly number[]`
 
 All item IDs in topological order.
 
 ---
 
-### SemanticValidator
+### FormDefinitionValidator
 
-Performs semantic checks on a form definition.
+Validates form definitions at both the structural (JSON Schema) and semantic levels.
+
+#### `validateSchema(input: unknown): FormDefinitionIssue[]`
+
+Validates raw input against the JSON Schema (`form-definition.schema.json`) using AJV. Returns issues with code `SCHEMA_INVALID`.
 
 #### `validate(definition: FormDefinition, registry: Map<number, FieldEntry>): FormDefinitionIssue[]`
 
-Returns an array of issues. See [Schema Issue Codes](./schema-issue-codes.md) for all issue codes.
-
----
-
-### Functions
-
-#### `validateFormDefinitionSchema(input: unknown): FormDefinitionIssue[]`
-
-Validates raw input against the JSON Schema (`form-definition.schema.json`) using AJV. Returns issues with code `SCHEMA_INVALID`.
+Performs semantic checks. Returns an array of issues. See [Schema Issue Codes](./schema-issue-codes.md) for all issue codes.
 
 ---
 

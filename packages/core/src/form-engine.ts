@@ -1,20 +1,14 @@
 import { ConditionEvaluator } from './condition-evaluator'
 import { DependencyGraph } from './dependency-graph'
-import { validateFormDefinitionSchema } from './schema-validator'
-import { SemanticValidator } from './semantic-validator'
-import type {
-    ContentItem,
-    DocumentValidationError,
-    FieldEntry,
-    FormDefinition,
-    FormDocument,
-    FormSnapshot,
-    FormValidationResult,
-    FormValues,
-} from './types'
-import { FormDefinitionError, FormDocumentLoadError } from './types'
-import { FieldValidator } from './validate'
-import { VisibilityResolver } from './visibility'
+import { FieldValidator } from './field-validator'
+import { FormDefinitionValidator } from './form-definition-validator'
+import { FormDefinitionError, FormDocumentLoadError } from './types/errors'
+import type { FieldEntry } from './types/field-entry'
+import type { ContentItem, FormDefinition } from './types/form-definition'
+import type { FormSnapshot } from './types/form-snapshot'
+import type { FormDocument, FormValues } from './types/form-values'
+import type { DocumentValidationError, FormValidationResult } from './types/validation-results'
+import { VisibilityResolver } from './visibility-resolver'
 
 /**
  * The runtime form engine.
@@ -71,7 +65,8 @@ export class FormEngine {
      */
     constructor(definition: FormDefinition) {
         // 0. JSON schema validation
-        const schemaIssues = validateFormDefinitionSchema(definition)
+        const definitionValidator = new FormDefinitionValidator()
+        const schemaIssues = definitionValidator.validateSchema(definition)
         if (schemaIssues.length > 0) {
             throw new FormDefinitionError(schemaIssues)
         }
@@ -82,15 +77,14 @@ export class FormEngine {
         FormEngine.walkContent(definition.content, undefined, registry, contentOrder)
 
         // 2. Semantic validation
-        const semanticValidator = new SemanticValidator()
-        const issues = semanticValidator.validate(definition, registry)
+        const issues = definitionValidator.validate(definition, registry)
 
         // 3. Cycle detection
         const cyclePath = DependencyGraph.detectCycle(registry)
         if (cyclePath) {
             issues.push({
                 code: 'CIRCULAR_DEPENDENCY',
-                message: `Circular condition dependency detected: ${cyclePath}`,
+                message: `Circular condition dependency detected: ${cyclePath.join(' -> ')}`,
             })
         }
 
@@ -103,7 +97,7 @@ export class FormEngine {
 
         // 5. Assemble components
         const conditionEvaluator = new ConditionEvaluator()
-        this.visibilityResolver = new VisibilityResolver(registry, conditionEvaluator, this.depGraph.topoOrder)
+        this.visibilityResolver = new VisibilityResolver(registry, conditionEvaluator, this.depGraph.topologicalOrder)
         this.fieldValidator = new FieldValidator(registry)
 
         this.registry = registry
@@ -189,7 +183,7 @@ export class FormEngine {
      * @returns `true` if the item should be displayed, `false` otherwise.
      */
     isVisible(id: number, doc: FormDocument): boolean {
-        return this.visibilityResolver.isVisible(id, doc.values)
+        return this.visibilityResolver.isVisible(id, doc.values, FormEngine.parseNow(doc))
     }
 
     /**
@@ -203,7 +197,7 @@ export class FormEngine {
      * @returns Map from item id to visibility boolean.
      */
     getVisibilityMap(doc: FormDocument): Map<number, boolean> {
-        return this.visibilityResolver.getVisibilityMap(doc.values)
+        return this.visibilityResolver.getVisibilityMap(doc.values, FormEngine.parseNow(doc))
     }
 
     /**
@@ -264,7 +258,7 @@ export class FormEngine {
             now = new Date()
         } else {
             const parsedSubmittedAt = new Date(doc.form.submittedAt)
-            if (isNaN(parsedSubmittedAt.getTime())) {
+            if (Number.isNaN(parsedSubmittedAt.getTime())) {
                 documentErrors.push({
                     code: 'FORM_SUBMITTED_AT_INVALID',
                     message: `Document form submittedAt "${doc.form.submittedAt}" is not a valid date`,
@@ -299,6 +293,14 @@ export class FormEngine {
      */
     getFieldDef(id: number): FieldEntry | undefined {
         return this.registry.get(id)
+    }
+
+    private static parseNow(doc: FormDocument): Date {
+        if (doc.form.submittedAt) {
+            const parsed = new Date(doc.form.submittedAt)
+            if (!Number.isNaN(parsed.getTime())) return parsed
+        }
+        return new Date()
     }
 
     private static walkContent(

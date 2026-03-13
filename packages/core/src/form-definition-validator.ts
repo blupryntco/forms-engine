@@ -1,22 +1,31 @@
+import Ajv2020 from 'ajv/dist/2020'
+
+import { isRelativeDate } from './date-utils'
 import { DependencyGraph } from './dependency-graph'
-import type {
-    ArrayValidation,
-    ContentItem,
-    DateValidation,
-    FieldEntry,
-    FormDefinition,
-    FormDefinitionIssue,
-    NumberValidation,
-    StringValidation,
-} from './types'
+import formDefinitionSchema from './form-definition.schema.json'
+import type { FormDefinitionIssue } from './types/errors'
+import type { FieldEntry } from './types/field-entry'
+import type { ContentItem, FormDefinition } from './types/form-definition'
+import type { ArrayValidation } from './types/validation/array'
+import type { DateValidation } from './types/validation/date'
+import type { NumberValidation } from './types/validation/number'
+import type { StringValidation } from './types/validation/string'
+
+const ajv = new Ajv2020({ allErrors: true })
+const validateFn = ajv.compile(formDefinitionSchema)
 
 /**
- * Performs semantic validation of form definitions.
+ * Validates form definitions at both the structural (JSON Schema) and
+ * semantic levels.
  *
- * Checks for logical issues that go beyond JSON schema validity.
  * Used by {@link FormEngine} during construction before building the engine.
  *
- * Checks performed:
+ * ### Schema validation (`validateSchema`)
+ * Validates raw input against the form definition JSON Schema. Returns
+ * `SCHEMA_INVALID` issues for every violation found.
+ *
+ * ### Semantic validation (`validate`)
+ * Checks for logical issues that go beyond JSON schema validity:
  * 1. **Duplicate IDs** (`DUPLICATE_ID`) -- every content item id must be unique.
  * 2. **Nesting depth** (`NESTING_DEPTH`) -- sections may not be nested more
  *    than 3 levels deep.
@@ -29,7 +38,29 @@ import type {
  * 6. **Invalid regex** (`INVALID_REGEX`) -- string field `pattern` values must
  *    be valid regular expressions.
  */
-export class SemanticValidator {
+export class FormDefinitionValidator {
+    /**
+     * Validates raw input against the form definition JSON schema.
+     *
+     * @param input - The raw input to validate.
+     * @returns Array of `SCHEMA_INVALID` issues. Empty when the input conforms to the schema.
+     */
+    validateSchema(input: unknown): FormDefinitionIssue[] {
+        if (validateFn(input)) return []
+
+        return (validateFn.errors ?? []).map((err) => {
+            const path = err.instancePath || '/'
+            const message = err.message ?? 'Unknown error'
+
+            if (err.keyword === 'additionalProperties') {
+                const additional = (err.params as { additionalProperty?: string }).additionalProperty
+                return { code: 'SCHEMA_INVALID', message: `${path}: ${message}: '${additional}'` }
+            }
+
+            return { code: 'SCHEMA_INVALID', message: `${path}: ${message}` }
+        })
+    }
+
     /**
      * Validates a form definition semantically.
      *
@@ -50,8 +81,6 @@ export class SemanticValidator {
         return issues
     }
 
-    // ── Duplicate IDs ──
-
     private checkDuplicateIds(content: ContentItem[], issues: FormDefinitionIssue[]): void {
         const seen = new Set<number>()
         this.walkItems(content, (item) => {
@@ -62,8 +91,6 @@ export class SemanticValidator {
             }
         })
     }
-
-    // ── Nesting depth ──
 
     private checkNestingDepth(content: ContentItem[], depth: number, issues: FormDefinitionIssue[]): void {
         for (const item of content) {
@@ -81,8 +108,6 @@ export class SemanticValidator {
         }
     }
 
-    // ── Condition references unknown field ──
-
     private checkConditionRefs(registry: Map<number, FieldEntry>, issues: FormDefinitionIssue[]): void {
         for (const [id, entry] of registry) {
             if (!entry.condition) continue
@@ -98,8 +123,6 @@ export class SemanticValidator {
             }
         }
     }
-
-    // ── Condition references a section (which has no value) ──
 
     private checkConditionRefsSection(registry: Map<number, FieldEntry>, issues: FormDefinitionIssue[]): void {
         for (const [id, entry] of registry) {
@@ -118,8 +141,6 @@ export class SemanticValidator {
         }
     }
 
-    // ── Constraint contradictions ──
-
     private checkConstraintContradictions(registry: Map<number, FieldEntry>, issues: FormDefinitionIssue[]): void {
         for (const [id, entry] of registry) {
             if (!entry.validation) continue
@@ -129,7 +150,7 @@ export class SemanticValidator {
                     const v = entry.validation as StringValidation
                     if (v.minLength !== undefined && v.maxLength !== undefined && v.maxLength < v.minLength) {
                         issues.push({
-                            code: 'INVALID_RANGE_MIN_MAX_LENGTH',
+                            code: 'INVALID_MIN_MAX',
                             message: `maxLength must be >= minLength for field ${id}`,
                             itemId: id,
                         })
@@ -140,7 +161,7 @@ export class SemanticValidator {
                     const v = entry.validation as NumberValidation
                     if (v.min !== undefined && v.max !== undefined && v.max < v.min) {
                         issues.push({
-                            code: 'INVALID_RANGE_MIN_MAX',
+                            code: 'INVALID_MIN_MAX',
                             message: `max must be >= min for field ${id}`,
                             itemId: id,
                         })
@@ -150,12 +171,12 @@ export class SemanticValidator {
                 case 'date': {
                     const v = entry.validation as DateValidation
                     if (v.minDate !== undefined && v.maxDate !== undefined) {
-                        const minIsAbsolute = !this.isRelativeDateString(v.minDate)
-                        const maxIsAbsolute = !this.isRelativeDateString(v.maxDate)
+                        const minIsAbsolute = !isRelativeDate(v.minDate)
+                        const maxIsAbsolute = !isRelativeDate(v.maxDate)
                         if (minIsAbsolute && maxIsAbsolute) {
                             if (Date.parse(v.maxDate) < Date.parse(v.minDate)) {
                                 issues.push({
-                                    code: 'INVALID_RANGE_DATE',
+                                    code: 'INVALID_MIN_MAX',
                                     message: `maxDate must be >= minDate for field ${id}`,
                                     itemId: id,
                                 })
@@ -168,7 +189,7 @@ export class SemanticValidator {
                     const v = entry.validation as ArrayValidation
                     if (v.minItems !== undefined && v.maxItems !== undefined && v.maxItems < v.minItems) {
                         issues.push({
-                            code: 'INVALID_RANGE_ITEMS',
+                            code: 'INVALID_MIN_MAX',
                             message: `maxItems must be >= minItems for field ${id}`,
                             itemId: id,
                         })
@@ -178,8 +199,6 @@ export class SemanticValidator {
             }
         }
     }
-
-    // ── Invalid regex ──
 
     private checkInvalidRegex(registry: Map<number, FieldEntry>, issues: FormDefinitionIssue[]): void {
         for (const [id, entry] of registry) {
@@ -199,8 +218,6 @@ export class SemanticValidator {
         }
     }
 
-    // ── Helpers ──
-
     private walkItems(content: ContentItem[], fn: (item: ContentItem) => void): void {
         for (const item of content) {
             fn(item)
@@ -208,9 +225,5 @@ export class SemanticValidator {
                 this.walkItems(item.content, fn)
             }
         }
-    }
-
-    private isRelativeDateString(value: string): boolean {
-        return /^[+-]\d+[dwmy]$/.test(value)
     }
 }

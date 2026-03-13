@@ -1,13 +1,8 @@
-import type {
-    ArrayItemDef,
-    Condition,
-    ContentItem,
-    FieldContentItem,
-    FormDefinition,
-    SectionContentItem,
-    SelectOption,
-    TypeSpecificValidation,
-} from './types'
+import type { ArrayItemDef } from './types/array-item-def'
+import type { Condition } from './types/conditions'
+import type { ContentItem, FieldContentItem, FormDefinition, SectionContentItem } from './types/form-definition'
+import type { SelectOption } from './types/select-option'
+import type { TypeSpecificValidation } from './types/validation/type-specific'
 
 /**
  * Descriptor for a field to be added via the editor.
@@ -62,8 +57,6 @@ export class FormDefinitionEditor {
         this.definition = JSON.parse(JSON.stringify(definition))
     }
 
-    // ── Meta ──
-
     setTitle(title: string): this {
         this.definition.title = title
         return this
@@ -88,8 +81,6 @@ export class FormDefinitionEditor {
         return this
     }
 
-    // ── ID generation ──
-
     /**
      * Returns the next available numeric id (max existing + 1).
      */
@@ -100,8 +91,6 @@ export class FormDefinitionEditor {
         })
         return max + 1
     }
-
-    // ── Add ──
 
     /**
      * Adds a field to the form.
@@ -141,8 +130,6 @@ export class FormDefinitionEditor {
         return this
     }
 
-    // ── Update ──
-
     /**
      * Updates properties of an existing field.
      *
@@ -171,8 +158,6 @@ export class FormDefinitionEditor {
         return this
     }
 
-    // ── Remove ──
-
     /**
      * Removes a field or section (and all its descendants) by id.
      *
@@ -184,8 +169,6 @@ export class FormDefinitionEditor {
         if (!removed) throw new Error(`Item with id ${id} not found`)
         return this
     }
-
-    // ── Move ──
 
     /**
      * Moves an item to a new parent and/or position.
@@ -212,8 +195,6 @@ export class FormDefinitionEditor {
         this.insertItem(clone, targetParentId, index)
         return this
     }
-
-    // ── Listing ──
 
     /**
      * Returns a flat list of all content items (fields + sections) with parent info.
@@ -253,20 +234,20 @@ export class FormDefinitionEditor {
         return this.findItem(id) ?? undefined
     }
 
-    // ── Field-specific property setters ──
-
     /**
      * Sets or clears the validation rules for a field.
      */
     setValidation(id: number, validation: TypeSpecificValidation | undefined): this {
         const item = this.findItem(id)
         if (!item) throw new Error(`Item with id ${id} not found`)
+
         if (item.type === 'section') throw new Error('Sections do not have validation')
-        if (validation === undefined) {
-            delete (item as FieldContentItem).validation
-        } else {
-            ;(item as FieldContentItem).validation = validation
-        }
+
+        const field = item as FieldContentItem
+
+        if (validation === undefined) delete field.validation
+        else field.validation = validation
+
         return this
     }
 
@@ -276,11 +257,10 @@ export class FormDefinitionEditor {
     setCondition(id: number, condition: Condition | undefined): this {
         const item = this.findItem(id)
         if (!item) throw new Error(`Item with id ${id} not found`)
-        if (condition === undefined) {
-            delete item.condition
-        } else {
-            item.condition = condition
-        }
+
+        if (condition === undefined) delete item.condition
+        else item.condition = condition
+
         return this
     }
 
@@ -290,8 +270,12 @@ export class FormDefinitionEditor {
     setOptions(id: number, options: SelectOption[]): this {
         const item = this.findItem(id)
         if (!item) throw new Error(`Item with id ${id} not found`)
+
         if (item.type !== 'select') throw new Error(`Field ${id} is not a select field`)
-        ;(item as FieldContentItem).options = options
+
+        const field = item as FieldContentItem
+        field.options = options
+
         return this
     }
 
@@ -301,8 +285,12 @@ export class FormDefinitionEditor {
     setArrayItem(id: number, itemDef: ArrayItemDef): this {
         const item = this.findItem(id)
         if (!item) throw new Error(`Item with id ${id} not found`)
+
         if (item.type !== 'array') throw new Error(`Field ${id} is not an array field`)
-        ;(item as FieldContentItem).item = itemDef
+
+        const field = item as FieldContentItem
+        field.item = itemDef
+
         return this
     }
 
@@ -312,26 +300,27 @@ export class FormDefinitionEditor {
     setLabel(id: number, label: string): this {
         const item = this.findItem(id)
         if (!item) throw new Error(`Item with id ${id} not found`)
+
         if (item.type === 'section') throw new Error('Sections use title, not label')
-        ;(item as FieldContentItem).label = label
+
+        const field = item as FieldContentItem
+        field.label = label
+
         return this
     }
 
     /**
      * Sets the description for a field or section.
      */
-    setDescription_item(id: number, description: string | undefined): this {
+    setFieldDescription(id: number, description: string | undefined): this {
         const item = this.findItem(id)
         if (!item) throw new Error(`Item with id ${id} not found`)
-        if (description === undefined) {
-            delete item.description
-        } else {
-            item.description = description
-        }
+
+        if (description === undefined) delete item.description
+        else item.description = description
+
         return this
     }
-
-    // ── Output ──
 
     /**
      * Returns a deep clone of the current form definition.
@@ -340,29 +329,25 @@ export class FormDefinitionEditor {
         return JSON.parse(JSON.stringify(this.definition))
     }
 
-    // ── Private helpers ──
-
     private findItem(id: number): ContentItem | undefined {
         let found: ContentItem | undefined
+
         this.walkAll(this.definition.content, (item) => {
             if (item.id === id) found = item
         })
+
         return found
     }
 
     private assertIdAvailable(id: number): void {
-        if (this.findItem(id)) {
-            throw new Error(`Item with id ${id} already exists`)
-        }
+        if (this.findItem(id)) throw new Error(`Item with id ${id} already exists`)
     }
 
     private insertItem(item: ContentItem, parentId: number | undefined, index?: number): void {
         const target = this.getTargetContent(parentId)
-        if (index !== undefined && index >= 0 && index < target.length) {
-            target.splice(index, 0, item)
-        } else {
-            target.push(item)
-        }
+
+        if (index !== undefined && index >= 0 && index < target.length) target.splice(index, 0, item)
+        else target.push(item)
     }
 
     private getTargetContent(parentId: number | undefined): ContentItem[] {
@@ -370,8 +355,11 @@ export class FormDefinitionEditor {
 
         const parent = this.findItem(parentId)
         if (!parent) throw new Error(`Parent section with id ${parentId} not found`)
+
         if (parent.type !== 'section') throw new Error(`Item ${parentId} is not a section`)
-        return (parent as SectionContentItem).content
+
+        const section = parent as SectionContentItem
+        return section.content
     }
 
     private removeFromContent(content: ContentItem[], id: number): boolean {
@@ -380,11 +368,13 @@ export class FormDefinitionEditor {
             content.splice(idx, 1)
             return true
         }
+
         for (const item of content) {
             if (item.type === 'section') {
                 if (this.removeFromContent((item as SectionContentItem).content, id)) return true
             }
         }
+
         return false
     }
 

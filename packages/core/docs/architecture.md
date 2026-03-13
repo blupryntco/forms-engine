@@ -14,8 +14,7 @@ packages/core/
 │   ├── visibility.ts                  # VisibilityResolver — visibility computation
 │   ├── validate.ts                    # FieldValidator — value validation
 │   ├── dependency-graph.ts            # DependencyGraph — DAG + topological sort
-│   ├── schema-validator.ts            # JSON Schema validation (AJV)
-│   ├── semantic-validator.ts          # Semantic checks (duplicates, ranges, etc.)
+│   ├── form-definition-validator.ts   # JSON Schema + semantic validation
 │   ├── date-utils.ts                  # Relative date parsing and resolution
 │   ├── form-definition.schema.json    # JSON Schema for FormDefinition
 │   └── *.test.ts                      # Co-located unit tests
@@ -30,9 +29,8 @@ packages/core/
 
 ```
 FormEngine (form-engine.ts)
-├── validateFormDefinitionSchema (schema-validator.ts)
-│   └── form-definition.schema.json
-├── SemanticValidator (semantic-validator.ts)
+├── FormDefinitionValidator (form-definition-validator.ts)
+│   ├── form-definition.schema.json
 │   └── date-utils.ts
 ├── DependencyGraph (dependency-graph.ts)
 ├── ConditionEvaluator (condition-evaluator.ts)
@@ -268,7 +266,7 @@ This means date constraints are anchored to the submission time, ensuring consis
 
 ### Fluent Values Editor (FormValuesEditor)
 
-`FormValuesEditor` wraps a `FormEngine` and a mutable `FormDocument`. It provides chainable methods for setting/clearing field values, manipulating array items (add, remove, move, set), setting `submittedAt`, and delegating to the engine for validation and visibility. The document is deep-cloned on construction and on output (`getDocument()` / `toJSON()`) to prevent external mutation.
+`FormValuesEditor` wraps a `FormEngine` and a mutable `FormDocument`. It provides chainable methods for setting/clearing field values, manipulating array items (add, remove, move, set), setting `submittedAt`, and delegating to the engine for validation and visibility. The document is deep-cloned on construction and on output (`toJSON()`) to prevent external mutation.
 
 ## External Dependencies
 

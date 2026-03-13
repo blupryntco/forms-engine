@@ -1,4 +1,8 @@
-import type { Condition, FieldEntry } from './types'
+import type { Condition } from './types/conditions'
+import type { FieldEntry } from './types/field-entry'
+
+const DfsVisitState = { Unvisited: 0, InProgress: 1, Completed: 2 } as const
+type DfsVisitState = (typeof DfsVisitState)[keyof typeof DfsVisitState]
 
 /**
  * Manages the condition dependency graph for form fields.
@@ -6,7 +10,7 @@ import type { Condition, FieldEntry } from './types'
  * Built from the field registry during engine preparation. Provides:
  * - Forward dependency graph (`graph`): answers "if field X changes, which
  *   items need to re-evaluate their visibility?"
- * - Topological ordering (`topoOrder`): guarantees that when computing
+ * - Topological ordering (`topologicalOrder`): guarantees that when computing
  *   visibility, every item is evaluated after the fields it depends on.
  * - Affected-ids lookup (`getAffectedIds`): returns all transitively
  *   affected item ids when a field value changes (lazily cached).
@@ -16,7 +20,7 @@ import type { Condition, FieldEntry } from './types'
  */
 export class DependencyGraph {
     /**
-     * Forward adjacency map: key is a field id, value is the set of item ids
+     * Forward adjacencyMap map: key is a field id, value is the set of item ids
      * whose conditions reference that field.
      */
     readonly graph: Map<number, Set<number>>
@@ -24,7 +28,7 @@ export class DependencyGraph {
     /**
      * Item ids in topological order. Dependencies come before dependents.
      */
-    readonly topoOrder: number[]
+    readonly topologicalOrder: number[]
 
     private readonly registry: Map<number, FieldEntry>
     private readonly affectedCache = new Map<number, Set<number>>()
@@ -35,10 +39,8 @@ export class DependencyGraph {
     constructor(registry: Map<number, FieldEntry>) {
         this.registry = registry
         this.graph = this.buildGraph()
-        this.topoOrder = this.buildTopoOrder()
+        this.topologicalOrder = this.buildTopologicalOrder()
     }
-
-    // ── Static methods ──
 
     /**
      * Extracts the set of field ids referenced by a condition tree.
@@ -63,43 +65,48 @@ export class DependencyGraph {
      * string (e.g. `"1 -> 2 -> 3 -> 1"`).
      *
      * @param registry - The engine's field registry.
-     * @returns A string describing the cycle path, or `null` if no cycle exists.
+     * @returns An array of field ids forming the cycle, or `undefined` if no cycle exists.
      */
-    static detectCycle(registry: Map<number, FieldEntry>): string | null {
+    static detectCycle(registry: Map<number, FieldEntry>): number[] | undefined {
         const allIds = new Set(registry.keys())
-        const adj = new Map<number, Set<number>>()
+        const adjacencyMap = new Map<number, Set<number>>()
 
         for (const [id, entry] of registry) {
             if (!entry.condition) continue
+
             const refs = DependencyGraph.extractFieldRefs(entry.condition)
+
             for (const ref of refs) {
                 if (!allIds.has(ref)) continue
-                let targets = adj.get(ref)
+
+                let targets = adjacencyMap.get(ref)
                 if (!targets) {
                     targets = new Set()
-                    adj.set(ref, targets)
+                    adjacencyMap.set(ref, targets)
                 }
+
                 targets.add(id)
             }
         }
 
-        // DFS-based cycle detection: 0=white, 1=gray, 2=black
-        const color = new Map<number, number>()
+        // DFS-based cycle detection
+
+        const nodes = new Map<number, DfsVisitState>()
         const parent = new Map<number, number>()
 
-        for (const id of allIds) color.set(id, 0)
+        for (const id of allIds) {
+            nodes.set(id, DfsVisitState.Unvisited)
+        }
 
         for (const id of allIds) {
-            if (color.get(id) === 0) {
-                const cyclePath = DependencyGraph.dfs(id, adj, color, parent, allIds)
+            if (nodes.get(id) === DfsVisitState.Unvisited) {
+                const cyclePath = DependencyGraph.dfs(id, adjacencyMap, nodes, parent, allIds)
                 if (cyclePath) return cyclePath
             }
         }
 
-        return null
+        return undefined
     }
-
-    // ── Instance methods ──
 
     /**
      * Returns the set of item ids whose visibility could change when the given
@@ -124,12 +131,11 @@ export class DependencyGraph {
             return empty
         }
 
-        const expanded = this.expandTransitive(directDeps)
+        const expanded = this.expandTransitiveDependencies(directDeps)
         this.affectedCache.set(fieldId, expanded)
+
         return expanded
     }
-
-    // ── Private static helpers ──
 
     private static collectRefs(condition: Condition, refs: Set<number>): void {
         if ('and' in condition) {
@@ -143,45 +149,51 @@ export class DependencyGraph {
 
     private static dfs(
         node: number,
-        adj: Map<number, Set<number>>,
-        color: Map<number, number>,
+        adjacencyMap: Map<number, Set<number>>,
+        nodes: Map<number, DfsVisitState>,
         parent: Map<number, number>,
         allIds: Set<number>,
-    ): string | null {
-        color.set(node, 1)
+    ): number[] | undefined {
+        nodes.set(node, DfsVisitState.InProgress)
 
-        const neighbors = adj.get(node)
+        const neighbors = adjacencyMap.get(node)
         if (neighbors) {
             for (const next of neighbors) {
                 if (!allIds.has(next)) continue
-                if (color.get(next) === 1) {
+
+                if (nodes.get(next) === DfsVisitState.InProgress)
                     return DependencyGraph.reconstructCycle(next, node, parent)
-                }
-                if (color.get(next) === 2) continue
+
+                if (nodes.get(next) === DfsVisitState.Completed) continue
+
                 parent.set(next, node)
-                const result = DependencyGraph.dfs(next, adj, color, parent, allIds)
-                if (result) return result
+
+                const cycle = DependencyGraph.dfs(next, adjacencyMap, nodes, parent, allIds)
+                if (cycle) return cycle
             }
         }
 
-        color.set(node, 2)
-        return null
+        nodes.set(node, DfsVisitState.Completed)
+        return undefined
     }
 
-    private static reconstructCycle(cycleStart: number, cycleEnd: number, parent: Map<number, number>): string {
+    private static reconstructCycle(cycleStart: number, cycleEnd: number, parent: Map<number, number>): number[] {
         const path: number[] = [cycleStart]
+
         let current = cycleEnd
         while (current !== cycleStart) {
             path.push(current)
+
             const next = parent.get(current)
             if (next === undefined) break
+
             current = next
         }
-        path.push(cycleStart)
-        return path.reverse().join(' -> ')
-    }
 
-    // ── Private instance helpers ──
+        path.push(cycleStart)
+
+        return path.reverse()
+    }
 
     /**
      * Builds the forward dependency graph from the registry.
@@ -193,12 +205,14 @@ export class DependencyGraph {
             if (!entry.condition) continue
 
             const refs = DependencyGraph.extractFieldRefs(entry.condition)
+
             for (const ref of refs) {
                 let deps = graph.get(ref)
                 if (!deps) {
                     deps = new Set()
                     graph.set(ref, deps)
                 }
+
                 deps.add(id)
             }
         }
@@ -209,11 +223,11 @@ export class DependencyGraph {
     /**
      * Produces a topological ordering using Kahn's algorithm.
      */
-    private buildTopoOrder(): number[] {
+    private buildTopologicalOrder(): number[] {
         const allIds = new Set(this.registry.keys())
 
         const inDegree = new Map<number, number>()
-        const adj = new Map<number, Set<number>>()
+        const adjacencyMap = new Map<number, Set<number>>()
 
         for (const id of allIds) {
             inDegree.set(id, 0)
@@ -226,10 +240,10 @@ export class DependencyGraph {
             for (const ref of refs) {
                 if (!allIds.has(ref)) continue
 
-                let targets = adj.get(ref)
+                let targets = adjacencyMap.get(ref)
                 if (!targets) {
                     targets = new Set()
-                    adj.set(ref, targets)
+                    adjacencyMap.set(ref, targets)
                 }
                 if (!targets.has(id)) {
                     targets.add(id)
@@ -244,10 +258,10 @@ export class DependencyGraph {
             if (entry.parentId === undefined) continue
             if (!allIds.has(entry.parentId)) continue
 
-            let targets = adj.get(entry.parentId)
+            let targets = adjacencyMap.get(entry.parentId)
             if (!targets) {
                 targets = new Set()
-                adj.set(entry.parentId, targets)
+                adjacencyMap.set(entry.parentId, targets)
             }
             if (!targets.has(id)) {
                 targets.add(id)
@@ -268,7 +282,7 @@ export class DependencyGraph {
             if (current === undefined) break
             sorted.push(current)
 
-            const targets = adj.get(current)
+            const targets = adjacencyMap.get(current)
             if (targets) {
                 for (const target of targets) {
                     const newDeg = (inDegree.get(target) ?? 1) - 1
@@ -296,14 +310,16 @@ export class DependencyGraph {
     /**
      * Expands a set of item ids to include all transitive dependents via BFS.
      */
-    private expandTransitive(startIds: Set<number>): Set<number> {
+    private expandTransitiveDependencies(startIds: Set<number>): Set<number> {
         const result = new Set<number>()
         const queue = [...startIds]
 
         while (queue.length > 0) {
             const id = queue.shift()
+
             if (id === undefined) break
             if (result.has(id)) continue
+
             result.add(id)
 
             const deps = this.graph.get(id)

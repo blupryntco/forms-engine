@@ -1,5 +1,5 @@
 import { isRelativeDate, resolveRelativeDate } from './date-utils'
-import type { Condition, SimpleCondition } from './types'
+import type { Condition, SimpleCondition } from './types/conditions'
 
 /**
  * Context passed to condition evaluation methods.
@@ -14,7 +14,7 @@ import type { Condition, SimpleCondition } from './types'
 export type EvaluationContext = {
     values: Record<string, unknown>
     visibilityMap?: Map<number, boolean>
-    now?: Date
+    now: Date
 }
 
 /**
@@ -45,20 +45,14 @@ export class ConditionEvaluator {
      * @returns `true` if the condition is satisfied, `false` otherwise.
      */
     evalCondition(condition: Condition, ctx: EvaluationContext): boolean {
-        if ('and' in condition) {
-            return condition.and.every((c) => this.evalCondition(c, ctx))
-        }
-        if ('or' in condition) {
-            return condition.or.some((c) => this.evalCondition(c, ctx))
-        }
+        if ('and' in condition) return condition.and.every((c) => this.evalCondition(c, ctx))
+        if ('or' in condition) return condition.or.some((c) => this.evalCondition(c, ctx))
         return this.evalSimple(condition as SimpleCondition, ctx)
     }
 
     private evalSimple(cond: SimpleCondition, ctx: EvaluationContext): boolean {
         // Hidden-field rule: if the referenced field is hidden, treat as not set
-        if (ctx.visibilityMap && ctx.visibilityMap.get(cond.field) === false) {
-            return cond.op === 'notset'
-        }
+        if (ctx.visibilityMap && ctx.visibilityMap.get(cond.field) === false) return cond.op === 'notset'
 
         const fieldValue = ctx.values[String(cond.field)]
 
@@ -88,19 +82,15 @@ export class ConditionEvaluator {
         }
     }
 
-    private resolveIfDate(value: unknown, now?: Date): unknown {
-        if (isRelativeDate(value)) {
-            return resolveRelativeDate(value, now)
-        }
+    private resolveIfDate(value: unknown, now: Date): unknown {
+        if (isRelativeDate(value)) return resolveRelativeDate(value, now)
         return value
     }
 
-    private compareTo(a: unknown, b: unknown, now?: Date): number {
+    private compareTo(a: unknown, b: unknown, now: Date): number {
         const resolvedB = this.resolveIfDate(b, now)
 
-        if (typeof a === 'number' && typeof resolvedB === 'number') {
-            return a - resolvedB
-        }
+        if (typeof a === 'number' && typeof resolvedB === 'number') return a - resolvedB
 
         // Date comparison: both must be parseable date strings
         if (typeof a === 'string' && typeof resolvedB === 'string') {

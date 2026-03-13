@@ -60,8 +60,7 @@ Each module has its own test file:
 | `visibility.ts` | `visibility.test.ts` | Single-item and bulk visibility, parent cascading |
 | `validate.ts` | `validate.test.ts` | All field types, all validation rules, array items |
 | `dependency-graph.ts` | `dependency-graph.test.ts` | Graph building, cycle detection, affected IDs |
-| `schema-validator.ts` | `schema-validator.test.ts` | JSON Schema validation, error mapping |
-| `semantic-validator.ts` | `semantic-validator.test.ts` | All semantic checks |
+| `form-definition-validator.ts` | `form-definition-validator.test.ts` | JSON Schema validation, error mapping, all semantic checks |
 | `date-utils.ts` | `date-utils.test.ts` | Relative date parsing and resolution |
 | `form-definition-editor.ts` | `form-definition-editor.test.ts` | CRUD operations, move, fluent chaining |
 | `form-values-editor.ts` | `form-values-editor.test.ts` | Field value get/set/clear, array operations, validation, visibility |
@@ -132,12 +131,12 @@ If the new type has special comparison semantics (like dates), update `evalSimpl
 
 ### 5. Update Semantic Validator (if needed)
 
-If the new type has constraint pairs that can contradict (like `min/max`), add a check in `checkConstraintContradictions()` in `semantic-validator.ts`.
+If the new type has constraint pairs that can contradict (like `min/max`), add a check in `checkConstraintContradictions()` in `form-definition-validator.ts`.
 
 ### 6. Write Tests
 
 - Add validation tests in `validate.test.ts`
-- Add schema validation tests in `schema-validator.test.ts`
+- Add schema validation tests in `form-definition-validator.test.ts`
 - Add integration tests in `form-engine.test.ts`
 - If condition behavior differs, add tests in `condition-evaluator.test.ts`
 

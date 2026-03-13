@@ -28,10 +28,7 @@ Checks logical correctness that JSON Schema alone cannot express.
 | `NESTING_DEPTH` | 2 | Section nested deeper than 3 levels |
 | `UNKNOWN_FIELD_REF` | 2 | Condition references a field ID not in the schema |
 | `CONDITION_REFS_SECTION` | 2 | Condition references a section (sections have no values) |
-| `INVALID_RANGE_MIN_MAX_LENGTH` | 2 | String: `minLength > maxLength` |
-| `INVALID_RANGE_MIN_MAX` | 2 | Number: `min > max` |
-| `INVALID_RANGE_DATE` | 2 | Date: absolute `minDate > maxDate` |
-| `INVALID_RANGE_ITEMS` | 2 | Array: `minItems > maxItems` |
+| `INVALID_MIN_MAX` | 2 | A field's minimum constraint exceeds its maximum constraint |
 | `INVALID_REGEX` | 2 | String: `pattern` is not a valid regex |
 | `CIRCULAR_DEPENDENCY` | 2 | Condition dependencies form a cycle |
 

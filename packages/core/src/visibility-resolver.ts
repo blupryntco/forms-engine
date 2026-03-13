@@ -1,5 +1,6 @@
 import { ConditionEvaluator } from './condition-evaluator'
-import type { FieldEntry, FormValues } from './types'
+import type { FieldEntry } from './types/field-entry'
+import type { FormValues } from './types/form-values'
 
 /**
  * Computes field and section visibility for a form.
@@ -14,17 +15,17 @@ import type { FieldEntry, FormValues } from './types'
 export class VisibilityResolver {
     private readonly registry: Map<number, FieldEntry>
     private readonly conditionEvaluator: ConditionEvaluator
-    private readonly topoOrder: number[]
+    private readonly topologicalOrder: number[]
 
     /**
      * @param registry - The engine's field registry.
      * @param conditionEvaluator - Evaluator for condition trees.
-     * @param topoOrder - Item ids in topological order (from {@link DependencyGraph}).
+     * @param topologicalOrder - Item ids in topological order (from {@link DependencyGraph}).
      */
-    constructor(registry: Map<number, FieldEntry>, conditionEvaluator: ConditionEvaluator, topoOrder: number[]) {
+    constructor(registry: Map<number, FieldEntry>, conditionEvaluator: ConditionEvaluator, topologicalOrder: number[]) {
         this.registry = registry
         this.conditionEvaluator = conditionEvaluator
-        this.topoOrder = topoOrder
+        this.topologicalOrder = topologicalOrder
     }
 
     /**
@@ -43,10 +44,10 @@ export class VisibilityResolver {
      *
      * @param id - Numeric id of the field or section to check.
      * @param values - Current form values.
-     * @param now - Optional reference date for relative date expressions.
+     * @param now - Reference date for relative date expressions.
      * @returns `true` if the item should be displayed.
      */
-    isVisible(id: number, values: FormValues, now?: Date): boolean {
+    isVisible(id: number, values: FormValues, now: Date): boolean {
         const entry = this.registry.get(id)
         if (!entry) return false
 
@@ -77,13 +78,13 @@ export class VisibilityResolver {
      * their own conditions.
      *
      * @param values - Current form values.
-     * @param now - Optional reference date for relative date expressions.
+     * @param now - Reference date for relative date expressions.
      * @returns Map from item id to visibility boolean (`true` = visible).
      */
-    getVisibilityMap(values: FormValues, now?: Date): Map<number, boolean> {
+    getVisibilityMap(values: FormValues, now: Date): Map<number, boolean> {
         const result = new Map<number, boolean>()
 
-        for (const id of this.topoOrder) {
+        for (const id of this.topologicalOrder) {
             const entry = this.registry.get(id)
             if (!entry) {
                 result.set(id, false)

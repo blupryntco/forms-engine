@@ -1,5 +1,6 @@
 import { DependencyGraph } from './dependency-graph'
-import type { Condition, FieldEntry } from './types'
+import type { Condition } from './types/conditions'
+import type { FieldEntry } from './types/field-entry'
 
 const makeEntry = (id: number, overrides: Partial<FieldEntry> = {}): FieldEntry => ({
     id,
@@ -55,6 +56,36 @@ describe('DependencyGraph.extractFieldRefs', () => {
         expect(DependencyGraph.extractFieldRefs(cond)).toEqual(new Set([1, 2, 3]))
     })
 
+    it('extracts fields from 5-level nested compound conditions', () => {
+        const cond: Condition = {
+            and: [
+                { field: 1, op: 'set' },
+                {
+                    or: [
+                        { field: 2, op: 'eq', value: 'a' },
+                        {
+                            and: [
+                                { field: 3, op: 'gt', value: 5 },
+                                {
+                                    or: [
+                                        { field: 4, op: 'lt', value: 100 },
+                                        {
+                                            and: [
+                                                { field: 5, op: 'set' },
+                                                { field: 6, op: 'ne', value: 'z' },
+                                            ],
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        }
+        expect(DependencyGraph.extractFieldRefs(cond)).toEqual(new Set([1, 2, 3, 4, 5, 6]))
+    })
+
     it('deduplicates field references', () => {
         const cond: Condition = {
             and: [
@@ -82,6 +113,7 @@ describe('DependencyGraph constructor (graph)', () => {
             [2, makeEntry(2, { condition: { field: 1, op: 'eq', value: 'a' } })],
         ])
         const depGraph = new DependencyGraph(registry)
+        expect(depGraph.graph.size).toBe(1)
         expect(depGraph.graph.get(1)).toEqual(new Set([2]))
     })
 
@@ -102,6 +134,7 @@ describe('DependencyGraph constructor (graph)', () => {
             ],
         ])
         const depGraph = new DependencyGraph(registry)
+        expect(depGraph.graph.size).toBe(2)
         expect(depGraph.graph.get(1)).toEqual(new Set([3]))
         expect(depGraph.graph.get(2)).toEqual(new Set([3]))
     })
@@ -113,11 +146,12 @@ describe('DependencyGraph constructor (graph)', () => {
             [3, makeEntry(3, { condition: { field: 1, op: 'eq', value: 'b' } })],
         ])
         const depGraph = new DependencyGraph(registry)
+        expect(depGraph.graph.size).toBe(1)
         expect(depGraph.graph.get(1)).toEqual(new Set([2, 3]))
     })
 })
 
-describe('DependencyGraph constructor (topoOrder)', () => {
+describe('DependencyGraph constructor (topologicalOrder)', () => {
     it('returns all IDs when no dependencies exist', () => {
         const registry = new Map<number, FieldEntry>([
             [1, makeEntry(1)],
@@ -125,7 +159,7 @@ describe('DependencyGraph constructor (topoOrder)', () => {
             [3, makeEntry(3)],
         ])
         const depGraph = new DependencyGraph(registry)
-        expect(depGraph.topoOrder.sort()).toEqual([1, 2, 3])
+        expect(depGraph.topologicalOrder).toEqual([1, 2, 3])
     })
 
     it('places dependency before dependent for simple deps', () => {
@@ -134,7 +168,7 @@ describe('DependencyGraph constructor (topoOrder)', () => {
             [2, makeEntry(2, { condition: { field: 1, op: 'set' } })],
         ])
         const depGraph = new DependencyGraph(registry)
-        expect(depGraph.topoOrder.indexOf(1)).toBeLessThan(depGraph.topoOrder.indexOf(2))
+        expect(depGraph.topologicalOrder).toEqual([1, 2])
     })
 
     it('handles chain dependencies (1 → 2 → 3)', () => {
@@ -144,8 +178,7 @@ describe('DependencyGraph constructor (topoOrder)', () => {
             [3, makeEntry(3, { condition: { field: 2, op: 'set' } })],
         ])
         const depGraph = new DependencyGraph(registry)
-        expect(depGraph.topoOrder.indexOf(1)).toBeLessThan(depGraph.topoOrder.indexOf(2))
-        expect(depGraph.topoOrder.indexOf(2)).toBeLessThan(depGraph.topoOrder.indexOf(3))
+        expect(depGraph.topologicalOrder).toEqual([1, 2, 3])
     })
 
     it('includes nodes with no edges', () => {
@@ -155,26 +188,36 @@ describe('DependencyGraph constructor (topoOrder)', () => {
             [3, makeEntry(3)], // no condition, no dependency
         ])
         const depGraph = new DependencyGraph(registry)
-        expect(depGraph.topoOrder).toHaveLength(3)
-        expect(depGraph.topoOrder).toContain(3)
+        expect(depGraph.topologicalOrder).toEqual([1, 3, 2])
+    })
+
+    it('produces correct order regardless of registry insertion order', () => {
+        // Chain: 1 → 2 → 3, but inserted in reverse order
+        const registry = new Map<number, FieldEntry>([
+            [2, makeEntry(2, { condition: { field: 1, op: 'set' } })],
+            [3, makeEntry(3, { condition: { field: 2, op: 'set' } })],
+            [1, makeEntry(1)],
+        ])
+        const depGraph = new DependencyGraph(registry)
+        expect(depGraph.topologicalOrder).toEqual([1, 2, 3])
     })
 })
 
 describe('DependencyGraph.detectCycle', () => {
-    it('returns null when no cycle exists', () => {
+    it('returns undefined when no cycle exists', () => {
         const registry = new Map<number, FieldEntry>([
             [1, makeEntry(1)],
             [2, makeEntry(2, { condition: { field: 1, op: 'set' } })],
         ])
-        expect(DependencyGraph.detectCycle(registry)).toBeNull()
+        expect(DependencyGraph.detectCycle(registry)).toBeUndefined()
     })
 
-    it('returns null for entries without conditions', () => {
+    it('returns undefined for entries without conditions', () => {
         const registry = new Map<number, FieldEntry>([
             [1, makeEntry(1)],
             [2, makeEntry(2)],
         ])
-        expect(DependencyGraph.detectCycle(registry)).toBeNull()
+        expect(DependencyGraph.detectCycle(registry)).toBeUndefined()
     })
 
     it('detects a simple cycle (A → B → A)', () => {
@@ -183,9 +226,8 @@ describe('DependencyGraph.detectCycle', () => {
             [2, makeEntry(2, { condition: { field: 1, op: 'set' } })],
         ])
         const result = DependencyGraph.detectCycle(registry)
-        expect(result).not.toBeNull()
-        expect(result).toContain('1')
-        expect(result).toContain('2')
+        expect(result).toBeDefined()
+        expect(result).toEqual([1, 2, 1])
     })
 
     it('detects a transitive cycle (A → B → C → A)', () => {
@@ -195,7 +237,8 @@ describe('DependencyGraph.detectCycle', () => {
             [3, makeEntry(3, { condition: { field: 2, op: 'set' } })],
         ])
         const result = DependencyGraph.detectCycle(registry)
-        expect(result).not.toBeNull()
+        expect(result).toBeDefined()
+        expect(result).toEqual([1, 2, 3, 1])
     })
 })
 

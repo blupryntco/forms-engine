@@ -45,11 +45,9 @@ export const isRelativeDate = (value: unknown): value is string =>
  * resolveRelativeDate("+1y", base)  // "2025-06-15T00:00:00.000Z"
  * ```
  */
-export const resolveRelativeDate = (relative: string, now: Date = new Date()): string => {
+export const resolveRelativeDate = (relative: string, now: Date): string => {
     const match = RELATIVE_DATE_RE.exec(relative)
-    if (!match) {
-        return relative
-    }
+    if (!match) return relative
 
     const sign = match[1] === '+' ? 1 : -1
     const amount = Number(match[2]) * sign

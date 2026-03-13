@@ -54,7 +54,7 @@ editor
 
 // 3. Validate and extract the document
 const result = editor.validate()
-const doc = editor.getDocument()
+const doc = editor.toJSON()
 ```
 
 ## Documentation
