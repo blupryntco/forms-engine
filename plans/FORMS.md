@@ -27,7 +27,7 @@ The engine must work identically on **client (browser)** and **server (Node.js)*
 
 ## 3. Non-Goals
 
-- **UI rendering** — the engine produces data (visibility maps, validation results); rendering is the concern of `packages/react` or other UI packages.
+- **UI rendering** — the engine produces data (visibility maps, validation results); rendering is the concern of `packages/viewer` or other UI packages.
 - **Form state management** — the engine does not hold or mutate form values. It receives values as input and returns computed results.
 - **Schema authoring** — the engine consumes validated form definitions. Schema creation/editing is out of scope.
 - **Persistence** — the engine is stateless across invocations. No database, no storage.

@@ -11,7 +11,7 @@ import type {
     SelectViewProps,
     StringViewProps,
     ViewerComponentMap,
-} from '@bluprynt/forms-react'
+} from '@bluprynt/forms-viewer'
 
 // ── Field label ──
 

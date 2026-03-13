@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-Package `@bluprynt/forms-react` provides two headless React components — `FormViewer` (read-only) and `FormEditor` (editable) — that render forms based on `@bluprynt/forms-core` definitions. The components are **renderless**: they own layout logic, visibility, and validation orchestration, but delegate all visual rendering to consumer-supplied component types.
+Package `@bluprynt/forms-viewer` provides two headless React components — `FormViewer` (read-only) and `FormEditor` (editable) — that render forms based on `@bluprynt/forms-core` definitions. The components are **renderless**: they own layout logic, visibility, and validation orchestration, but delegate all visual rendering to consumer-supplied component types.
 
 ---
 
@@ -500,7 +500,7 @@ All core types (`FormDefinition`, `FormValues`, `FieldValidationError`, `FormVal
 ## 15. File Structure
 
 ```
-packages/react/src/
+packages/viewer/src/
   index.ts                 — public exports
   constants.ts             — ROOT symbol
   types.ts                 — all type definitions

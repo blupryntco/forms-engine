@@ -11,7 +11,7 @@ import type {
     SectionEditProps,
     SelectEditProps,
     StringEditProps,
-} from '@bluprynt/forms-react'
+} from '@bluprynt/forms-viewer'
 
 // ── Field label ──
 

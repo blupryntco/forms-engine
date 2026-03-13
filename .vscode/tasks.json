@@ -22,12 +22,12 @@
 			"problemMatcher": ["$tsc"]
 		},
 		{
-			"label": "Build: React",
+			"label": "Build: Viewer",
 			"type": "shell",
-			"command": "pnpm --filter @bluprynt/forms-react build",
+			"command": "pnpm --filter @bluprynt/forms-viewer build",
 			"group": "build",
 			"icon": { "id": "package", "color": "terminal.ansiCyan" },
-			"presentation": { "group": "react" },
+			"presentation": { "group": "viewer" },
 			"problemMatcher": ["$tsc"]
 		},
 		{
@@ -51,12 +51,12 @@
 			"problemMatcher": []
 		},
 		{
-			"label": "Test: React",
+			"label": "Test: Viewer",
 			"type": "shell",
-			"command": "pnpm --filter @bluprynt/forms-react test",
+			"command": "pnpm --filter @bluprynt/forms-viewer test",
 			"group": "test",
 			"icon": { "id": "beaker", "color": "terminal.ansiCyan" },
-			"presentation": { "group": "react" },
+			"presentation": { "group": "viewer" },
 			"problemMatcher": []
 		},
 		{

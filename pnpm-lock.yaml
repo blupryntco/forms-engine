@@ -78,9 +78,9 @@ importers:
       '@bluprynt/forms-core':
         specifier: workspace:*
         version: link:../core
-      '@bluprynt/forms-react':
+      '@bluprynt/forms-viewer':
         specifier: workspace:*
-        version: link:../react
+        version: link:../viewer
       '@monaco-editor/react':
         specifier: 4.7.0
         version: 4.7.0(monaco-editor@0.55.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -113,7 +113,9 @@ importers:
         specifier: 'catalog:'
         version: 5.9.3
 
-  packages/react:
+  packages/typescript-config: {}
+
+  packages/viewer:
     devDependencies:
       '@bluprynt/forms-core':
         specifier: workspace:*
@@ -154,8 +156,6 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
-
-  packages/typescript-config: {}
 
 packages:
 

@@ -11,7 +11,7 @@
     },
     "dependencies": {
         "@bluprynt/forms-core": "workspace:*",
-        "@bluprynt/forms-react": "workspace:*",
+        "@bluprynt/forms-viewer": "workspace:*",
         "@monaco-editor/react": "4.7.0",
         "@tailwindcss/postcss": "4.2.1",
         "next": "15.3.4",

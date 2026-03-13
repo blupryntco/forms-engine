@@ -11,7 +11,7 @@ import type {
 } from '@bluprynt/forms-core'
 import { FormEngine } from '@bluprynt/forms-core'
 import formDefinitionSchema from '@bluprynt/forms-core/schemas/form-definition.schema.json'
-import { FormEditor, FormViewer, ROOT } from '@bluprynt/forms-react'
+import { FormEditor, FormViewer, ROOT } from '@bluprynt/forms-viewer'
 import Editor, { type Monaco } from '@monaco-editor/react'
 
 import { editorComponents } from '../components/editor'

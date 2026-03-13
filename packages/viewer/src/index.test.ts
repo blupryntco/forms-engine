@@ -1,6 +1,6 @@
 import { FormEditor, FormValuesEditor, FormViewer, ROOT } from './index'
 
-describe('forms-react exports', () => {
+describe('forms-viewer exports', () => {
     it('should export FormViewer component', () => {
         expect(FormViewer).toBeDefined()
         expect(typeof FormViewer).toBe('function')
