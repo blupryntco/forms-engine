@@ -1,6 +1,3 @@
-// Components
-
-// Re-exports from @bluprynt/forms-core for consumer convenience
 export type {
     ArrayItemDef,
     ContentItem,
@@ -20,15 +17,12 @@ export type {
 } from '@bluprynt/forms-core'
 export { FormDocumentLoadError, FormValuesEditor } from '@bluprynt/forms-core'
 
-// Symbol
 export { ROOT } from './constants'
+export { Form, useFormContext } from './form-context'
 export { FormEditor } from './form-editor'
+export type { FormSectionEntry } from './form-sections'
+export { FormSections } from './form-sections'
 export { FormViewer } from './form-viewer'
-// Types — Viewer props
-// Types — Editor props
-// Types — Shared
-// Types — Component maps
-// Types — Top-level component props
 export type {
     ArrayEditProps,
     ArrayViewProps,
@@ -38,12 +32,12 @@ export type {
     BooleanViewProps,
     DateEditProps,
     DateViewProps,
+    EditorArrayItemProps,
     EditorComponentMap,
+    EditorFieldProps,
     ErrorProps,
     FileEditProps,
     FileViewProps,
-    FormEditorProps,
-    FormViewerProps,
     NumberEditProps,
     NumberViewProps,
     SectionEditProps,

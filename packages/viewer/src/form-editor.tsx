@@ -1,55 +1,68 @@
-import { type FC, Fragment, useCallback, useEffect, useRef } from 'react'
+import { type FC, useCallback, useRef } from 'react'
 
-import type { FieldContentItem, FormDocument, FormValidationResult, FormValues } from '@bluprynt/forms-core'
+import { FieldContentItem, FormDocument, FormEngine, FormValidationResult } from '@bluprynt/forms-core'
 
-import { renderContent } from './render-content'
-import type { FormEditorProps } from './types'
-import { useFormEngine } from './use-form-engine'
+import { FormContent } from './form'
+import { useFormContext } from './form-context'
+import type { EditorArrayItemProps, EditorComponentMap, EditorFieldProps } from './types'
 
-export const FormEditor: FC<FormEditorProps> = ({
-    definition,
-    data,
-    components,
-    onChange,
-    section,
-    includeSectionHeader = true,
-    showValidation = false,
-    onDocumentError,
-}) => {
-    const engine = useFormEngine(definition)
-    const visibilityMap = engine.getVisibilityMap(data)
-    const validation = engine.validate(data)
+type FormEditorProps = {
+    components: EditorComponentMap
+    onChange: (data: FormDocument, validation: FormValidationResult) => void
+}
 
-    useEffect(() => {
-        if (onDocumentError && validation.documentErrors && validation.documentErrors.length > 0) {
-            onDocumentError(validation.documentErrors)
-        }
-    }, [onDocumentError, validation.documentErrors])
+export const FormEditor: FC<FormEditorProps> = ({ components, onChange }) => {
+    const { definition, data, visibilityMap, fieldErrors, section, engine } = useFormContext()
 
-    // Stable ref so memoized callbacks always read fresh state
+    const { renderFieldProps, renderArrayItemProps } = useEditorHandlers(data, engine, onChange)
+
+    return (
+        <FormContent
+            mode="editor"
+            items={definition.content}
+            visibilityMap={visibilityMap}
+            values={data.values}
+            fieldErrors={fieldErrors}
+            components={components}
+            section={section}
+            renderFieldProps={renderFieldProps}
+            renderArrayItemProps={renderArrayItemProps}
+        />
+    )
+}
+
+export const useEditorHandlers = (
+    data: FormDocument,
+    engine: FormEngine,
+    onChange: (data: FormDocument, validation: FormValidationResult) => void,
+): {
+    renderFieldProps: (field: FieldContentItem) => EditorFieldProps
+    renderArrayItemProps: (field: FieldContentItem, index: number) => EditorArrayItemProps
+} => {
+    // Latest ref pattern
     const stateRef = useRef({ data, onChange, engine })
     stateRef.current = { data, onChange, engine }
 
-    // ── Per-field onChange (stable identity per field id) ──
+    // Per-field onChange handler
 
     const fieldOnChangeMap = useRef(new Map<string, (value: unknown) => void>())
-
     const getFieldOnChange = useCallback((fieldId: number): ((value: unknown) => void) => {
         const key = String(fieldId)
+
         let handler = fieldOnChangeMap.current.get(key)
         if (!handler) {
             handler = (newValue: unknown) => {
-                const { data: cur, onChange: cb, engine: eng } = stateRef.current
-                const newValues: FormValues = { ...cur.values, [key]: newValue }
-                const newDoc: FormDocument = { ...cur, values: newValues }
-                cb(newDoc, eng.validate(newDoc))
+                const { data, onChange, engine } = stateRef.current
+                const document: FormDocument = { ...data, values: { ...data.values, [key]: newValue } }
+
+                onChange(document, engine.validate(document))
             }
             fieldOnChangeMap.current.set(key, handler)
         }
         return handler
     }, [])
 
-    // ── Array mutation handlers (stable identity per array field id) ──
+    // Array mutation handlers
 
     const arrayHandlersMap = useRef(
         new Map<
@@ -61,35 +74,36 @@ export const FormEditor: FC<FormEditorProps> = ({
             }
         >(),
     )
-
     const getArrayHandlers = useCallback((fieldId: number) => {
         const key = String(fieldId)
+
         let handlers = arrayHandlersMap.current.get(key)
         if (!handlers) {
             const fire = (mutate: (arr: unknown[]) => unknown[]) => {
-                const { data: cur, onChange: cb, engine: eng } = stateRef.current
-                const arr = (cur.values[key] as unknown[] | undefined) ?? []
-                const newValues: FormValues = { ...cur.values, [key]: mutate([...arr]) }
-                const newDoc: FormDocument = { ...cur, values: newValues }
-                cb(newDoc, eng.validate(newDoc))
+                const { data, onChange, engine } = stateRef.current
+
+                const items = (data.values[key] as unknown[] | undefined) ?? []
+                const document: FormDocument = { ...data, values: { ...data.values, [key]: mutate([...items]) } }
+
+                onChange(document, engine.validate(document))
             }
 
             handlers = {
                 onAddItem: () =>
-                    fire((arr) => {
-                        arr.push(undefined)
-                        return arr
+                    fire((values) => {
+                        values.push(undefined)
+                        return values
                     }),
                 onRemoveItem: (index: number) =>
-                    fire((arr) => {
-                        arr.splice(index, 1)
-                        return arr
+                    fire((values) => {
+                        values.splice(index, 1)
+                        return values
                     }),
                 onMoveItem: (fromIndex: number, toIndex: number) =>
-                    fire((arr) => {
-                        const [moved] = arr.splice(fromIndex, 1)
-                        arr.splice(toIndex, 0, moved)
-                        return arr
+                    fire((values) => {
+                        const [moved] = values.splice(fromIndex, 1)
+                        values.splice(toIndex, 0, moved)
+                        return values
                     }),
             }
             arrayHandlersMap.current.set(key, handlers)
@@ -97,55 +111,42 @@ export const FormEditor: FC<FormEditorProps> = ({
         return handlers
     }, [])
 
-    // ── Array item onChange (stable identity per field+index) ──
+    // Array item onChange handler
 
     const arrayItemOnChangeMap = useRef(new Map<string, (value: unknown) => void>())
-
     const getArrayItemOnChange = useCallback((fieldId: number, index: number): ((value: unknown) => void) => {
         const mapKey = `${fieldId}-${index}`
+
         let handler = arrayItemOnChangeMap.current.get(mapKey)
         if (!handler) {
             handler = (newValue: unknown) => {
-                const { data: cur, onChange: cb, engine: eng } = stateRef.current
                 const fieldKey = String(fieldId)
-                const arr = [...((cur.values[fieldKey] as unknown[] | undefined) ?? [])]
-                arr[index] = newValue
-                const newValues: FormValues = { ...cur.values, [fieldKey]: arr }
-                const newDoc: FormDocument = { ...cur, values: newValues }
-                cb(newDoc, eng.validate(newDoc))
+
+                const { data, onChange, engine } = stateRef.current
+
+                const items = [...((data.values[fieldKey] as unknown[] | undefined) ?? [])]
+                items[index] = newValue
+
+                const document: FormDocument = { ...data, values: { ...data.values, [fieldKey]: items } }
+                onChange(document, engine.validate(document))
             }
             arrayItemOnChangeMap.current.set(mapKey, handler)
         }
         return handler
     }, [])
 
-    // ── Render ──
-
-    const errors = showValidation ? validation.errors : []
-
-    return (
-        <Fragment>
-            {renderContent({
-                items: definition.content,
-                visibilityMap,
-                values: data.values,
-                errors,
-                components,
-                sectionFilter: section,
-                includeSectionHeader,
-                renderFieldProps: (field: FieldContentItem) => {
-                    if (field.type === 'array') {
-                        return {
-                            onChange: getFieldOnChange(field.id),
-                            ...getArrayHandlers(field.id),
-                        }
-                    }
-                    return { onChange: getFieldOnChange(field.id) }
-                },
-                renderArrayItemProps: (_arrayField: FieldContentItem, index: number) => ({
-                    onChange: getArrayItemOnChange(_arrayField.id, index),
-                }),
-            })}
-        </Fragment>
-    )
+    return {
+        renderFieldProps: (field: FieldContentItem): EditorFieldProps => {
+            if (field.type === 'array') {
+                return {
+                    onChange: getFieldOnChange(field.id),
+                    ...getArrayHandlers(field.id),
+                }
+            }
+            return { onChange: getFieldOnChange(field.id) }
+        },
+        renderArrayItemProps: (field: FieldContentItem, index: number): EditorArrayItemProps => ({
+            onChange: getArrayItemOnChange(field.id, index),
+        }),
+    } as const
 }

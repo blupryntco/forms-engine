@@ -1077,8 +1077,8 @@ describe('FormEngine', () => {
             // field 2 is visible, but value is missing → required error
             const result = engine.validate(doc({ '1': true }))
             expect(result.valid).toBe(false)
-            expect(result.errors[0]?.fieldId).toBe(2)
-            expect(result.errors[0]?.rule).toBe('REQUIRED')
+            expect(result.fieldErrors.has(2)).toBe(true)
+            expect(result.fieldErrors.get(2)?.[0]?.rule).toBe('REQUIRED')
         })
     })
 
@@ -1129,8 +1129,8 @@ describe('FormEngine', () => {
             )
             const result = engine.validate(doc({}))
             expect(result.valid).toBe(false)
-            expect(result.errors.length).toBe(3)
-            const fieldIds = result.errors.map((e) => e.fieldId).sort()
+            expect(result.fieldErrors.size).toBe(3)
+            const fieldIds = [...result.fieldErrors.keys()].sort()
             expect(fieldIds).toEqual([1, 2, 3])
         })
 
@@ -1143,8 +1143,8 @@ describe('FormEngine', () => {
             )
             const result = engine.validate(doc({ '1': 'Alice' }))
             expect(result.valid).toBe(false)
-            expect(result.errors.length).toBe(1)
-            expect(result.errors[0]?.fieldId).toBe(2)
+            expect(result.fieldErrors.size).toBe(1)
+            expect(result.fieldErrors.has(2)).toBe(true)
         })
     })
 
@@ -1284,7 +1284,7 @@ describe('FormEngine', () => {
             }
             const result = engine.validate(jobDoc(values, SUBMITTED_AT))
             expect(result.valid).toBe(false)
-            expect(result.errors.some((e) => e.fieldId === 5 && e.rule === 'MIN_ITEMS')).toBe(true)
+            expect(result.fieldErrors.get(5)?.some((e) => e.rule === 'MIN_ITEMS')).toBe(true)
         })
 
         it('developer with OSS contribution but no GitHub profile fails', () => {
@@ -1299,7 +1299,7 @@ describe('FormEngine', () => {
             }
             const result = engine.validate(jobDoc(values, SUBMITTED_AT))
             expect(result.valid).toBe(false)
-            expect(result.errors.some((e) => e.fieldId === 7 && e.rule === 'REQUIRED')).toBe(true)
+            expect(result.fieldErrors.get(7)?.some((e) => e.rule === 'REQUIRED')).toBe(true)
         })
 
         it('designer does not need developer details — hidden fields skipped', () => {
@@ -1352,7 +1352,7 @@ describe('FormEngine', () => {
             }
             const result = engine.validate(jobDoc(values, SUBMITTED_AT))
             expect(result.valid).toBe(false)
-            const emailErr = result.errors.find((e) => e.fieldId === 2)
+            const emailErr = result.fieldErrors.get(2)?.[0]
             expect(emailErr?.rule).toBe('PATTERN')
             expect(emailErr?.message).toBe('Invalid email')
         })
@@ -1596,8 +1596,8 @@ describe('FormEngine', () => {
 
             const bizMissing = engine.validate(doc({ '1': 'business' }))
             expect(bizMissing.valid).toBe(false)
-            expect(bizMissing.errors.length).toBe(1)
-            expect(bizMissing.errors[0]?.fieldId).toBe(2)
+            expect(bizMissing.fieldErrors.size).toBe(1)
+            expect(bizMissing.fieldErrors.has(2)).toBe(true)
 
             // Personal selected: personal name required, company name hidden
             const personal = engine.validate(doc({ '1': 'personal', '3': 'John' }))
@@ -1605,7 +1605,7 @@ describe('FormEngine', () => {
 
             const personalMissing = engine.validate(doc({ '1': 'personal' }))
             expect(personalMissing.valid).toBe(false)
-            expect(personalMissing.errors[0]?.fieldId).toBe(3)
+            expect(personalMissing.fieldErrors.has(3)).toBe(true)
         })
 
         it('cascading hide: parent condition hides children for validation', () => {
@@ -1631,7 +1631,7 @@ describe('FormEngine', () => {
             // Section shown → children validated
             const result = engine.validate(doc({ '1': true }))
             expect(result.valid).toBe(false)
-            expect(result.errors.length).toBe(2)
+            expect(result.fieldErrors.size).toBe(2)
         })
 
         it('multi-level conditional: grandchild visibility affects validation', () => {
@@ -1667,7 +1667,7 @@ describe('FormEngine', () => {
             // Dev, OSS, no GitHub → field 3 visible + required → error
             const result = engine.validate(doc({ '1': true, '2': true }))
             expect(result.valid).toBe(false)
-            expect(result.errors[0]?.fieldId).toBe(3)
+            expect(result.fieldErrors.has(3)).toBe(true)
 
             // Dev, OSS, with GitHub → valid
             expect(engine.validate(doc({ '1': true, '2': true, '3': 'https://github.com/user' })).valid).toBe(true)
@@ -1739,8 +1739,8 @@ describe('FormEngine', () => {
             expect(result.documentErrors).toBeDefined()
             expect(result.documentErrors?.some((e) => e.code === 'FORM_ID_MISMATCH')).toBe(true)
             // field error present (required field 1 is missing)
-            expect(result.errors.length).toBeGreaterThanOrEqual(1)
-            expect(result.errors.some((e) => e.fieldId === 1 && e.rule === 'REQUIRED')).toBe(true)
+            expect(result.fieldErrors.size).toBeGreaterThanOrEqual(1)
+            expect(result.fieldErrors.get(1)?.some((e) => e.rule === 'REQUIRED')).toBe(true)
         })
 
         it('createFormDocument() produces documents that pass without document errors', () => {

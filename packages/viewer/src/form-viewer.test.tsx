@@ -5,7 +5,6 @@
 import { createElement, type FC, type ReactNode } from 'react'
 
 import type {
-    DocumentValidationError,
     FieldContentItem,
     FieldValidationError,
     FormDefinition,
@@ -16,6 +15,7 @@ import type {
 import { render, screen } from '@testing-library/react'
 
 import { ROOT } from './constants'
+import { Form } from './form-context'
 import { FormViewer } from './form-viewer'
 import type { ViewerComponentMap } from './types'
 
@@ -115,6 +115,16 @@ const doc = (values: FormValues = {}, submittedAt: string = '2025-06-15T00:00:00
     values,
 })
 
+/** Helper: wrap FormViewer in Form provider */
+const renderViewer = (
+    formProps: {
+        definition: FormDefinition
+        data: FormDocument
+        section?: typeof ROOT | number
+    },
+    components: ViewerComponentMap,
+) => render(createElement(Form, formProps, createElement(FormViewer, { components })))
+
 beforeEach(() => {
     jest.clearAllMocks()
 })
@@ -141,7 +151,7 @@ describe('FormViewer', () => {
         ])
         const values = { '1': 'Alice', '2': 42, '3': true, '4': '2025-01-01', '5': 'r' }
 
-        render(createElement(FormViewer, { definition, data: doc(values), components: makeComponents() }))
+        renderViewer({ definition, data: doc(values) }, makeComponents())
 
         expect(screen.getByTestId('string-1').textContent).toBe('Alice')
         expect(screen.getByTestId('number-2').textContent).toBe('42')
@@ -172,7 +182,7 @@ describe('FormViewer', () => {
         ])
         const values = { '11': 'Bob' }
 
-        render(createElement(FormViewer, { definition, data: doc(values), components: makeComponents() }))
+        renderViewer({ definition, data: doc(values) }, makeComponents())
 
         expect(screen.getByTestId('section-10')).toBeTruthy()
         expect(screen.getByTestId('string-11')).toBeTruthy()
@@ -198,61 +208,36 @@ describe('FormViewer', () => {
         ])
         const values = { '1': false }
 
-        render(createElement(FormViewer, { definition, data: doc(values), components: makeComponents() }))
+        renderViewer({ definition, data: doc(values) }, makeComponents())
 
         expect(screen.getByTestId('boolean-1')).toBeTruthy()
         expect(screen.queryByTestId('string-2')).toBeNull()
     })
 
-    // 4. showValidation=false (default): errors: [], no error component
-    it('passes empty errors when showValidation is false (default)', () => {
+    // 4. Validation errors passed to fields + error component rendered
+    it('passes validation errors to fields and renders error component', () => {
         const definition = baseDef([{ id: 1, type: 'string', label: 'Name', validation: { required: true } }])
         const values = {}
 
-        render(createElement(FormViewer, { definition, data: doc(values), components: makeComponents(true) }))
-
-        expect(MockString).toHaveBeenCalledWith(expect.objectContaining({ errors: [] }), undefined)
-        expect(screen.queryByTestId('error-1')).toBeNull()
-    })
-
-    // 5. showValidation=true: validation errors passed to fields + error component rendered
-    it('passes validation errors to fields and renders error component when showValidation is true', () => {
-        const definition = baseDef([{ id: 1, type: 'string', label: 'Name', validation: { required: true } }])
-        const values = {}
-
-        render(
-            createElement(FormViewer, {
-                definition,
-                data: doc(values),
-                components: makeComponents(true),
-                showValidation: true,
-            }),
-        )
+        renderViewer({ definition, data: doc(values) }, makeComponents(true))
 
         const stringCalls = (MockString as jest.Mock).mock.calls
         const lastCallProps = stringCalls[stringCalls.length - 1][0]
         expect(lastCallProps.errors.length).toBeGreaterThan(0)
         expect(lastCallProps.errors[0]).toMatchObject({
             fieldId: 1,
-            rule: 'required',
+            rule: 'REQUIRED',
         })
 
         expect(screen.getByTestId('error-1')).toBeTruthy()
     })
 
-    // 6. showValidation=true without error component in map: no crash, field still gets errors
-    it('does not crash when showValidation=true and no error component provided', () => {
+    // 5. No crash when error component not in map
+    it('does not crash when no error component provided', () => {
         const definition = baseDef([{ id: 1, type: 'string', label: 'Name', validation: { required: true } }])
         const values = {}
 
-        render(
-            createElement(FormViewer, {
-                definition,
-                data: doc(values),
-                components: makeComponents(false),
-                showValidation: true,
-            }),
-        )
+        renderViewer({ definition, data: doc(values) }, makeComponents(false))
 
         const stringCalls = (MockString as jest.Mock).mock.calls
         const lastCallProps = stringCalls[stringCalls.length - 1][0]
@@ -273,7 +258,7 @@ describe('FormViewer', () => {
         ])
         const values = { '1': 'a', '3': 10 }
 
-        render(createElement(FormViewer, { definition, data: doc(values), components: makeComponents() }))
+        renderViewer({ definition, data: doc(values) }, makeComponents())
 
         expect(screen.getByTestId('string-1')).toBeTruthy()
         expect(screen.getByTestId('section-2')).toBeTruthy()
@@ -294,14 +279,7 @@ describe('FormViewer', () => {
         ])
         const values = { '1': 'a', '3': 10, '4': true }
 
-        render(
-            createElement(FormViewer, {
-                definition,
-                data: doc(values),
-                components: makeComponents(),
-                section: ROOT,
-            }),
-        )
+        renderViewer({ definition, data: doc(values), section: ROOT }, makeComponents())
 
         expect(screen.getByTestId('string-1')).toBeTruthy()
         expect(screen.getByTestId('boolean-4')).toBeTruthy()
@@ -309,8 +287,8 @@ describe('FormViewer', () => {
         expect(screen.queryByTestId('number-3')).toBeNull()
     })
 
-    // 9. Section filter specific id + includeSectionHeader=true: section wrapper + content
-    it('renders section wrapper and content when filtering by section id with includeSectionHeader=true', () => {
+    // 9. Section filter specific id: section wrapper + content
+    it('renders section wrapper and content when filtering by section id', () => {
         const definition = baseDef([
             { id: 1, type: 'string', label: 'Top' },
             {
@@ -322,62 +300,19 @@ describe('FormViewer', () => {
         ])
         const values = { '1': 'a', '3': 'b' }
 
-        render(
-            createElement(FormViewer, {
-                definition,
-                data: doc(values),
-                components: makeComponents(),
-                section: 2,
-                includeSectionHeader: true,
-            }),
-        )
+        renderViewer({ definition, data: doc(values), section: 2 }, makeComponents())
 
         expect(screen.getByTestId('section-2')).toBeTruthy()
         expect(screen.getByTestId('string-3')).toBeTruthy()
         expect(screen.queryByTestId('string-1')).toBeNull()
     })
 
-    // 10. Section filter specific id + includeSectionHeader=false: content only, no wrapper
-    it('renders only section content without wrapper when includeSectionHeader=false', () => {
-        const definition = baseDef([
-            { id: 1, type: 'string', label: 'Top' },
-            {
-                id: 2,
-                type: 'section',
-                title: 'Target',
-                content: [{ id: 3, type: 'string', label: 'Inner' }],
-            },
-        ])
-        const values = { '1': 'a', '3': 'b' }
-
-        render(
-            createElement(FormViewer, {
-                definition,
-                data: doc(values),
-                components: makeComponents(),
-                section: 2,
-                includeSectionHeader: false,
-            }),
-        )
-
-        expect(screen.queryByTestId('section-2')).toBeNull()
-        expect(screen.getByTestId('string-3')).toBeTruthy()
-        expect(screen.queryByTestId('string-1')).toBeNull()
-    })
-
-    // 11. Section filter non-existent id: nothing rendered
+    // 10. Section filter non-existent id: nothing rendered
     it('renders nothing when section filter references a non-existent section', () => {
         const definition = baseDef([{ id: 1, type: 'string', label: 'Field' }])
         const values = { '1': 'a' }
 
-        const { container } = render(
-            createElement(FormViewer, {
-                definition,
-                data: doc(values),
-                components: makeComponents(),
-                section: 999,
-            }),
-        )
+        const { container } = renderViewer({ definition, data: doc(values), section: 999 }, makeComponents())
 
         expect(container.children[0]?.children.length ?? 0).toBe(0)
     })
@@ -396,14 +331,7 @@ describe('FormViewer', () => {
         ])
         const values = { '1': false }
 
-        const { container } = render(
-            createElement(FormViewer, {
-                definition,
-                data: doc(values),
-                components: makeComponents(),
-                section: 2,
-            }),
-        )
+        renderViewer({ definition, data: doc(values), section: 2 }, makeComponents())
 
         expect(screen.queryByTestId('section-2')).toBeNull()
         expect(screen.queryByTestId('string-3')).toBeNull()
@@ -418,7 +346,7 @@ describe('FormViewer', () => {
         const definition = baseDef([{ id: 1, type: 'select', label: 'Pick', options }])
         const values = { '1': 'a' }
 
-        render(createElement(FormViewer, { definition, data: doc(values), components: makeComponents() }))
+        renderViewer({ definition, data: doc(values) }, makeComponents())
 
         expect(MockSelect).toHaveBeenCalledWith(expect.objectContaining({ options }), undefined)
     })
@@ -435,7 +363,7 @@ describe('FormViewer', () => {
         ])
         const values = { '1': ['foo', 'bar', 'baz'] }
 
-        render(createElement(FormViewer, { definition, data: doc(values), components: makeComponents() }))
+        renderViewer({ definition, data: doc(values) }, makeComponents())
 
         // Array wrapper rendered
         expect(screen.getByTestId('array-1')).toBeTruthy()
@@ -475,14 +403,7 @@ describe('FormViewer', () => {
         // First item is valid, second item is too short
         const values = { '1': ['Alice', 'A'] }
 
-        render(
-            createElement(FormViewer, {
-                definition,
-                data: doc(values),
-                components: makeComponents(true),
-                showValidation: true,
-            }),
-        )
+        renderViewer({ definition, data: doc(values) }, makeComponents(true))
 
         // There should be item-level string component calls — check the second item got errors
         const stringCalls = (MockString as jest.Mock).mock.calls
@@ -493,7 +414,7 @@ describe('FormViewer', () => {
         expect(secondItemProps).toBeDefined()
         const secondErrors = (secondItemProps![0] as Record<string, unknown>).errors as FieldValidationError[]
         expect(secondErrors.length).toBeGreaterThan(0)
-        expect(secondErrors[0]).toMatchObject({ rule: 'minLength' })
+        expect(secondErrors[0]).toMatchObject({ rule: 'MIN_LENGTH' })
     })
 
     // 15. Array with select items: each item receives options
@@ -512,7 +433,7 @@ describe('FormViewer', () => {
         ])
         const values = { '1': [1, 2] }
 
-        render(createElement(FormViewer, { definition, data: doc(values), components: makeComponents() }))
+        renderViewer({ definition, data: doc(values) }, makeComponents())
 
         expect(MockSelect).toHaveBeenCalledWith(expect.objectContaining({ options: itemOptions }), undefined)
     })
@@ -528,7 +449,7 @@ describe('FormViewer', () => {
         const definition = baseDef([{ id: 1, type: 'file', label: 'Resume' }])
         const values = { '1': fileValue }
 
-        render(createElement(FormViewer, { definition, data: doc(values), components: makeComponents() }))
+        renderViewer({ definition, data: doc(values) }, makeComponents())
 
         expect(screen.getByTestId('file-1').textContent).toBe('doc.pdf')
         expect(MockFile).toHaveBeenCalledWith(
@@ -544,7 +465,7 @@ describe('FormViewer', () => {
     it('renders file field without value', () => {
         const definition = baseDef([{ id: 1, type: 'file', label: 'Resume' }])
 
-        render(createElement(FormViewer, { definition, data: doc({}), components: makeComponents() }))
+        renderViewer({ definition, data: doc({}) }, makeComponents())
 
         expect(screen.getByTestId('file-1')).toBeTruthy()
         expect(MockFile).toHaveBeenCalledWith(expect.objectContaining({ value: undefined }), undefined)
@@ -561,7 +482,7 @@ describe('FormViewer', () => {
             },
         ])
 
-        render(createElement(FormViewer, { definition, data: doc({ '1': false }), components: makeComponents() }))
+        renderViewer({ definition, data: doc({ '1': false }) }, makeComponents())
         expect(screen.queryByTestId('file-2')).toBeNull()
     })
 
@@ -573,9 +494,7 @@ describe('FormViewer', () => {
         ])
         const values = { '1': 'Alice', '2': 30 }
 
-        const { container } = render(
-            createElement(FormViewer, { definition, data: doc(values), components: makeComponents() }),
-        )
+        const { container } = renderViewer({ definition, data: doc(values) }, makeComponents())
 
         // FormViewer renders a Fragment; children are directly under the container
         // (no intermediate wrapper div from FormViewer itself)
@@ -590,125 +509,28 @@ describe('FormViewer', () => {
     describe('submittedAt', () => {
         it('renders with submittedAt set', () => {
             const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
-            const onDocumentError = jest.fn()
 
-            render(
-                createElement(FormViewer, {
+            renderViewer(
+                {
                     definition,
                     data: doc({ '1': 'Alice' }, '2026-01-15T10:00:00.000Z'),
-                    components: makeComponents(),
-                    onDocumentError,
-                }),
+                },
+                makeComponents(),
             )
 
             expect(screen.getByTestId('string-1').textContent).toBe('Alice')
-            expect(onDocumentError).not.toHaveBeenCalled()
         })
     })
 
-    // 19. onDocumentError callback
-    describe('onDocumentError', () => {
-        it('calls onDocumentError when document form id does not match definition', () => {
-            const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
-            const mismatchedDoc: FormDocument = {
-                form: { id: 'wrong-form', version: '1.0.0', submittedAt: '2025-06-15T00:00:00.000Z' },
-                values: { '1': 'Alice' },
-            }
-            const onDocumentError = jest.fn()
+    // 19. useFormContext throws outside Form provider
+    it('throws when rendered without a Form provider', () => {
+        const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
+        const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
 
-            render(
-                createElement(FormViewer, {
-                    definition,
-                    data: mismatchedDoc,
-                    components: makeComponents(),
-                    onDocumentError,
-                }),
-            )
+        expect(() => render(createElement(FormViewer, { components: makeComponents() }))).toThrow(
+            'useFormContext must be used within a <Form> provider',
+        )
 
-            expect(onDocumentError).toHaveBeenCalledTimes(1)
-            const errors = onDocumentError.mock.calls[0][0] as DocumentValidationError[]
-            expect(errors.length).toBe(1)
-            expect(errors[0]).toMatchObject({ code: 'FORM_ID_MISMATCH' })
-        })
-
-        it('calls onDocumentError when document form version does not match definition', () => {
-            const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
-            const mismatchedDoc: FormDocument = {
-                form: { id: 'test-form', version: '2.0.0', submittedAt: '2025-06-15T00:00:00.000Z' },
-                values: { '1': 'Alice' },
-            }
-            const onDocumentError = jest.fn()
-
-            render(
-                createElement(FormViewer, {
-                    definition,
-                    data: mismatchedDoc,
-                    components: makeComponents(),
-                    onDocumentError,
-                }),
-            )
-
-            expect(onDocumentError).toHaveBeenCalledTimes(1)
-            const errors = onDocumentError.mock.calls[0][0] as DocumentValidationError[]
-            expect(errors.length).toBe(1)
-            expect(errors[0]).toMatchObject({ code: 'FORM_VERSION_MISMATCH' })
-        })
-
-        it('calls onDocumentError with both errors when id and version mismatch', () => {
-            const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
-            const mismatchedDoc: FormDocument = {
-                form: { id: 'wrong-form', version: '2.0.0', submittedAt: '2025-06-15T00:00:00.000Z' },
-                values: { '1': 'Alice' },
-            }
-            const onDocumentError = jest.fn()
-
-            render(
-                createElement(FormViewer, {
-                    definition,
-                    data: mismatchedDoc,
-                    components: makeComponents(),
-                    onDocumentError,
-                }),
-            )
-
-            expect(onDocumentError).toHaveBeenCalledTimes(1)
-            const errors = onDocumentError.mock.calls[0][0] as DocumentValidationError[]
-            expect(errors.length).toBe(2)
-            expect(errors.map((e) => e.code)).toEqual(['FORM_ID_MISMATCH', 'FORM_VERSION_MISMATCH'])
-        })
-
-        it('does not call onDocumentError when document matches definition', () => {
-            const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
-            const onDocumentError = jest.fn()
-
-            render(
-                createElement(FormViewer, {
-                    definition,
-                    data: doc({ '1': 'Alice' }),
-                    components: makeComponents(),
-                    onDocumentError,
-                }),
-            )
-
-            expect(onDocumentError).not.toHaveBeenCalled()
-        })
-
-        it('does not throw when onDocumentError is not provided and document mismatches', () => {
-            const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
-            const mismatchedDoc: FormDocument = {
-                form: { id: 'wrong-form', version: '2.0.0', submittedAt: '2025-06-15T00:00:00.000Z' },
-                values: { '1': 'Alice' },
-            }
-
-            expect(() =>
-                render(
-                    createElement(FormViewer, {
-                        definition,
-                        data: mismatchedDoc,
-                        components: makeComponents(),
-                    }),
-                ),
-            ).not.toThrow()
-        })
+        consoleSpy.mockRestore()
     })
 })

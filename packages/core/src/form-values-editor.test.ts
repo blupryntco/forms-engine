@@ -221,7 +221,7 @@ describe('FormValuesEditor', () => {
             editor.setFieldValue(1, 'Alice')
             const result = editor.validate()
             expect(result.valid).toBe(true)
-            expect(result.errors).toHaveLength(0)
+            expect(result.fieldErrors.size).toBe(0)
         })
 
         it('returns errors for required field missing', () => {
@@ -230,8 +230,8 @@ describe('FormValuesEditor', () => {
             // do not set value
             const result = editor.validate()
             expect(result.valid).toBe(false)
-            expect(result.errors.length).toBeGreaterThan(0)
-            expect(result.errors.some((e) => e.fieldId === 1 && e.rule === 'REQUIRED')).toBe(true)
+            expect(result.fieldErrors.size).toBeGreaterThan(0)
+            expect(result.fieldErrors.get(1)?.some((e) => e.rule === 'REQUIRED')).toBe(true)
         })
 
         it('returns errors for number below min', () => {
@@ -240,7 +240,7 @@ describe('FormValuesEditor', () => {
             editor.setFieldValue(1, 10)
             const result = editor.validate()
             expect(result.valid).toBe(false)
-            expect(result.errors.some((e) => e.fieldId === 1 && e.rule === 'MIN')).toBe(true)
+            expect(result.fieldErrors.get(1)?.some((e) => e.rule === 'MIN')).toBe(true)
         })
     })
 

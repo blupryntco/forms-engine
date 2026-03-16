@@ -62,21 +62,23 @@ export class FieldValidator {
      * @param now - Reference date for resolving relative date expressions.
      *   Defaults to `new Date()`.
      * @returns A {@link FormValidationResult} with `valid: true` when no errors
-     *   exist, or `valid: false` with a populated `errors` array.
+     *   exist, or `valid: false` with a populated `fieldErrors` map.
      */
     validate(values: FormValues, visibilityMap: Map<number, boolean>, now: Date = new Date()): FormValidationResult {
-        const errors: FieldValidationError[] = []
+        const fieldErrors = new Map<number, FieldValidationError[]>()
 
         for (const [id, entry] of this.registry) {
             if (entry.type === 'section') continue
             if (visibilityMap.get(id) === false) continue
 
             const value = values[String(id)]
-            const fieldErrors = this.validateField(id, value, entry, now)
-            errors.push(...fieldErrors)
+            const errors = this.validateField(id, value, entry, now)
+            if (errors.length > 0) {
+                fieldErrors.set(id, errors)
+            }
         }
 
-        return { valid: errors.length === 0, errors }
+        return { valid: fieldErrors.size === 0, fieldErrors }
     }
 
     private validateField(fieldId: number, value: unknown, entry: FieldEntry, now: Date): FieldValidationError[] {

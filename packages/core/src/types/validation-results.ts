@@ -81,12 +81,13 @@ export type DocumentValidationError = {
 /**
  * Aggregated result of validating all visible form fields.
  *
- * @property valid - `true` when no errors were found.
- * @property errors - List of all validation errors (empty when `valid` is `true`).
+ * @property valid - `true` when `fieldErrors` is empty and no `documentErrors` exist.
+ * @property fieldErrors - Map from field id to its validation errors.
+ *   Empty map when `valid` is `true`. Fields with no errors have no entry.
  * @property documentErrors - Document-level compatibility errors, if any.
  */
 export type FormValidationResult = {
     valid: boolean
-    errors: FieldValidationError[]
+    fieldErrors: Map<number, FieldValidationError[]>
     documentErrors?: DocumentValidationError[]
 }

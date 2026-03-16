@@ -5,7 +5,6 @@
 import { createElement, type FC, type ReactNode } from 'react'
 
 import type {
-    DocumentValidationError,
     FieldContentItem,
     FieldValidationError,
     FormDefinition,
@@ -17,6 +16,7 @@ import type {
 import { render, screen } from '@testing-library/react'
 
 import { ROOT } from './constants'
+import { Form } from './form-context'
 import { FormEditor } from './form-editor'
 import type { EditorComponentMap } from './types'
 
@@ -124,13 +124,18 @@ const lastCallProps = (mock: jest.Mock): Record<string, unknown> => {
     return calls[calls.length - 1][0] as Record<string, unknown>
 }
 
-/** Find a call where field.id matches */
-const findCallByFieldId = (mock: jest.Mock, fieldId: number): Record<string, unknown> | undefined => {
-    const call = mock.mock.calls.find(
-        (c: unknown[]) => ((c[0] as Record<string, unknown>).field as FieldContentItem).id === fieldId,
-    )
-    return call ? (call[0] as Record<string, unknown>) : undefined
-}
+/** Helper: wrap FormEditor in Form provider */
+const renderEditor = (
+    formProps: {
+        definition: FormDefinition
+        data: FormDocument
+        section?: typeof ROOT | number
+    },
+    editorProps: {
+        components: EditorComponentMap
+        onChange: (data: FormDocument, validation: FormValidationResult) => void
+    },
+) => render(createElement(Form, formProps, createElement(FormEditor, editorProps)))
 
 beforeEach(() => {
     jest.clearAllMocks()
@@ -159,14 +164,7 @@ describe('FormEditor', () => {
             ])
             const values = { '1': 'Alice', '2': 42, '3': true, '4': '2025-01-01', '5': 'r' }
 
-            render(
-                createElement(FormEditor, {
-                    definition,
-                    data: doc(values),
-                    components: makeComponents(),
-                    onChange: noop,
-                }),
-            )
+            renderEditor({ definition, data: doc(values) }, { components: makeComponents(), onChange: noop })
 
             expect(screen.getByTestId('string-1').textContent).toBe('Alice')
             expect(screen.getByTestId('number-2').textContent).toBe('42')
@@ -209,7 +207,7 @@ describe('FormEditor', () => {
             const values = { '1': 'Alice', '2': 42 }
             const onChange = jest.fn()
 
-            render(createElement(FormEditor, { definition, data: doc(values), components: makeComponents(), onChange }))
+            renderEditor({ definition, data: doc(values) }, { components: makeComponents(), onChange })
 
             // Extract the onChange handler passed to the string field
             const stringProps = lastCallProps(MockString as jest.Mock)
@@ -222,7 +220,7 @@ describe('FormEditor', () => {
             const [newDoc, validation] = onChange.mock.calls[0] as [FormDocument, FormValidationResult]
             expect(newDoc.values).toEqual({ '1': 'Bob', '2': 42 })
             expect(validation).toHaveProperty('valid')
-            expect(validation).toHaveProperty('errors')
+            expect(validation).toHaveProperty('fieldErrors')
         })
 
         it('calls parent onChange with validation errors when field becomes invalid', () => {
@@ -232,7 +230,7 @@ describe('FormEditor', () => {
             const values = { '1': 'Alice' }
             const onChange = jest.fn()
 
-            render(createElement(FormEditor, { definition, data: doc(values), components: makeComponents(), onChange }))
+            renderEditor({ definition, data: doc(values) }, { components: makeComponents(), onChange })
 
             const stringProps = lastCallProps(MockString as jest.Mock)
             const fieldOnChange = stringProps.onChange as (value: unknown) => void
@@ -243,8 +241,8 @@ describe('FormEditor', () => {
             expect(onChange).toHaveBeenCalledTimes(1)
             const [, validation] = onChange.mock.calls[0] as [FormDocument, FormValidationResult]
             expect(validation.valid).toBe(false)
-            expect(validation.errors.length).toBeGreaterThan(0)
-            expect(validation.errors[0]).toMatchObject({ fieldId: 1, rule: 'required' })
+            expect(validation.fieldErrors.size).toBeGreaterThan(0)
+            expect(validation.fieldErrors.get(1)?.[0]).toMatchObject({ fieldId: 1, rule: 'REQUIRED' })
         })
     })
 
@@ -262,7 +260,7 @@ describe('FormEditor', () => {
             const values = { '1': ['foo', 'bar'] }
             const onChange = jest.fn()
 
-            render(createElement(FormEditor, { definition, data: doc(values), components: makeComponents(), onChange }))
+            renderEditor({ definition, data: doc(values) }, { components: makeComponents(), onChange })
 
             const arrayProps = lastCallProps(MockArray as jest.Mock)
             const onAddItem = arrayProps.onAddItem as () => void
@@ -287,7 +285,7 @@ describe('FormEditor', () => {
             const values = {}
             const onChange = jest.fn()
 
-            render(createElement(FormEditor, { definition, data: doc(values), components: makeComponents(), onChange }))
+            renderEditor({ definition, data: doc(values) }, { components: makeComponents(), onChange })
 
             const arrayProps = lastCallProps(MockArray as jest.Mock)
             const onAddItem = arrayProps.onAddItem as () => void
@@ -314,7 +312,7 @@ describe('FormEditor', () => {
             const values = { '1': ['a', 'b', 'c'] }
             const onChange = jest.fn()
 
-            render(createElement(FormEditor, { definition, data: doc(values), components: makeComponents(), onChange }))
+            renderEditor({ definition, data: doc(values) }, { components: makeComponents(), onChange })
 
             const arrayProps = lastCallProps(MockArray as jest.Mock)
             const onRemoveItem = arrayProps.onRemoveItem as (index: number) => void
@@ -341,7 +339,7 @@ describe('FormEditor', () => {
             const values = { '1': ['a', 'b', 'c'] }
             const onChange = jest.fn()
 
-            render(createElement(FormEditor, { definition, data: doc(values), components: makeComponents(), onChange }))
+            renderEditor({ definition, data: doc(values) }, { components: makeComponents(), onChange })
 
             const arrayProps = lastCallProps(MockArray as jest.Mock)
             const onMoveItem = arrayProps.onMoveItem as (from: number, to: number) => void
@@ -355,60 +353,18 @@ describe('FormEditor', () => {
         })
     })
 
-    // 6. showValidation=false: field components get errors: [], but onChange still includes validation
-    describe('showValidation=false (default)', () => {
-        it('passes empty errors to fields but includes validation in onChange callback', () => {
-            const definition = baseDef([{ id: 1, type: 'string', label: 'Name', validation: { required: true } }])
-            const values = {}
-            const onChange = jest.fn()
-
-            render(
-                createElement(FormEditor, {
-                    definition,
-                    data: doc(values),
-                    components: makeComponents(true),
-                    onChange,
-                }),
-            )
-
-            // Field should get empty errors (showValidation defaults to false)
-            expect(MockString).toHaveBeenCalledWith(expect.objectContaining({ errors: [] }), undefined)
-
-            // Error component should not render
-            expect(screen.queryByTestId('error-1')).toBeNull()
-
-            // Trigger onChange — validation result should still be present
-            const stringProps = lastCallProps(MockString as jest.Mock)
-            const fieldOnChange = stringProps.onChange as (value: unknown) => void
-            fieldOnChange('')
-
-            expect(onChange).toHaveBeenCalledTimes(1)
-            const [, validation] = onChange.mock.calls[0] as [FormDocument, FormValidationResult]
-            expect(validation.valid).toBe(false)
-            expect(validation.errors.length).toBeGreaterThan(0)
-        })
-    })
-
-    // 7. showValidation=true: real errors passed + error component rendered
-    describe('showValidation=true', () => {
-        it('passes real errors to fields and renders error component', () => {
+    // 6. Validation errors passed to fields and error component rendered
+    describe('validation errors', () => {
+        it('passes errors to fields and renders error component', () => {
             const definition = baseDef([{ id: 1, type: 'string', label: 'Name', validation: { required: true } }])
             const values = {}
 
-            render(
-                createElement(FormEditor, {
-                    definition,
-                    data: doc(values),
-                    components: makeComponents(true),
-                    onChange: noop,
-                    showValidation: true,
-                }),
-            )
+            renderEditor({ definition, data: doc(values) }, { components: makeComponents(true), onChange: noop })
 
             const stringProps = lastCallProps(MockString as jest.Mock)
             const errors = stringProps.errors as FieldValidationError[]
             expect(errors.length).toBeGreaterThan(0)
-            expect(errors[0]).toMatchObject({ fieldId: 1, rule: 'required' })
+            expect(errors[0]).toMatchObject({ fieldId: 1, rule: 'REQUIRED' })
 
             // Error component rendered
             expect(screen.getByTestId('error-1')).toBeTruthy()
@@ -418,21 +374,30 @@ describe('FormEditor', () => {
             const definition = baseDef([{ id: 1, type: 'string', label: 'Name', validation: { required: true } }])
             const values = {}
 
-            render(
-                createElement(FormEditor, {
-                    definition,
-                    data: doc(values),
-                    components: makeComponents(false),
-                    onChange: noop,
-                    showValidation: true,
-                }),
-            )
+            renderEditor({ definition, data: doc(values) }, { components: makeComponents(false), onChange: noop })
 
             const stringProps = lastCallProps(MockString as jest.Mock)
             const errors = stringProps.errors as FieldValidationError[]
             expect(errors.length).toBeGreaterThan(0)
 
             expect(screen.queryByTestId('error-1')).toBeNull()
+        })
+
+        it('onChange includes validation result', () => {
+            const definition = baseDef([{ id: 1, type: 'string', label: 'Name', validation: { required: true } }])
+            const values = {}
+            const onChange = jest.fn()
+
+            renderEditor({ definition, data: doc(values) }, { components: makeComponents(true), onChange })
+
+            const stringProps = lastCallProps(MockString as jest.Mock)
+            const fieldOnChange = stringProps.onChange as (value: unknown) => void
+            fieldOnChange('')
+
+            expect(onChange).toHaveBeenCalledTimes(1)
+            const [, validation] = onChange.mock.calls[0] as [FormDocument, FormValidationResult]
+            expect(validation.valid).toBe(false)
+            expect(validation.fieldErrors.size).toBeGreaterThan(0)
         })
     })
 
@@ -451,13 +416,9 @@ describe('FormEditor', () => {
             ])
 
         it('renders all content when section filter is undefined', () => {
-            render(
-                createElement(FormEditor, {
-                    definition: sectionDef(),
-                    data: doc({ '1': 'a', '3': 10, '4': true }),
-                    components: makeComponents(),
-                    onChange: noop,
-                }),
+            renderEditor(
+                { definition: sectionDef(), data: doc({ '1': 'a', '3': 10, '4': true }) },
+                { components: makeComponents(), onChange: noop },
             )
 
             expect(screen.getByTestId('string-1')).toBeTruthy()
@@ -467,14 +428,9 @@ describe('FormEditor', () => {
         })
 
         it('renders only top-level non-section items when section is ROOT', () => {
-            render(
-                createElement(FormEditor, {
-                    definition: sectionDef(),
-                    data: doc({ '1': 'a', '3': 10, '4': true }),
-                    components: makeComponents(),
-                    onChange: noop,
-                    section: ROOT,
-                }),
+            renderEditor(
+                { definition: sectionDef(), data: doc({ '1': 'a', '3': 10, '4': true }), section: ROOT },
+                { components: makeComponents(), onChange: noop },
             )
 
             expect(screen.getByTestId('string-1')).toBeTruthy()
@@ -483,36 +439,13 @@ describe('FormEditor', () => {
             expect(screen.queryByTestId('number-3')).toBeNull()
         })
 
-        it('renders section with header when filtering by section id (includeSectionHeader=true)', () => {
-            render(
-                createElement(FormEditor, {
-                    definition: sectionDef(),
-                    data: doc({ '1': 'a', '3': 10 }),
-                    components: makeComponents(),
-                    onChange: noop,
-                    section: 2,
-                    includeSectionHeader: true,
-                }),
+        it('renders section wrapper and content when filtering by section id', () => {
+            renderEditor(
+                { definition: sectionDef(), data: doc({ '1': 'a', '3': 10 }), section: 2 },
+                { components: makeComponents(), onChange: noop },
             )
 
             expect(screen.getByTestId('section-2')).toBeTruthy()
-            expect(screen.getByTestId('number-3')).toBeTruthy()
-            expect(screen.queryByTestId('string-1')).toBeNull()
-        })
-
-        it('renders only section content when includeSectionHeader=false', () => {
-            render(
-                createElement(FormEditor, {
-                    definition: sectionDef(),
-                    data: doc({ '1': 'a', '3': 10 }),
-                    components: makeComponents(),
-                    onChange: noop,
-                    section: 2,
-                    includeSectionHeader: false,
-                }),
-            )
-
-            expect(screen.queryByTestId('section-2')).toBeNull()
             expect(screen.getByTestId('number-3')).toBeTruthy()
             expect(screen.queryByTestId('string-1')).toBeNull()
         })
@@ -524,25 +457,20 @@ describe('FormEditor', () => {
             const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
             const onChange = jest.fn()
 
-            const { rerender } = render(
-                createElement(FormEditor, {
-                    definition,
-                    data: doc({ '1': 'Alice' }),
-                    components: makeComponents(),
-                    onChange,
-                }),
+            const { rerender } = renderEditor(
+                { definition, data: doc({ '1': 'Alice' }) },
+                { components: makeComponents(), onChange },
             )
 
             expect(screen.getByTestId('string-1').textContent).toBe('Alice')
 
             // Re-render with new values
             rerender(
-                createElement(FormEditor, {
-                    definition,
-                    data: doc({ '1': 'Bob' }),
-                    components: makeComponents(),
-                    onChange,
-                }),
+                createElement(
+                    Form,
+                    { definition, data: doc({ '1': 'Bob' }) },
+                    createElement(FormEditor, { components: makeComponents(), onChange }),
+                ),
             )
 
             expect(screen.getByTestId('string-1').textContent).toBe('Bob')
@@ -568,14 +496,7 @@ describe('FormEditor', () => {
             ])
             const values = { '1': false }
 
-            render(
-                createElement(FormEditor, {
-                    definition,
-                    data: doc(values),
-                    components: makeComponents(),
-                    onChange: noop,
-                }),
-            )
+            renderEditor({ definition, data: doc(values) }, { components: makeComponents(), onChange: noop })
 
             expect(screen.getByTestId('boolean-1')).toBeTruthy()
             expect(screen.queryByTestId('string-2')).toBeNull()
@@ -593,14 +514,7 @@ describe('FormEditor', () => {
             ])
             const values = { '1': true }
 
-            render(
-                createElement(FormEditor, {
-                    definition,
-                    data: doc(values),
-                    components: makeComponents(),
-                    onChange: noop,
-                }),
-            )
+            renderEditor({ definition, data: doc(values) }, { components: makeComponents(), onChange: noop })
 
             expect(screen.getByTestId('boolean-1')).toBeTruthy()
             expect(screen.getByTestId('string-2')).toBeTruthy()
@@ -619,14 +533,7 @@ describe('FormEditor', () => {
             ])
             const values = { '1': false }
 
-            render(
-                createElement(FormEditor, {
-                    definition,
-                    data: doc(values),
-                    components: makeComponents(),
-                    onChange: noop,
-                }),
-            )
+            renderEditor({ definition, data: doc(values) }, { components: makeComponents(), onChange: noop })
 
             expect(screen.getByTestId('boolean-1')).toBeTruthy()
             expect(screen.queryByTestId('section-2')).toBeNull()
@@ -647,14 +554,7 @@ describe('FormEditor', () => {
             const definition = baseDef([{ id: 1, type: 'file', label: 'Resume' }])
             const values = { '1': fileValue }
 
-            render(
-                createElement(FormEditor, {
-                    definition,
-                    data: doc(values),
-                    components: makeComponents(),
-                    onChange: noop,
-                }),
-            )
+            renderEditor({ definition, data: doc(values) }, { components: makeComponents(), onChange: noop })
 
             expect(screen.getByTestId('file-1').textContent).toBe('doc.pdf')
             expect(MockFile).toHaveBeenCalledWith(
@@ -672,14 +572,7 @@ describe('FormEditor', () => {
             const definition = baseDef([{ id: 1, type: 'file', label: 'Resume' }])
             const onChange = jest.fn()
 
-            render(
-                createElement(FormEditor, {
-                    definition,
-                    data: doc({ '1': fileValue }),
-                    components: makeComponents(),
-                    onChange,
-                }),
-            )
+            renderEditor({ definition, data: doc({ '1': fileValue }) }, { components: makeComponents(), onChange })
 
             const fileProps = lastCallProps(MockFile as jest.Mock)
             const fieldOnChange = fileProps.onChange as (value: unknown) => void
@@ -708,14 +601,7 @@ describe('FormEditor', () => {
             const values = { '1': [fileValue] }
             const onChange = jest.fn()
 
-            render(
-                createElement(FormEditor, {
-                    definition,
-                    data: doc(values),
-                    components: makeComponents(),
-                    onChange,
-                }),
-            )
+            renderEditor({ definition, data: doc(values) }, { components: makeComponents(), onChange })
 
             expect(screen.getByTestId('array-1')).toBeTruthy()
 
@@ -744,7 +630,7 @@ describe('FormEditor', () => {
             const values = { '1': ['foo', 'bar'] }
             const onChange = jest.fn()
 
-            render(createElement(FormEditor, { definition, data: doc(values), components: makeComponents(), onChange }))
+            renderEditor({ definition, data: doc(values) }, { components: makeComponents(), onChange })
 
             // Array items are rendered as string components — find the call for the second item
             const stringCalls = (MockString as jest.Mock).mock.calls
@@ -766,13 +652,9 @@ describe('FormEditor', () => {
             const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
             const onChange = jest.fn()
 
-            render(
-                createElement(FormEditor, {
-                    definition,
-                    data: doc({ '1': 'Alice' }, '2026-01-15T10:00:00.000Z'),
-                    components: makeComponents(),
-                    onChange,
-                }),
+            renderEditor(
+                { definition, data: doc({ '1': 'Alice' }, '2026-01-15T10:00:00.000Z') },
+                { components: makeComponents(), onChange },
             )
 
             const stringProps = lastCallProps(MockString as jest.Mock)
@@ -785,143 +667,14 @@ describe('FormEditor', () => {
         })
     })
 
-    // 13. onDocumentError callback
-    describe('onDocumentError', () => {
-        it('calls onDocumentError when document form id does not match definition', () => {
-            const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
-            const mismatchedDoc: FormDocument = {
-                form: { id: 'wrong-form', version: '1.0.0', submittedAt: '2025-06-15T00:00:00.000Z' },
-                values: { '1': 'Alice' },
-            }
-            const onDocumentError = jest.fn()
+    // 13. useFormContext throws outside Form provider
+    it('throws when rendered without a Form provider', () => {
+        const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
 
-            render(
-                createElement(FormEditor, {
-                    definition,
-                    data: mismatchedDoc,
-                    components: makeComponents(),
-                    onChange: noop,
-                    onDocumentError,
-                }),
-            )
+        expect(() => render(createElement(FormEditor, { components: makeComponents(), onChange: noop }))).toThrow(
+            'useFormContext must be used within a <Form> provider',
+        )
 
-            expect(onDocumentError).toHaveBeenCalledTimes(1)
-            const errors = onDocumentError.mock.calls[0][0] as DocumentValidationError[]
-            expect(errors.length).toBe(1)
-            expect(errors[0]).toMatchObject({ code: 'FORM_ID_MISMATCH' })
-        })
-
-        it('calls onDocumentError when document form version does not match definition', () => {
-            const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
-            const mismatchedDoc: FormDocument = {
-                form: { id: 'test-form', version: '2.0.0', submittedAt: '2025-06-15T00:00:00.000Z' },
-                values: { '1': 'Alice' },
-            }
-            const onDocumentError = jest.fn()
-
-            render(
-                createElement(FormEditor, {
-                    definition,
-                    data: mismatchedDoc,
-                    components: makeComponents(),
-                    onChange: noop,
-                    onDocumentError,
-                }),
-            )
-
-            expect(onDocumentError).toHaveBeenCalledTimes(1)
-            const errors = onDocumentError.mock.calls[0][0] as DocumentValidationError[]
-            expect(errors.length).toBe(1)
-            expect(errors[0]).toMatchObject({ code: 'FORM_VERSION_MISMATCH' })
-        })
-
-        it('calls onDocumentError with both errors when id and version mismatch', () => {
-            const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
-            const mismatchedDoc: FormDocument = {
-                form: { id: 'wrong-form', version: '2.0.0', submittedAt: '2025-06-15T00:00:00.000Z' },
-                values: { '1': 'Alice' },
-            }
-            const onDocumentError = jest.fn()
-
-            render(
-                createElement(FormEditor, {
-                    definition,
-                    data: mismatchedDoc,
-                    components: makeComponents(),
-                    onChange: noop,
-                    onDocumentError,
-                }),
-            )
-
-            expect(onDocumentError).toHaveBeenCalledTimes(1)
-            const errors = onDocumentError.mock.calls[0][0] as DocumentValidationError[]
-            expect(errors.length).toBe(2)
-            expect(errors.map((e) => e.code)).toEqual(['FORM_ID_MISMATCH', 'FORM_VERSION_MISMATCH'])
-        })
-
-        it('does not call onDocumentError when document matches definition', () => {
-            const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
-            const onDocumentError = jest.fn()
-
-            render(
-                createElement(FormEditor, {
-                    definition,
-                    data: doc({ '1': 'Alice' }),
-                    components: makeComponents(),
-                    onChange: noop,
-                    onDocumentError,
-                }),
-            )
-
-            expect(onDocumentError).not.toHaveBeenCalled()
-        })
-
-        it('does not throw when onDocumentError is not provided and document mismatches', () => {
-            const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
-            const mismatchedDoc: FormDocument = {
-                form: { id: 'wrong-form', version: '2.0.0', submittedAt: '2025-06-15T00:00:00.000Z' },
-                values: { '1': 'Alice' },
-            }
-
-            expect(() =>
-                render(
-                    createElement(FormEditor, {
-                        definition,
-                        data: mismatchedDoc,
-                        components: makeComponents(),
-                        onChange: noop,
-                    }),
-                ),
-            ).not.toThrow()
-        })
-
-        it('onChange still includes documentErrors in validation result', () => {
-            const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
-            const mismatchedDoc: FormDocument = {
-                form: { id: 'wrong-form', version: '1.0.0', submittedAt: '2025-06-15T00:00:00.000Z' },
-                values: { '1': 'Alice' },
-            }
-            const onChange = jest.fn()
-
-            render(
-                createElement(FormEditor, {
-                    definition,
-                    data: mismatchedDoc,
-                    components: makeComponents(),
-                    onChange,
-                }),
-            )
-
-            // Trigger field change
-            const stringProps = lastCallProps(MockString as jest.Mock)
-            const fieldOnChange = stringProps.onChange as (value: unknown) => void
-            fieldOnChange('Bob')
-
-            expect(onChange).toHaveBeenCalledTimes(1)
-            const [, validation] = onChange.mock.calls[0] as [FormDocument, FormValidationResult]
-            expect(validation.documentErrors).toBeDefined()
-            expect(validation.documentErrors!.length).toBe(1)
-            expect(validation.documentErrors![0]).toMatchObject({ code: 'FORM_ID_MISMATCH' })
-        })
+        consoleSpy.mockRestore()
     })
 })

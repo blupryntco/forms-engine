@@ -228,7 +228,7 @@ export class FormEngine {
      * document-level error is reported and `new Date()` is used as fallback.
      *
      * @param doc - Current form document to validate.
-     * @returns Validation result with a `valid` flag and an array of errors.
+     * @returns Validation result with a `valid` flag and a `fieldErrors` map.
      */
     validate(doc: FormDocument): FormValidationResult {
         // Document compatibility check
@@ -277,7 +277,7 @@ export class FormEngine {
         if (documentErrors.length > 0) {
             return {
                 valid: false,
-                errors: result.errors,
+                fieldErrors: result.fieldErrors,
                 documentErrors,
             }
         }

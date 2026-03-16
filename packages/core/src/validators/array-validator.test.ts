@@ -37,7 +37,7 @@ describe('ArrayValidator (via FieldValidator)', () => {
         const validator = new FieldValidator(registry)
         const result = validator.validate({ '1': ['only-one'] }, allVisible(1), now)
         expect(result.valid).toBe(false)
-        expect(result.errors[0]).toMatchObject({
+        expect(result.fieldErrors.get(1)?.[0]).toMatchObject({
             fieldId: 1,
             rule: 'MIN_ITEMS',
             params: { minItems: 2, actual: 1 },
@@ -58,7 +58,7 @@ describe('ArrayValidator (via FieldValidator)', () => {
         const validator = new FieldValidator(registry)
         const result = validator.validate({ '1': ['a', 'b', 'c'] }, allVisible(1), now)
         expect(result.valid).toBe(false)
-        expect(result.errors[0]).toMatchObject({ fieldId: 1, rule: 'MAX_ITEMS' })
+        expect(result.fieldErrors.get(1)?.[0]).toMatchObject({ fieldId: 1, rule: 'MAX_ITEMS' })
     })
 
     it('validates individual items and includes itemIndex', () => {
@@ -75,8 +75,8 @@ describe('ArrayValidator (via FieldValidator)', () => {
         const validator = new FieldValidator(registry)
         const result = validator.validate({ '1': ['abc', 'x', 'def'] }, allVisible(1), now)
         expect(result.valid).toBe(false)
-        expect(result.errors).toHaveLength(1)
-        expect(result.errors[0]).toMatchObject({
+        expect(result.fieldErrors.get(1)).toHaveLength(1)
+        expect(result.fieldErrors.get(1)?.[0]).toMatchObject({
             fieldId: 1,
             rule: 'MIN_LENGTH',
             itemIndex: 1,
@@ -97,7 +97,7 @@ describe('ArrayValidator (via FieldValidator)', () => {
         const validator = new FieldValidator(registry)
         const result = validator.validate({ '1': 'not-an-array' }, allVisible(1), now)
         expect(result.valid).toBe(false)
-        expect(result.errors[0]).toMatchObject({
+        expect(result.fieldErrors.get(1)?.[0]).toMatchObject({
             fieldId: 1,
             rule: 'TYPE',
             params: { expectedType: 'array' },
@@ -178,7 +178,7 @@ describe('ArrayValidator (via FieldValidator)', () => {
         const validator = new FieldValidator(registry)
         const result = validator.validate({ '1': [validFile, 'bad', validFile] }, allVisible(1), now)
         expect(result.valid).toBe(false)
-        expect(result.errors).toHaveLength(1)
-        expect(result.errors[0]).toMatchObject({ fieldId: 1, rule: 'TYPE', itemIndex: 1 })
+        expect(result.fieldErrors.get(1)).toHaveLength(1)
+        expect(result.fieldErrors.get(1)?.[0]).toMatchObject({ fieldId: 1, rule: 'TYPE', itemIndex: 1 })
     })
 })

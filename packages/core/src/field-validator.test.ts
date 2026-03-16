@@ -36,7 +36,7 @@ describe('FieldValidator', () => {
             const registry = new Map<number, FieldEntry>([[1, entry]])
             const validator = new FieldValidator(registry)
             const result = validator.validate({}, allVisible(1), now)
-            expect(result.errors.some((e) => e.fieldId === 1)).toBe(true)
+            expect(result.fieldErrors.has(1)).toBe(true)
         })
 
         it('has a validator registered for "array" field type', () => {
@@ -48,7 +48,7 @@ describe('FieldValidator', () => {
             const registry = new Map<number, FieldEntry>([[1, entry]])
             const validator = new FieldValidator(registry)
             const result = validator.validate({ '1': [] }, allVisible(1), now)
-            expect(result.errors.some((e) => e.fieldId === 1)).toBe(true)
+            expect(result.fieldErrors.has(1)).toBe(true)
         })
     })
 
@@ -61,7 +61,7 @@ describe('FieldValidator', () => {
             const vis = new Map<number, boolean>([[1, false]])
             const result = validator.validate({}, vis, now)
             expect(result.valid).toBe(true)
-            expect(result.errors).toHaveLength(0)
+            expect(result.fieldErrors.size).toBe(0)
         })
     })
 
@@ -84,7 +84,8 @@ describe('FieldValidator', () => {
             ])
             const validator = new FieldValidator(registry)
             const result = validator.validate({}, allVisible(1), now)
-            const err = result.errors[0]
+            const err = result.fieldErrors.get(1)?.[0]
+            expect(err).toBeDefined()
             expect(err).toHaveProperty('fieldId', 1)
             expect(err).toHaveProperty('rule', 'REQUIRED')
             expect(err).toHaveProperty('message')
@@ -96,7 +97,7 @@ describe('FieldValidator', () => {
             ])
             const validator = new FieldValidator(registry)
             const result = validator.validate({ '1': 'short' }, allVisible(1), now)
-            expect(result.errors[0]?.params).toEqual({ minLength: 10, actual: 5 })
+            expect(result.fieldErrors.get(1)?.[0]?.params).toEqual({ minLength: 10, actual: 5 })
         })
 
         it('includes itemIndex for array item errors', () => {
@@ -112,7 +113,7 @@ describe('FieldValidator', () => {
             ])
             const validator = new FieldValidator(registry)
             const result = validator.validate({ '1': [5, -1, 3] }, allVisible(1), now)
-            expect(result.errors[0]?.itemIndex).toBe(1)
+            expect(result.fieldErrors.get(1)?.[0]?.itemIndex).toBe(1)
         })
     })
 })
