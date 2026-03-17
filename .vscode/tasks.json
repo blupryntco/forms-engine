@@ -31,6 +31,15 @@
 			"problemMatcher": ["$tsc"]
 		},
 		{
+			"label": "Build: Builder",
+			"type": "shell",
+			"command": "pnpm --filter @bluprynt/forms-builder build",
+			"group": "build",
+			"icon": { "id": "package", "color": "terminal.ansiMagenta" },
+			"presentation": { "group": "builder" },
+			"problemMatcher": ["$tsc"]
+		},
+		{
 			"label": "Test All",
 			"type": "shell",
 			"command": "pnpm test",
@@ -57,6 +66,15 @@
 			"group": "test",
 			"icon": { "id": "beaker", "color": "terminal.ansiCyan" },
 			"presentation": { "group": "viewer" },
+			"problemMatcher": []
+		},
+		{
+			"label": "Test: Builder",
+			"type": "shell",
+			"command": "pnpm --filter @bluprynt/forms-builder test",
+			"group": "test",
+			"icon": { "id": "beaker", "color": "terminal.ansiMagenta" },
+			"presentation": { "group": "builder" },
 			"problemMatcher": []
 		},
 		{
