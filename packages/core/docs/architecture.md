@@ -59,7 +59,7 @@ Input: FormDefinition (JSON)
   ▼
 [1] JSON Schema Validation (AJV)
   │  Validates structural correctness against form-definition.schema.json
-  │  → Throws FormDefinitionError if invalid
+  │  → Throws DocumentError if invalid
   │
   ▼
 [2] Build Field Registry
@@ -70,7 +70,7 @@ Input: FormDefinition (JSON)
 [3] Semantic Validation
   │  Checks: duplicate IDs, nesting depth, unknown field refs,
   │  condition refs to sections, constraint contradictions, invalid regex
-  │  → Collects: FormDefinitionIssue[]
+  │  → Collects: DocumentValidationError[]
   │
   ▼
 [4] Cycle Detection
@@ -79,7 +79,7 @@ Input: FormDefinition (JSON)
   │
   ▼
 [5] Error Gate
-  │  If any issues from steps 3-4: throw FormDefinitionError(issues)
+  │  If any errors from steps 3-4: throw DocumentError(errors)
   │
   ▼
 [6] Build Dependency Graph + Topological Sort

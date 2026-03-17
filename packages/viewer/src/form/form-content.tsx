@@ -13,6 +13,7 @@ type FormContentBaseProps = {
     values: FormValues
     fieldErrors: Map<number, FieldValidationError[]>
     section?: typeof ROOT | number
+    showInlineValidation: boolean
 }
 
 type FormContentViewerProps = FormContentBaseProps & {
@@ -30,7 +31,7 @@ type FormContentEditorProps = FormContentBaseProps & {
 export type FormContentProps = FormContentViewerProps | FormContentEditorProps
 
 export const FormContent: FC<FormContentProps> = (props) => {
-    const { items, visibilityMap, values, fieldErrors, section } = props
+    const { items, visibilityMap, values, fieldErrors, section, showInlineValidation } = props
 
     const sharedProps =
         props.mode === 'editor'
@@ -39,6 +40,7 @@ export const FormContent: FC<FormContentProps> = (props) => {
                   values,
                   fieldErrors,
                   components: props.components,
+                  showInlineValidation,
                   renderFieldProps: props.renderFieldProps,
                   renderArrayItemProps: props.renderArrayItemProps,
               }
@@ -47,6 +49,7 @@ export const FormContent: FC<FormContentProps> = (props) => {
                   values,
                   fieldErrors,
                   components: props.components,
+                  showInlineValidation,
               }
 
     if (section === undefined) return <FormItems items={items} {...sharedProps} />

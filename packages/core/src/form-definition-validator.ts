@@ -3,13 +3,13 @@ import Ajv2020 from 'ajv/dist/2020'
 import { isRelativeDate } from './date-utils'
 import { DependencyGraph } from './dependency-graph'
 import formDefinitionSchema from './form-definition.schema.json'
-import type { FormDefinitionIssue } from './types/errors'
 import type { FieldEntry } from './types/field-entry'
 import type { ContentItem, FormDefinition } from './types/form-definition'
 import type { ArrayValidation } from './types/validation/array'
 import type { DateValidation } from './types/validation/date'
 import type { NumberValidation } from './types/validation/number'
 import type { StringValidation } from './types/validation/string'
+import type { DocumentValidationError } from './types/validation-results'
 
 const ajv = new Ajv2020({ allErrors: true })
 const validateFn = ajv.compile(formDefinitionSchema)
@@ -45,7 +45,7 @@ export class FormDefinitionValidator {
      * @param input - The raw input to validate.
      * @returns Array of `SCHEMA_INVALID` issues. Empty when the input conforms to the schema.
      */
-    validateSchema(input: unknown): FormDefinitionIssue[] {
+    validateSchema(input: unknown): DocumentValidationError[] {
         if (validateFn(input)) return []
 
         return (validateFn.errors ?? []).map((err) => {
@@ -68,8 +68,8 @@ export class FormDefinitionValidator {
      * @param registry - The flattened field registry built from the definition.
      * @returns Array of issues found. Empty if the definition is semantically valid.
      */
-    validate(definition: FormDefinition, registry: Map<number, FieldEntry>): FormDefinitionIssue[] {
-        const issues: FormDefinitionIssue[] = []
+    validate(definition: FormDefinition, registry: Map<number, FieldEntry>): DocumentValidationError[] {
+        const issues: DocumentValidationError[] = []
 
         this.checkDuplicateIds(definition.content, issues)
         this.checkNestingDepth(definition.content, 0, issues)
@@ -81,7 +81,7 @@ export class FormDefinitionValidator {
         return issues
     }
 
-    private checkDuplicateIds(content: ContentItem[], issues: FormDefinitionIssue[]): void {
+    private checkDuplicateIds(content: ContentItem[], issues: DocumentValidationError[]): void {
         const seen = new Set<number>()
         this.walkItems(content, (item) => {
             if (seen.has(item.id)) {
@@ -92,7 +92,7 @@ export class FormDefinitionValidator {
         })
     }
 
-    private checkNestingDepth(content: ContentItem[], depth: number, issues: FormDefinitionIssue[]): void {
+    private checkNestingDepth(content: ContentItem[], depth: number, issues: DocumentValidationError[]): void {
         for (const item of content) {
             if (item.type === 'section') {
                 if (depth >= 3) {
@@ -108,7 +108,7 @@ export class FormDefinitionValidator {
         }
     }
 
-    private checkConditionRefs(registry: Map<number, FieldEntry>, issues: FormDefinitionIssue[]): void {
+    private checkConditionRefs(registry: Map<number, FieldEntry>, issues: DocumentValidationError[]): void {
         for (const [id, entry] of registry) {
             if (!entry.condition) continue
             const refs = DependencyGraph.extractFieldRefs(entry.condition)
@@ -124,7 +124,7 @@ export class FormDefinitionValidator {
         }
     }
 
-    private checkConditionRefsSection(registry: Map<number, FieldEntry>, issues: FormDefinitionIssue[]): void {
+    private checkConditionRefsSection(registry: Map<number, FieldEntry>, issues: DocumentValidationError[]): void {
         for (const [id, entry] of registry) {
             if (!entry.condition) continue
             const refs = DependencyGraph.extractFieldRefs(entry.condition)
@@ -141,7 +141,7 @@ export class FormDefinitionValidator {
         }
     }
 
-    private checkConstraintContradictions(registry: Map<number, FieldEntry>, issues: FormDefinitionIssue[]): void {
+    private checkConstraintContradictions(registry: Map<number, FieldEntry>, issues: DocumentValidationError[]): void {
         for (const [id, entry] of registry) {
             if (!entry.validation) continue
 
@@ -200,7 +200,7 @@ export class FormDefinitionValidator {
         }
     }
 
-    private checkInvalidRegex(registry: Map<number, FieldEntry>, issues: FormDefinitionIssue[]): void {
+    private checkInvalidRegex(registry: Map<number, FieldEntry>, issues: DocumentValidationError[]): void {
         for (const [id, entry] of registry) {
             if (entry.type !== 'string' || !entry.validation) continue
             const v = entry.validation as StringValidation

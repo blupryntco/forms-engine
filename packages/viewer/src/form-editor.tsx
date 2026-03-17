@@ -12,9 +12,11 @@ type FormEditorProps = {
 }
 
 export const FormEditor: FC<FormEditorProps> = ({ components, onChange }) => {
-    const { definition, data, visibilityMap, fieldErrors, section, engine } = useFormContext()
+    const { definition, data, visibilityMap, fieldErrors, section, engine, showInlineValidation } = useFormContext()
 
-    const { renderFieldProps, renderArrayItemProps } = useEditorHandlers(data, engine, onChange)
+    const { renderFieldProps, renderArrayItemProps } = useEditorHandlers(engine, data, onChange)
+
+    if (!definition || !data) return null
 
     return (
         <FormContent
@@ -25,6 +27,7 @@ export const FormEditor: FC<FormEditorProps> = ({ components, onChange }) => {
             fieldErrors={fieldErrors}
             components={components}
             section={section}
+            showInlineValidation={showInlineValidation}
             renderFieldProps={renderFieldProps}
             renderArrayItemProps={renderArrayItemProps}
         />
@@ -32,8 +35,8 @@ export const FormEditor: FC<FormEditorProps> = ({ components, onChange }) => {
 }
 
 export const useEditorHandlers = (
-    data: FormDocument,
-    engine: FormEngine,
+    engine: FormEngine | undefined,
+    data: FormDocument | undefined,
     onChange: (data: FormDocument, validation: FormValidationResult) => void,
 ): {
     renderFieldProps: (field: FieldContentItem) => EditorFieldProps
@@ -53,6 +56,8 @@ export const useEditorHandlers = (
         if (!handler) {
             handler = (newValue: unknown) => {
                 const { data, onChange, engine } = stateRef.current
+                if (!data || !engine) return
+
                 const document: FormDocument = { ...data, values: { ...data.values, [key]: newValue } }
 
                 onChange(document, engine.validate(document))
@@ -81,6 +86,7 @@ export const useEditorHandlers = (
         if (!handlers) {
             const fire = (mutate: (arr: unknown[]) => unknown[]) => {
                 const { data, onChange, engine } = stateRef.current
+                if (!data || !engine) return
 
                 const items = (data.values[key] as unknown[] | undefined) ?? []
                 const document: FormDocument = { ...data, values: { ...data.values, [key]: mutate([...items]) } }
@@ -123,6 +129,7 @@ export const useEditorHandlers = (
                 const fieldKey = String(fieldId)
 
                 const { data, onChange, engine } = stateRef.current
+                if (!data || !engine) return
 
                 const items = [...((data.values[fieldKey] as unknown[] | undefined) ?? [])]
                 items[index] = newValue

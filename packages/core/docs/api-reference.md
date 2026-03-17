@@ -14,7 +14,7 @@ import { FormEngine } from '@bluprynt/forms-core'
 
 Compiles the form definition. Performs JSON schema validation, semantic validation, and cycle detection.
 
-**Throws:** `FormDefinitionError` if the definition is invalid.
+**Throws:** `DocumentError` if the definition is invalid.
 
 ```ts
 const engine = new FormEngine(definition)
@@ -59,7 +59,7 @@ Loads a `FormDocument` from a previously created `FormSnapshot`. Verifies that t
 
 **Returns:** `FormDocument` — the form document from the snapshot.
 
-**Throws:** `FormDocumentLoadError` if the snapshot's definition `id` or `version` does not match the engine's.
+**Throws:** `DocumentError` if the snapshot's definition `id` or `version` does not match the engine's.
 
 ```ts
 // Round-trip: dump and load
@@ -71,7 +71,7 @@ try {
   const restored = engine.loadDocument(snapshot)
   console.log(restored.values) // { "1": "Alice" }
 } catch (err) {
-  if (err instanceof FormDocumentLoadError) {
+  if (err instanceof DocumentError) {
     err.errors.forEach(e => console.log(e.code, e.message))
   }
 }
@@ -465,13 +465,13 @@ All item IDs in topological order.
 
 Validates form definitions at both the structural (JSON Schema) and semantic levels.
 
-#### `validateSchema(input: unknown): FormDefinitionIssue[]`
+#### `validateSchema(input: unknown): DocumentValidationError[]`
 
-Validates raw input against the JSON Schema (`form-definition.schema.json`) using AJV. Returns issues with code `SCHEMA_INVALID`.
+Validates raw input against the JSON Schema (`form-definition.schema.json`) using AJV. Returns errors with code `SCHEMA_INVALID`.
 
-#### `validate(definition: FormDefinition, registry: Map<number, FieldEntry>): FormDefinitionIssue[]`
+#### `validate(definition: FormDefinition, registry: Map<number, FieldEntry>): DocumentValidationError[]`
 
-Performs semantic checks. Returns an array of issues. See [Schema Issue Codes](./schema-issue-codes.md) for all issue codes.
+Performs semantic checks. Returns an array of errors. See [Schema Issue Codes](./schema-issue-codes.md) for all error codes.
 
 ---
 
@@ -523,9 +523,7 @@ Performs semantic checks. Returns an array of issues. See [Schema Issue Codes](.
 | `SelectOption` | `{ value: string \| number, label: string }` |
 | `ArrayItemDef` | `{ type, label, description?, validation?, options? }` — no `id`, no nested arrays |
 | `FileValue` | `{ name, mimeType, size, url }` |
-| `FormDefinitionIssue` | `{ code: FormDefinitionIssueCode, message, itemId? }` |
-| `FormDefinitionError` | Error class with `.issues: FormDefinitionIssue[]` |
-| `FormDocumentLoadError` | Error class with `.errors: DocumentValidationError[]` — thrown by `loadDocument()` on id/version mismatch |
+| `DocumentError` | Error class with `.errors: DocumentValidationError[]` — thrown on definition validation failure or by `loadDocument()` on id/version mismatch |
 | `EvaluationContext` | `{ values, visibilityMap?, now? }` |
 | `FieldDescriptor` | `Omit<FieldContentItem, 'id'> & { id?: number }` |
 | `SectionDescriptor` | `Omit<SectionContentItem, 'id' \| 'content'> & { id?: number, content?: ContentItem[] }` |

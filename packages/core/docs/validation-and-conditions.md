@@ -244,6 +244,6 @@ They are **not cached** — every call to `validate()` or `getVisibilityMap()` r
 
 ## Schema Validation
 
-Form definitions are validated in two stages (JSON Schema structural checks, then semantic checks) before the engine can be used. All issues are collected and thrown as a single `FormDefinitionError`.
+Form definitions are validated in two stages (JSON Schema structural checks, then semantic checks) before the engine can be used. All errors are collected and thrown as a single `DocumentError`.
 
 See [Schema Issue Codes](./schema-issue-codes.md) for the full list of issue codes, validation stages, and error handling examples.

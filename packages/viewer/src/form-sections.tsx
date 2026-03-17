@@ -9,7 +9,7 @@ export type FormSectionEntry = Omit<SectionContentItem, 'id' | 'type'> & {
     id: typeof ROOT | number
 }
 
-type FormSectionItemProps = {
+export type FormSectionItemProps = {
     section: FormSectionEntry
     active: boolean
     select: () => void
@@ -34,6 +34,8 @@ export const FormSections: FC<FormSectionsProps> = ({
 
     // biome-ignore lint/correctness/useExhaustiveDependencies: invalidate section list when data changes
     const entries = useMemo(() => {
+        if (!definition) return []
+
         const result: FormSectionEntry[] = []
 
         const rootFields = definition.content.filter((item) => item.type !== 'section')
@@ -55,7 +57,9 @@ export const FormSections: FC<FormSectionsProps> = ({
         }
 
         return result
-    }, [definition.content, visibilityMap, data, defaultSectionTitle, defaultSectionDescription])
+    }, [definition?.content, visibilityMap, data, defaultSectionTitle, defaultSectionDescription])
+
+    if (!definition || !data) return null
 
     return (
         <Container>

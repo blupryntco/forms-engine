@@ -4,6 +4,7 @@ export type {
     DocumentValidationError,
     DocumentValidationErrorCode,
     FieldContentItem,
+    FieldEntry,
     FieldType,
     FieldValidationError,
     FileValue,
@@ -15,12 +16,15 @@ export type {
     SectionContentItem,
     SelectOption,
 } from '@bluprynt/forms-core'
-export { FormDocumentLoadError, FormValuesEditor } from '@bluprynt/forms-core'
+export { DocumentError, FormValuesEditor } from '@bluprynt/forms-core'
 
 export { ROOT } from './constants'
 export { Form, useFormContext } from './form-context'
+export { FormDocumentValidation } from './form-document-validation'
 export { FormEditor } from './form-editor'
-export type { FormSectionEntry } from './form-sections'
+export type { FieldValidationFieldEntry } from './form-fields-validation'
+export { FormFieldsValidation } from './form-fields-validation'
+export type { FormSectionEntry, FormSectionItemProps } from './form-sections'
 export { FormSections } from './form-sections'
 export { FormViewer } from './form-viewer'
 export type {

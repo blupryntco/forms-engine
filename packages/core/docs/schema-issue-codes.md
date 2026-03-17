@@ -1,6 +1,6 @@
 # Schema Validation Issue Codes
 
-Form definitions are validated in two stages before the engine can be used. All issues are collected and thrown together in a single `FormDefinitionError`.
+Form definitions are validated in two stages before the engine can be used. All errors are collected and thrown together in a single `DocumentError`.
 
 ## Stage 1: JSON Schema Validation
 
@@ -35,32 +35,32 @@ Checks logical correctness that JSON Schema alone cannot express.
 ## Error Handling
 
 ```ts
-import { FormEngine, FormDefinitionError } from '@bluprynt/forms-core'
+import { FormEngine, DocumentError } from '@bluprynt/forms-core'
 
 try {
   const engine = new FormEngine(definition)
 } catch (err) {
-  if (err instanceof FormDefinitionError) {
-    for (const issue of err.issues) {
-      console.log(issue.code, issue.message, issue.itemId)
+  if (err instanceof DocumentError) {
+    for (const error of err.errors) {
+      console.log(error.code, error.message, error.itemId)
     }
   }
 }
 ```
 
-### `FormDefinitionError`
+### `DocumentError`
 
 - Extends `Error`
-- `message` — semicolon-separated summary of all issues
-- `issues: FormDefinitionIssue[]` — structured list for programmatic access
+- `message` — `"Document validation failed: "` followed by semicolon-separated summary of all errors
+- `errors: DocumentValidationError[]` — structured list for programmatic access
 
-### `FormDefinitionIssue`
+### `DocumentValidationError`
 
 ```ts
 {
-  code: FormDefinitionIssueCode  // one of the codes above
-  message: string                // human-readable description
-  itemId?: number                // ID of the content item involved, when applicable
+  code: DocumentValidationErrorCode  // one of the codes above
+  message: string                    // human-readable description
+  itemId?: number                    // ID of the content item involved, when applicable
 }
 ```
 

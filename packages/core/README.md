@@ -64,7 +64,7 @@ const doc = editor.toJSON()
 | [Architecture](./docs/architecture.md) | Project structure, module dependency graph, key design patterns |
 | [API Reference](./docs/api-reference.md) | Complete public API — classes, methods, types, error handling |
 | [Validation & Conditions](./docs/validation-and-conditions.md) | How validation rules work per field type, condition operators, visibility resolution |
-| [Schema Issue Codes](./docs/schema-issue-codes.md) | All `FormDefinitionError` issue codes, validation stages, error handling |
+| [Schema Issue Codes](./docs/schema-issue-codes.md) | All `DocumentError` error codes, validation stages, error handling |
 | [Development Guide](./docs/development-guide.md) | How to build, test, lint, and extend the engine (e.g., adding new field types) |
 
 ## Supported Field Types

@@ -2,12 +2,12 @@ import { ConditionEvaluator } from './condition-evaluator'
 import { DependencyGraph } from './dependency-graph'
 import { FieldValidator } from './field-validator'
 import { FormDefinitionValidator } from './form-definition-validator'
-import { FormDefinitionError, FormDocumentLoadError } from './types/errors'
+import { DocumentError } from './types/errors'
 import type { FieldEntry } from './types/field-entry'
 import type { ContentItem, FormDefinition } from './types/form-definition'
 import type { FormSnapshot } from './types/form-snapshot'
 import type { FormDocument, FormValues } from './types/form-values'
-import type { DocumentValidationError, FormValidationResult } from './types/validation-results'
+import type { DocumentValidationError, FieldValidationError, FormValidationResult } from './types/validation-results'
 import { VisibilityResolver } from './visibility-resolver'
 
 /**
@@ -25,7 +25,7 @@ import { VisibilityResolver } from './visibility-resolver'
  * 3. **Cycle detection** -- verifies that condition dependencies form a DAG
  *    (no circular references).
  * 4. **Error reporting** -- if any issues were found in steps 2-3, throws a
- *    {@link FormDefinitionError} containing all issues.
+ *    {@link DocumentError} containing all issues.
  * 5. **Build dependency graph** -- creates a forward adjacency map so the
  *    engine can quickly determine which items are affected when a field
  *    value changes.
@@ -60,7 +60,7 @@ export class FormEngine {
      * Compiles a {@link FormDefinition} into a ready-to-use engine.
      *
      * @param definition - A complete form definition to compile.
-     * @throws {FormDefinitionError} If the definition contains semantic issues
+     * @throws {DocumentError} If the definition contains semantic issues
      *   or circular condition dependencies.
      */
     constructor(definition: FormDefinition) {
@@ -68,7 +68,7 @@ export class FormEngine {
         const definitionValidator = new FormDefinitionValidator()
         const schemaIssues = definitionValidator.validateSchema(definition)
         if (schemaIssues.length > 0) {
-            throw new FormDefinitionError(schemaIssues)
+            throw new DocumentError(schemaIssues)
         }
 
         // 1. Build field registry + content order
@@ -89,7 +89,7 @@ export class FormEngine {
         }
 
         if (issues.length > 0) {
-            throw new FormDefinitionError(issues)
+            throw new DocumentError(issues)
         }
 
         // 4. Build dependency graph
@@ -143,11 +143,11 @@ export class FormEngine {
      *
      * Verifies that the snapshot's form definition matches the engine's
      * compiled definition by comparing id and version. Throws a
-     * {@link FormDocumentLoadError} if there is a mismatch.
+     * {@link DocumentError} if there is a mismatch.
      *
      * @param snapshot - A snapshot previously produced by {@link dumpDocument}.
      * @returns The form document from the snapshot.
-     * @throws {FormDocumentLoadError} If the snapshot's definition id or version
+     * @throws {DocumentError} If the snapshot's definition id or version
      *   does not match the engine's.
      */
     loadDocument(snapshot: FormSnapshot): FormDocument {
@@ -167,7 +167,7 @@ export class FormEngine {
             })
         }
         if (errors.length > 0) {
-            throw new FormDocumentLoadError(errors)
+            throw new DocumentError(errors)
         }
         return snapshot.document
     }
@@ -270,19 +270,19 @@ export class FormEngine {
             }
         }
 
-        // Field validation still runs even when document errors are present
-        const visibilityMap = this.visibilityResolver.getVisibilityMap(doc.values, now)
-        const result = this.fieldValidator.validate(doc.values, visibilityMap, now)
+        // Document level validation errors
 
-        if (documentErrors.length > 0) {
+        if (documentErrors.length > 0)
             return {
                 valid: false,
-                fieldErrors: result.fieldErrors,
+                fieldErrors: new Map<number, FieldValidationError[]>(),
                 documentErrors,
             }
-        }
 
-        return result
+        // Field level validation errors
+
+        const visibilityMap = this.visibilityResolver.getVisibilityMap(doc.values, now)
+        return this.fieldValidator.validate(doc.values, visibilityMap, now)
     }
 
     /**

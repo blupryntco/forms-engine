@@ -55,27 +55,46 @@ export type FieldValidationError = {
  *
  * | Code | Description |
  * |------|-------------|
+ * | `SCHEMA_INVALID` | The form definition does not conform to the JSON schema. |
+ * | `DUPLICATE_ID` | Two or more content items share the same numeric id. |
+ * | `NESTING_DEPTH` | A section is nested deeper than the allowed 3 levels. |
+ * | `UNKNOWN_FIELD_REF` | A condition references a field id that does not exist in the form. |
+ * | `CONDITION_REFS_SECTION` | A condition references a section id; sections have no value to compare. |
+ * | `INVALID_MIN_MAX` | A field's minimum constraint exceeds its maximum constraint. |
+ * | `INVALID_REGEX` | String field `pattern` is not a valid regular expression. |
+ * | `CIRCULAR_DEPENDENCY` | Condition dependencies form a cycle (A depends on B depends on A). |
  * | `FORM_ID_MISMATCH` | The document's form id does not match the engine's form definition id. |
  * | `FORM_VERSION_MISMATCH` | The document's form version does not match the engine's form definition version. |
+ * | `FORM_SUBMITTED_AT_MISSING` | The document's submittedAt field is missing. |
+ * | `FORM_SUBMITTED_AT_INVALID` | The document's submittedAt field is not a valid date. |
  */
 export type DocumentValidationErrorCode =
+    | 'SCHEMA_INVALID'
+    | 'DUPLICATE_ID'
+    | 'NESTING_DEPTH'
+    | 'UNKNOWN_FIELD_REF'
+    | 'CONDITION_REFS_SECTION'
+    | 'INVALID_MIN_MAX'
+    | 'INVALID_REGEX'
+    | 'CIRCULAR_DEPENDENCY'
     | 'FORM_ID_MISMATCH'
     | 'FORM_VERSION_MISMATCH'
     | 'FORM_SUBMITTED_AT_MISSING'
     | 'FORM_SUBMITTED_AT_INVALID'
 
 /**
- * A document-level validation error indicating a compatibility mismatch
- * between the form document and the engine's form definition.
+ * A single validation error found during form definition or document validation.
  *
  * @property code - Machine-readable error code from {@link DocumentValidationErrorCode}.
  * @property message - Human-readable error description.
  * @property params - Optional parameters providing context (e.g. `{ expected, actual }`).
+ * @property itemId - Id of the content item involved, when applicable.
  */
 export type DocumentValidationError = {
     code: DocumentValidationErrorCode
     message: string
     params?: Record<string, unknown>
+    itemId?: number
 }
 
 /**

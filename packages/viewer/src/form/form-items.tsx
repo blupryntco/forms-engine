@@ -17,6 +17,7 @@ type FormItemsProps = {
     values: FormValues
     fieldErrors: Map<number, FieldValidationError[]>
     components: ViewerComponentMap | EditorComponentMap
+    showInlineValidation: boolean
     renderFieldProps?: (field: FieldContentItem) => EditorFieldProps
     renderArrayItemProps?: (arrayField: FieldContentItem, index: number) => EditorArrayItemProps
 }
@@ -27,11 +28,12 @@ export const FormItems: FC<FormItemsProps> = ({
     values,
     fieldErrors,
     components,
+    showInlineValidation,
     renderFieldProps,
     renderArrayItemProps,
 }) => {
     const SectionComponent = components.section
-    const ErrorComponent = components.error
+    const ErrorComponent = showInlineValidation ? components.error : undefined
 
     const elements: React.ReactNode[] = []
 
@@ -47,6 +49,7 @@ export const FormItems: FC<FormItemsProps> = ({
                         values={values}
                         fieldErrors={fieldErrors}
                         components={components}
+                        showInlineValidation={showInlineValidation}
                         renderFieldProps={renderFieldProps}
                         renderArrayItemProps={renderArrayItemProps}
                     />

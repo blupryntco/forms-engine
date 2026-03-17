@@ -9,7 +9,9 @@ type FormViewerProps = {
 }
 
 export const FormViewer: FC<FormViewerProps> = ({ components }) => {
-    const { definition, data, visibilityMap, fieldErrors, section } = useFormContext()
+    const { definition, data, visibilityMap, fieldErrors, section, showInlineValidation } = useFormContext()
+
+    if (!definition || !data) return null
 
     return (
         <FormContent
@@ -20,6 +22,7 @@ export const FormViewer: FC<FormViewerProps> = ({ components }) => {
             fieldErrors={fieldErrors}
             components={components}
             section={section}
+            showInlineValidation={showInlineValidation}
         />
     )
 }

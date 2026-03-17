@@ -1,6 +1,6 @@
 import { FormEngine } from './form-engine'
 import { SimpleCondition } from './types/conditions'
-import { FormDefinitionError, FormDocumentLoadError } from './types/errors'
+import { DocumentError } from './types/errors'
 import type { ContentItem, FormDefinition } from './types/form-definition'
 import type { FormSnapshot } from './types/form-snapshot'
 import type { FormDocument, FormValues } from './types/form-values'
@@ -24,11 +24,11 @@ const doc = (values: FormValues = {}, submittedAt: string = SUBMITTED_AT): FormD
 describe('FormEngine', () => {
     describe('construction', () => {
         it('rejects empty content array (schema requires minItems: 1)', () => {
-            expect(() => new FormEngine(baseDef([]))).toThrow(FormDefinitionError)
+            expect(() => new FormEngine(baseDef([]))).toThrow(DocumentError)
             try {
                 new FormEngine(baseDef([]))
             } catch (e) {
-                expect((e as FormDefinitionError).issues[0]?.code).toBe('SCHEMA_INVALID')
+                expect((e as DocumentError).errors[0]?.code).toBe('SCHEMA_INVALID')
             }
         })
 
@@ -181,12 +181,12 @@ describe('FormEngine', () => {
 
     describe('schema validation', () => {
         it('rejects non-object input', () => {
-            expect(() => new FormEngine(null as unknown as FormDefinition)).toThrow(FormDefinitionError)
-            expect(() => new FormEngine('string' as unknown as FormDefinition)).toThrow(FormDefinitionError)
+            expect(() => new FormEngine(null as unknown as FormDefinition)).toThrow(DocumentError)
+            expect(() => new FormEngine('string' as unknown as FormDefinition)).toThrow(DocumentError)
         })
 
         it('rejects missing required top-level fields', () => {
-            expect(() => new FormEngine({} as unknown as FormDefinition)).toThrow(FormDefinitionError)
+            expect(() => new FormEngine({} as unknown as FormDefinition)).toThrow(DocumentError)
         })
 
         it('rejects invalid version format', () => {
@@ -198,15 +198,15 @@ describe('FormEngine', () => {
                         title: 'T',
                         content: [{ id: 1, type: 'string', label: 'A' }],
                     } as unknown as FormDefinition),
-            ).toThrow(FormDefinitionError)
+            ).toThrow(DocumentError)
         })
 
         it('rejects empty content array', () => {
             try {
                 new FormEngine(baseDef([]))
             } catch (e) {
-                expect(e).toBeInstanceOf(FormDefinitionError)
-                expect((e as FormDefinitionError).issues.every((i) => i.code === 'SCHEMA_INVALID')).toBe(true)
+                expect(e).toBeInstanceOf(DocumentError)
+                expect((e as DocumentError).errors.every((i) => i.code === 'SCHEMA_INVALID')).toBe(true)
             }
         })
 
@@ -217,37 +217,35 @@ describe('FormEngine', () => {
                         ...baseDef([{ id: 1, type: 'string', label: 'A' }]),
                         extra: true,
                     } as unknown as FormDefinition),
-            ).toThrow(FormDefinitionError)
+            ).toThrow(DocumentError)
         })
 
         it('rejects field with non-integer id', () => {
-            expect(() => new FormEngine(baseDef([{ id: 1.5, type: 'string', label: 'A' }]))).toThrow(
-                FormDefinitionError,
-            )
+            expect(() => new FormEngine(baseDef([{ id: 1.5, type: 'string', label: 'A' }]))).toThrow(DocumentError)
         })
 
         it('rejects field with zero id', () => {
-            expect(() => new FormEngine(baseDef([{ id: 0, type: 'string', label: 'A' }]))).toThrow(FormDefinitionError)
+            expect(() => new FormEngine(baseDef([{ id: 0, type: 'string', label: 'A' }]))).toThrow(DocumentError)
         })
 
         it('rejects select without options', () => {
-            expect(() => new FormEngine(baseDef([{ id: 1, type: 'select', label: 'S' }]))).toThrow(FormDefinitionError)
+            expect(() => new FormEngine(baseDef([{ id: 1, type: 'select', label: 'S' }]))).toThrow(DocumentError)
         })
 
         it('rejects array without item', () => {
-            expect(() => new FormEngine(baseDef([{ id: 1, type: 'array', label: 'A' }]))).toThrow(FormDefinitionError)
+            expect(() => new FormEngine(baseDef([{ id: 1, type: 'array', label: 'A' }]))).toThrow(DocumentError)
         })
 
         it('rejects section with empty content', () => {
             expect(() => new FormEngine(baseDef([{ id: 1, type: 'section', title: 'S', content: [] }]))).toThrow(
-                FormDefinitionError,
+                DocumentError,
             )
         })
 
         it('rejects unknown field type', () => {
             expect(
                 () => new FormEngine(baseDef([{ id: 1, type: 'unknown', label: 'A' }] as unknown as ContentItem[])),
-            ).toThrow(FormDefinitionError)
+            ).toThrow(DocumentError)
         })
 
         it('valid definition passes schema validation', () => {
@@ -273,7 +271,7 @@ describe('FormEngine', () => {
                             { id: 1, type: 'number', label: 'B' },
                         ]),
                     ),
-            ).toThrow(FormDefinitionError)
+            ).toThrow(DocumentError)
             try {
                 new FormEngine(
                     baseDef([
@@ -282,8 +280,8 @@ describe('FormEngine', () => {
                     ]),
                 )
             } catch (e) {
-                expect(e).toBeInstanceOf(FormDefinitionError)
-                expect((e as FormDefinitionError).issues.some((i) => i.code === 'DUPLICATE_ID')).toBe(true)
+                expect(e).toBeInstanceOf(DocumentError)
+                expect((e as DocumentError).errors.some((i) => i.code === 'DUPLICATE_ID')).toBe(true)
             }
         })
 
@@ -320,10 +318,10 @@ describe('FormEngine', () => {
                         },
                     ]),
                 )
-                fail('Expected FormDefinitionError')
+                fail('Expected DocumentError')
             } catch (e) {
-                expect(e).toBeInstanceOf(FormDefinitionError)
-                expect((e as FormDefinitionError).issues.some((i) => i.code === 'NESTING_DEPTH')).toBe(true)
+                expect(e).toBeInstanceOf(DocumentError)
+                expect((e as DocumentError).errors.some((i) => i.code === 'NESTING_DEPTH')).toBe(true)
             }
         })
 
@@ -339,10 +337,10 @@ describe('FormEngine', () => {
                         },
                     ]),
                 )
-                fail('Expected FormDefinitionError')
+                fail('Expected DocumentError')
             } catch (e) {
-                expect(e).toBeInstanceOf(FormDefinitionError)
-                expect((e as FormDefinitionError).issues.some((i) => i.code === 'UNKNOWN_FIELD_REF')).toBe(true)
+                expect(e).toBeInstanceOf(DocumentError)
+                expect((e as DocumentError).errors.some((i) => i.code === 'UNKNOWN_FIELD_REF')).toBe(true)
             }
         })
 
@@ -364,10 +362,10 @@ describe('FormEngine', () => {
                         },
                     ]),
                 )
-                fail('Expected FormDefinitionError')
+                fail('Expected DocumentError')
             } catch (e) {
-                expect(e).toBeInstanceOf(FormDefinitionError)
-                expect((e as FormDefinitionError).issues.some((i) => i.code === 'CONDITION_REFS_SECTION')).toBe(true)
+                expect(e).toBeInstanceOf(DocumentError)
+                expect((e as DocumentError).errors.some((i) => i.code === 'CONDITION_REFS_SECTION')).toBe(true)
             }
         })
 
@@ -383,10 +381,10 @@ describe('FormEngine', () => {
                         },
                     ]),
                 )
-                fail('Expected FormDefinitionError')
+                fail('Expected DocumentError')
             } catch (e) {
-                expect(e).toBeInstanceOf(FormDefinitionError)
-                expect((e as FormDefinitionError).issues.some((i) => i.code === 'INVALID_MIN_MAX')).toBe(true)
+                expect(e).toBeInstanceOf(DocumentError)
+                expect((e as DocumentError).errors.some((i) => i.code === 'INVALID_MIN_MAX')).toBe(true)
             }
         })
 
@@ -402,10 +400,10 @@ describe('FormEngine', () => {
                         },
                     ]),
                 )
-                fail('Expected FormDefinitionError')
+                fail('Expected DocumentError')
             } catch (e) {
-                expect(e).toBeInstanceOf(FormDefinitionError)
-                expect((e as FormDefinitionError).issues.some((i) => i.code === 'INVALID_MIN_MAX')).toBe(true)
+                expect(e).toBeInstanceOf(DocumentError)
+                expect((e as DocumentError).errors.some((i) => i.code === 'INVALID_MIN_MAX')).toBe(true)
             }
         })
 
@@ -421,10 +419,10 @@ describe('FormEngine', () => {
                         },
                     ]),
                 )
-                fail('Expected FormDefinitionError')
+                fail('Expected DocumentError')
             } catch (e) {
-                expect(e).toBeInstanceOf(FormDefinitionError)
-                expect((e as FormDefinitionError).issues.some((i) => i.code === 'INVALID_MIN_MAX')).toBe(true)
+                expect(e).toBeInstanceOf(DocumentError)
+                expect((e as DocumentError).errors.some((i) => i.code === 'INVALID_MIN_MAX')).toBe(true)
             }
         })
 
@@ -441,10 +439,10 @@ describe('FormEngine', () => {
                         },
                     ]),
                 )
-                fail('Expected FormDefinitionError')
+                fail('Expected DocumentError')
             } catch (e) {
-                expect(e).toBeInstanceOf(FormDefinitionError)
-                expect((e as FormDefinitionError).issues.some((i) => i.code === 'INVALID_MIN_MAX')).toBe(true)
+                expect(e).toBeInstanceOf(DocumentError)
+                expect((e as DocumentError).errors.some((i) => i.code === 'INVALID_MIN_MAX')).toBe(true)
             }
         })
 
@@ -460,10 +458,10 @@ describe('FormEngine', () => {
                         },
                     ]),
                 )
-                fail('Expected FormDefinitionError')
+                fail('Expected DocumentError')
             } catch (e) {
-                expect(e).toBeInstanceOf(FormDefinitionError)
-                expect((e as FormDefinitionError).issues.some((i) => i.code === 'INVALID_REGEX')).toBe(true)
+                expect(e).toBeInstanceOf(DocumentError)
+                expect((e as DocumentError).errors.some((i) => i.code === 'INVALID_REGEX')).toBe(true)
             }
         })
 
@@ -485,10 +483,10 @@ describe('FormEngine', () => {
                         },
                     ]),
                 )
-                fail('Expected FormDefinitionError')
+                fail('Expected DocumentError')
             } catch (e) {
-                expect(e).toBeInstanceOf(FormDefinitionError)
-                expect((e as FormDefinitionError).issues.some((i) => i.code === 'CIRCULAR_DEPENDENCY')).toBe(true)
+                expect(e).toBeInstanceOf(DocumentError)
+                expect((e as DocumentError).errors.some((i) => i.code === 'CIRCULAR_DEPENDENCY')).toBe(true)
             }
         })
 
@@ -516,10 +514,10 @@ describe('FormEngine', () => {
                         },
                     ]),
                 )
-                fail('Expected FormDefinitionError')
+                fail('Expected DocumentError')
             } catch (e) {
-                expect(e).toBeInstanceOf(FormDefinitionError)
-                expect((e as FormDefinitionError).issues.some((i) => i.code === 'CIRCULAR_DEPENDENCY')).toBe(true)
+                expect(e).toBeInstanceOf(DocumentError)
+                expect((e as DocumentError).errors.some((i) => i.code === 'CIRCULAR_DEPENDENCY')).toBe(true)
             }
         })
 
@@ -537,10 +535,10 @@ describe('FormEngine', () => {
                         },
                     ]),
                 )
-                fail('Expected FormDefinitionError')
+                fail('Expected DocumentError')
             } catch (e) {
-                expect(e).toBeInstanceOf(FormDefinitionError)
-                const issues = (e as FormDefinitionError).issues
+                expect(e).toBeInstanceOf(DocumentError)
+                const issues = (e as DocumentError).errors
                 expect(issues.length).toBeGreaterThanOrEqual(2)
                 const codes = issues.map((i) => i.code)
                 expect(codes).toContain('DUPLICATE_ID')
@@ -548,7 +546,7 @@ describe('FormEngine', () => {
             }
         })
 
-        it('FormDefinitionError has descriptive message', () => {
+        it('DocumentError has descriptive message', () => {
             try {
                 new FormEngine(
                     baseDef([
@@ -557,9 +555,9 @@ describe('FormEngine', () => {
                     ]),
                 )
             } catch (e) {
-                expect(e).toBeInstanceOf(FormDefinitionError)
-                expect((e as FormDefinitionError).message).toContain('Invalid form definition')
-                expect((e as FormDefinitionError).name).toBe('FormDefinitionError')
+                expect(e).toBeInstanceOf(DocumentError)
+                expect((e as DocumentError).message).toContain('Document validation failed')
+                expect((e as DocumentError).name).toBe('DocumentError')
             }
         })
     })
@@ -910,7 +908,7 @@ describe('FormEngine', () => {
         })
 
         it('rejects empty form at schema level', () => {
-            expect(() => new FormEngine(baseDef([]))).toThrow(FormDefinitionError)
+            expect(() => new FormEngine(baseDef([]))).toThrow(DocumentError)
         })
     })
 
@@ -1086,7 +1084,7 @@ describe('FormEngine', () => {
         it('rejects section with empty content at schema level', () => {
             expect(
                 () => new FormEngine(baseDef([{ id: 1, type: 'section', title: 'Empty Section', content: [] }])),
-            ).toThrow(FormDefinitionError)
+            ).toThrow(DocumentError)
         })
 
         it('section id in values is ignored', () => {
@@ -1521,7 +1519,7 @@ describe('FormEngine', () => {
                             },
                         ]),
                     ),
-            ).toThrow(FormDefinitionError)
+            ).toThrow(DocumentError)
         })
 
         it('deeply nested compound condition', () => {
@@ -1910,12 +1908,12 @@ describe('FormEngine', () => {
             const mismatchedDef = { ...definition, id: 'wrong-id' }
             const snapshot: FormSnapshot = { definition: mismatchedDef, document: d }
 
-            expect(() => engine.loadDocument(snapshot)).toThrow(FormDocumentLoadError)
+            expect(() => engine.loadDocument(snapshot)).toThrow(DocumentError)
             try {
                 engine.loadDocument(snapshot)
             } catch (e) {
-                expect(e).toBeInstanceOf(FormDocumentLoadError)
-                const err = e as FormDocumentLoadError
+                expect(e).toBeInstanceOf(DocumentError)
+                const err = e as DocumentError
                 expect(err.errors.some((e) => e.code === 'FORM_ID_MISMATCH')).toBe(true)
             }
         })
@@ -1926,12 +1924,12 @@ describe('FormEngine', () => {
             const mismatchedDef = { ...definition, version: '9.9.9' }
             const snapshot: FormSnapshot = { definition: mismatchedDef, document: d }
 
-            expect(() => engine.loadDocument(snapshot)).toThrow(FormDocumentLoadError)
+            expect(() => engine.loadDocument(snapshot)).toThrow(DocumentError)
             try {
                 engine.loadDocument(snapshot)
             } catch (e) {
-                expect(e).toBeInstanceOf(FormDocumentLoadError)
-                const err = e as FormDocumentLoadError
+                expect(e).toBeInstanceOf(DocumentError)
+                const err = e as DocumentError
                 expect(err.errors.some((e) => e.code === 'FORM_VERSION_MISMATCH')).toBe(true)
             }
         })

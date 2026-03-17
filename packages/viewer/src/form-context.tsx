@@ -1,6 +1,8 @@
 import { createContext, type FC, type ReactNode, useContext, useMemo } from 'react'
 
-import type {
+import {
+    DocumentError,
+    DocumentValidationError,
     FieldValidationError,
     FormDefinition,
     FormDocument,
@@ -9,16 +11,17 @@ import type {
 } from '@bluprynt/forms-core'
 
 import type { ROOT } from './constants'
-import { useFormEngine } from './use-form-engine'
 
 type FormContextValue = {
-    definition: FormDefinition
-    data: FormDocument
-    engine: FormEngine
+    definition: FormDefinition | undefined
+    data: FormDocument | undefined
+    engine: FormEngine | undefined
     visibilityMap: Map<number, boolean>
-    validation: FormValidationResult
+    validation: FormValidationResult | undefined
+    documentErrors: readonly DocumentValidationError[] | undefined
     fieldErrors: Map<number, FieldValidationError[]>
     section: typeof ROOT | number | undefined
+    showInlineValidation: boolean
 }
 
 const FormContext = createContext<FormContextValue | undefined>(undefined)
@@ -31,18 +34,42 @@ export const useFormContext = (): FormContextValue => {
 }
 
 type FormProps = {
-    definition: FormDefinition
-    data: FormDocument
+    definition?: FormDefinition
+    data?: FormDocument
     section?: typeof ROOT | number
+    showInlineValidation?: boolean
     children: ReactNode
 }
 
-export const Form: FC<FormProps> = ({ definition, data, section, children }) => {
-    const engine = useFormEngine(definition)
+export const Form: FC<FormProps> = ({ definition, data, section, showInlineValidation = true, children }) => {
+    const { engine, documentErrors: definitionErrors } = useMemo(() => {
+        if (!definition) return {}
 
-    const visibilityMap = useMemo(() => engine.getVisibilityMap(data), [engine, data])
-    const validation = useMemo(() => engine.validate(data), [engine, data])
-    const fieldErrors = validation.fieldErrors
+        try {
+            return { engine: new FormEngine(definition) }
+        } catch (error) {
+            if (error instanceof DocumentError) return { documentErrors: error.errors }
+            throw error
+        }
+    }, [definition])
+
+    const { visibilityMap, validation, documentErrors, fieldErrors } = useMemo(() => {
+        const visibilityMap = engine && data ? engine.getVisibilityMap(data) : new Map<number, boolean>()
+        const validation =
+            engine && data
+                ? engine.validate(data)
+                : ({
+                      valid: true,
+                      fieldErrors: new Map<number, FieldValidationError[]>(),
+                  } satisfies FormValidationResult)
+
+        return {
+            visibilityMap,
+            validation,
+            documentErrors: [...(definitionErrors ?? []), ...(validation?.documentErrors ?? [])],
+            fieldErrors: validation?.fieldErrors ?? new Map<number, FieldValidationError[]>(),
+        } as const
+    }, [engine, data, definitionErrors])
 
     const value: FormContextValue = {
         definition,
@@ -50,9 +77,11 @@ export const Form: FC<FormProps> = ({ definition, data, section, children }) => 
         engine,
         visibilityMap,
         validation,
+        documentErrors,
         fieldErrors,
         section,
-    }
+        showInlineValidation,
+    } as const
 
     return <FormContext.Provider value={value}>{children}</FormContext.Provider>
 }
