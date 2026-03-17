@@ -2,59 +2,6 @@
 
 Data validation, type guards, and immutability patterns.
 
-## Zod Schema Patterns
-
-### Schema-First Type Definition
-
-```typescript
-import { z } from 'zod'
-
-export const userSchema = z.object({
-    id: z.string(),
-    name: z.string(),
-    email: z.email(),
-    role: z.enum(['admin', 'user', 'guest']),
-    createdAt: z.coerce.date(),
-})
-
-export type User = z.infer<typeof userSchema>
-```
-
-**Pattern**: Define Zod schema first, export both schema and inferred type.
-
-### Safe Parsing with Error Handling
-
-```typescript
-// ✅ Good: Safe parsing with error handling
-export const parseUser = (data: unknown): User | undefined => {
-    const result = userSchema.safeParse(data)
-
-    if (!result.success) {
-        console.error('Invalid user data:', result.error)
-        return undefined
-    }
-
-    return result.data
-}
-
-// ❌ Bad: Direct parsing (throws errors)
-export const parseUser = (data: unknown): User => {
-    return userSchema.parse(data) // Throws on invalid data
-}
-```
-
-**Pattern**: Always use `.safeParse()` with error handling. Never use `.parse()` directly.
-
-### Optional and Nullable Fields
-
-```typescript
-export const userProfileSchema = z.object({
-    bio: z.string().optional(),           // Field may be missing
-})
-```
-
-**Pattern**: Use `.optional()` for fields that may not exist or empty.
-
 ## Type Guards
 
 ### Custom Type Guards

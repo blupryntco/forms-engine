@@ -12,11 +12,12 @@ type FormEditorProps = {
 }
 
 export const FormEditor: FC<FormEditorProps> = ({ components, onChange }) => {
-    const { definition, data, visibilityMap, fieldErrors, section, engine, showInlineValidation } = useFormContext()
+    const { definition, data, visibilityMap, fieldErrors, section, engine, showInlineValidation, documentErrors } =
+        useFormContext()
 
     const { renderFieldProps, renderArrayItemProps } = useEditorHandlers(engine, data, onChange)
 
-    if (!definition || !data) return null
+    if (!definition || !data || (documentErrors && documentErrors.length > 0)) return null
 
     return (
         <FormContent

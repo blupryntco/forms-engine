@@ -30,7 +30,7 @@ export const FormSections: FC<FormSectionsProps> = ({
     defaultSectionDescription,
     onSelect,
 }) => {
-    const { definition, section, visibilityMap, data } = useFormContext()
+    const { definition, section, visibilityMap, data, documentErrors } = useFormContext()
 
     // biome-ignore lint/correctness/useExhaustiveDependencies: invalidate section list when data changes
     const entries = useMemo(() => {
@@ -59,7 +59,7 @@ export const FormSections: FC<FormSectionsProps> = ({
         return result
     }, [definition?.content, visibilityMap, data, defaultSectionTitle, defaultSectionDescription])
 
-    if (!definition || !data) return null
+    if (!definition || !data || (documentErrors && documentErrors.length > 0)) return null
 
     return (
         <Container>

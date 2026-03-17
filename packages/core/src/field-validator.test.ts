@@ -116,4 +116,131 @@ describe('FieldValidator', () => {
             expect(result.fieldErrors.get(1)?.[0]?.itemIndex).toBe(1)
         })
     })
+
+    describe('validate with now defaulting', () => {
+        it('calls validate without explicit now argument and still works', () => {
+            const registry = new Map<number, FieldEntry>([
+                [1, makeEntry(1, { type: 'string', validation: { required: true } })],
+            ])
+            const validator = new FieldValidator(registry)
+            // Call without `now` — should use default new Date()
+            const result = validator.validate({}, allVisible(1))
+            expect(result.valid).toBe(false)
+            expect(result.fieldErrors.has(1)).toBe(true)
+        })
+    })
+
+    describe('validate with field id not in visibilityMap', () => {
+        it('validates the field when its id is not in visibilityMap (not skipped)', () => {
+            const registry = new Map<number, FieldEntry>([
+                [1, makeEntry(1, { type: 'string', validation: { required: true } })],
+            ])
+            const validator = new FieldValidator(registry)
+            // Empty visibility map — field 1 is not present (not explicitly false)
+            const emptyVis = new Map<number, boolean>()
+            const result = validator.validate({}, emptyVis, now)
+            // visibilityMap.get(1) === undefined, not false, so field should be validated
+            expect(result.valid).toBe(false)
+            expect(result.fieldErrors.has(1)).toBe(true)
+        })
+    })
+
+    describe('validate with empty registry', () => {
+        it('returns valid: true with empty registry', () => {
+            const registry = new Map<number, FieldEntry>()
+            const validator = new FieldValidator(registry)
+            const result = validator.validate({}, new Map(), now)
+            expect(result.valid).toBe(true)
+            expect(result.fieldErrors.size).toBe(0)
+        })
+    })
+
+    describe('multiple validation errors on single field', () => {
+        it('string field fails both minLength and pattern', () => {
+            const registry = new Map<number, FieldEntry>([
+                [
+                    1,
+                    makeEntry(1, {
+                        type: 'string',
+                        validation: { minLength: 10, pattern: '^[A-Z]+$' },
+                    }),
+                ],
+            ])
+            const validator = new FieldValidator(registry)
+            // 'ab' is too short (< 10) and doesn't match pattern (lowercase)
+            const result = validator.validate({ '1': 'ab' }, allVisible(1), now)
+            expect(result.valid).toBe(false)
+            const errors = result.fieldErrors.get(1)
+            expect(errors).toBeDefined()
+            expect(errors?.length).toBeGreaterThanOrEqual(2)
+            const rules = errors?.map((e) => e.rule)
+            expect(rules).toContain('MIN_LENGTH')
+            expect(rules).toContain('PATTERN')
+        })
+    })
+
+    describe('array field with maxItems violation', () => {
+        it('reports MAX_ITEMS when array exceeds maxItems', () => {
+            const registry = new Map<number, FieldEntry>([
+                [
+                    1,
+                    makeEntry(1, {
+                        type: 'array',
+                        validation: { maxItems: 2 },
+                        item: { type: 'string', label: 'S' },
+                    }),
+                ],
+            ])
+            const validator = new FieldValidator(registry)
+            const result = validator.validate({ '1': ['a', 'b', 'c'] }, allVisible(1), now)
+            expect(result.valid).toBe(false)
+            const errors = result.fieldErrors.get(1)
+            expect(errors).toBeDefined()
+            expect(errors?.some((e) => e.rule === 'MAX_ITEMS')).toBe(true)
+        })
+    })
+
+    describe('array field with non-string item types', () => {
+        it('validates array of number items', () => {
+            const registry = new Map<number, FieldEntry>([
+                [
+                    1,
+                    makeEntry(1, {
+                        type: 'array',
+                        validation: {},
+                        item: { type: 'number', label: 'Num', validation: { min: 0 } },
+                    }),
+                ],
+            ])
+            const validator = new FieldValidator(registry)
+            // Valid numbers
+            const resultOk = validator.validate({ '1': [1, 2, 3] }, allVisible(1), now)
+            expect(resultOk.valid).toBe(true)
+
+            // Invalid number (below min)
+            const resultBad = validator.validate({ '1': [1, -5, 3] }, allVisible(1), now)
+            expect(resultBad.valid).toBe(false)
+            expect(resultBad.fieldErrors.get(1)?.[0]?.itemIndex).toBe(1)
+        })
+
+        it('validates array of date items', () => {
+            const registry = new Map<number, FieldEntry>([
+                [
+                    1,
+                    makeEntry(1, {
+                        type: 'array',
+                        validation: {},
+                        item: { type: 'date', label: 'Date', validation: { required: true } },
+                    }),
+                ],
+            ])
+            const validator = new FieldValidator(registry)
+            const resultOk = validator.validate({ '1': ['2025-06-15'] }, allVisible(1), now)
+            expect(resultOk.valid).toBe(true)
+
+            // Empty string item should fail required
+            const resultBad = validator.validate({ '1': [''] }, allVisible(1), now)
+            expect(resultBad.valid).toBe(false)
+        })
+    })
 })

@@ -88,4 +88,47 @@ describe('StringValidator', () => {
         const errors = validator.validate({ fieldId, value: 42, validation: { required: true }, now: new Date() })
         expect(errors[0]).toMatchObject({ fieldId, rule: 'TYPE', params: { expectedType: 'string' } })
     })
+
+    it('passes when value exactly at minLength boundary', () => {
+        const errors = validator.validate({ fieldId, value: 'abc', validation: { minLength: 3 }, now: new Date() })
+        expect(errors).toHaveLength(0)
+    })
+
+    it('passes when value exactly at maxLength boundary', () => {
+        const errors = validator.validate({ fieldId, value: 'abc', validation: { maxLength: 3 }, now: new Date() })
+        expect(errors).toHaveLength(0)
+    })
+
+    it('passes pattern matching a valid value', () => {
+        const errors = validator.validate({
+            fieldId,
+            value: '12345',
+            validation: { pattern: '^[0-9]+$' },
+            now: new Date(),
+        })
+        expect(errors).toHaveLength(0)
+    })
+
+    it('passes for any string when validation is undefined', () => {
+        const errors = validator.validate({ fieldId, value: 'anything', validation: undefined, now: new Date() })
+        expect(errors).toHaveLength(0)
+    })
+
+    it('returns type error for boolean value without required flag', () => {
+        const errors = validator.validate({ fieldId, value: true, validation: undefined, now: new Date() })
+        expect(errors).toHaveLength(1)
+        expect(errors[0]).toMatchObject({ fieldId, rule: 'TYPE', params: { expectedType: 'string' } })
+    })
+
+    it('returns multiple errors when minLength and pattern both fail', () => {
+        const errors = validator.validate({
+            fieldId,
+            value: 'ab',
+            validation: { minLength: 5, pattern: '^[0-9]+$' },
+            now: new Date(),
+        })
+        expect(errors).toHaveLength(2)
+        expect(errors[0]).toMatchObject({ rule: 'MIN_LENGTH' })
+        expect(errors[1]).toMatchObject({ rule: 'PATTERN' })
+    })
 })

@@ -112,5 +112,39 @@ describe('resolveRelativeDate', () => {
             const result = resolveRelativeDate('+0d', now)
             expect(result).toBe(now.toISOString())
         })
+
+        it('handles large offset values (+999d)', () => {
+            const result = resolveRelativeDate('+999d', now)
+            const expected = new Date(now.getTime())
+            expected.setUTCDate(expected.getUTCDate() + 999)
+            expect(result).toBe(expected.toISOString())
+        })
+
+        it('handles December month overflow (+1m from Dec 31)', () => {
+            const dec31 = new Date('2025-12-31T00:00:00.000Z')
+            const result = resolveRelativeDate('+1m', dec31)
+            const parsed = new Date(result)
+            // Dec 31 + 1 month → Jan 31 of next year
+            expect(parsed.getUTCFullYear()).toBe(2026)
+            expect(parsed.getUTCMonth()).toBe(0) // January
+            expect(parsed.getUTCDate()).toBe(31)
+        })
+
+        it('preserves time component across month/year adjustments', () => {
+            const withTime = new Date('2025-06-15T14:30:45.123Z')
+            const resultMonth = resolveRelativeDate('+2m', withTime)
+            const parsedMonth = new Date(resultMonth)
+            expect(parsedMonth.getUTCHours()).toBe(14)
+            expect(parsedMonth.getUTCMinutes()).toBe(30)
+            expect(parsedMonth.getUTCSeconds()).toBe(45)
+            expect(parsedMonth.getUTCMilliseconds()).toBe(123)
+
+            const resultYear = resolveRelativeDate('+1y', withTime)
+            const parsedYear = new Date(resultYear)
+            expect(parsedYear.getUTCHours()).toBe(14)
+            expect(parsedYear.getUTCMinutes()).toBe(30)
+            expect(parsedYear.getUTCSeconds()).toBe(45)
+            expect(parsedYear.getUTCMilliseconds()).toBe(123)
+        })
     })
 })

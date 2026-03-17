@@ -1726,7 +1726,7 @@ describe('FormEngine', () => {
             expect(result.documentErrors).toBeUndefined()
         })
 
-        it('field errors still returned alongside document errors', () => {
+        it('early return on document errors skips field validation', () => {
             const d: FormDocument = {
                 form: { id: 'wrong-id', version: '1.0.0', submittedAt: SUBMITTED_AT },
                 values: {},
@@ -1736,9 +1736,8 @@ describe('FormEngine', () => {
             // document error present
             expect(result.documentErrors).toBeDefined()
             expect(result.documentErrors?.some((e) => e.code === 'FORM_ID_MISMATCH')).toBe(true)
-            // field error present (required field 1 is missing)
-            expect(result.fieldErrors.size).toBeGreaterThanOrEqual(1)
-            expect(result.fieldErrors.get(1)?.some((e) => e.rule === 'REQUIRED')).toBe(true)
+            // field validation is skipped when document errors exist
+            expect(result.fieldErrors.size).toBe(0)
         })
 
         it('createFormDocument() produces documents that pass without document errors', () => {
@@ -1953,6 +1952,90 @@ describe('FormEngine', () => {
             expect(loaded.values['3']).toBe(true)
             expect(loaded.values['4']).toBe('1990-01-15')
             expect(loaded.values['5']).toBe('r')
+        })
+
+        it('loadDocument() with both id AND version mismatch returns both errors', () => {
+            const engine = new FormEngine(definition)
+            const d = doc({ '1': 'Test' })
+            const mismatchedDef = { ...definition, id: 'wrong-id', version: '9.9.9' }
+            const snapshot: FormSnapshot = { definition: mismatchedDef, document: d }
+
+            expect(() => engine.loadDocument(snapshot)).toThrow(DocumentError)
+            try {
+                engine.loadDocument(snapshot)
+            } catch (e) {
+                expect(e).toBeInstanceOf(DocumentError)
+                const err = e as DocumentError
+                const codes = err.errors.map((e) => e.code)
+                expect(codes).toContain('FORM_ID_MISMATCH')
+                expect(codes).toContain('FORM_VERSION_MISMATCH')
+                expect(err.errors.length).toBe(2)
+            }
+        })
+    })
+
+    describe('validate: early return on document errors', () => {
+        it('returns empty fieldErrors when document errors exist (id mismatch)', () => {
+            const engine = new FormEngine(
+                baseDef([{ id: 1, type: 'string', label: 'Name', validation: { required: true } }]),
+            )
+            const badDoc: FormDocument = {
+                form: { id: 'wrong-id', version: '1.0.0', submittedAt: SUBMITTED_AT },
+                values: {},
+            }
+            const result = engine.validate(badDoc)
+            expect(result.valid).toBe(false)
+            expect(result.fieldErrors.size).toBe(0)
+            expect(result.documentErrors).toBeDefined()
+            expect(result.documentErrors?.some((e) => e.code === 'FORM_ID_MISMATCH')).toBe(true)
+        })
+    })
+
+    describe('isVisible/getVisibilityMap with invalid submittedAt', () => {
+        it('still computes visibility when submittedAt is invalid', () => {
+            const engine = new FormEngine(
+                baseDef([
+                    { id: 1, type: 'string', label: 'Ctrl' },
+                    { id: 2, type: 'string', label: 'Dep', condition: { field: 1, op: 'set' } },
+                ]),
+            )
+            const badDoc: FormDocument = {
+                form: { id: 'test-form', version: '1.0.0', submittedAt: 'not-a-date' },
+                values: { '1': 'hello' },
+            }
+            // isVisible should still work (falls back to new Date())
+            expect(engine.isVisible(2, badDoc)).toBe(true)
+            expect(engine.isVisible(2, { ...badDoc, values: {} })).toBe(false)
+
+            // getVisibilityMap should still work
+            const map = engine.getVisibilityMap(badDoc)
+            expect(map.get(1)).toBe(true)
+            expect(map.get(2)).toBe(true)
+        })
+    })
+
+    describe('file field type in registry', () => {
+        it('file field type is correctly stored and validates', () => {
+            const engine = new FormEngine(
+                baseDef([{ id: 1, type: 'file', label: 'Upload', validation: { required: true } }]),
+            )
+            expect(engine.getFieldDef(1)?.type).toBe('file')
+
+            // Missing file value should fail required validation
+            const result = engine.validate(doc({}))
+            expect(result.valid).toBe(false)
+            expect(result.fieldErrors.has(1)).toBe(true)
+            expect(result.fieldErrors.get(1)?.[0]?.rule).toBe('REQUIRED')
+
+            // Providing a file value should pass
+            const fileValue = {
+                name: 'test.pdf',
+                mimeType: 'application/pdf',
+                size: 1024,
+                url: 'https://example.com/test.pdf',
+            }
+            const resultOk = engine.validate(doc({ '1': fileValue }))
+            expect(resultOk.valid).toBe(true)
         })
     })
 })

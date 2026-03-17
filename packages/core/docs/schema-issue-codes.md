@@ -77,7 +77,14 @@ Separate from schema definition issues, `FormEngine.validate()` can produce **do
 | `FORM_SUBMITTED_AT_MISSING` | `doc.form.submittedAt` is missing |
 | `FORM_SUBMITTED_AT_INVALID` | `doc.form.submittedAt` is not a valid ISO 8601 string |
 
-Each error includes `params: { expected, actual }` for debuggability.
+Each error may include a `params` object for debuggability. The shape varies by code:
+
+| Code | `params` |
+|------|----------|
+| `FORM_ID_MISMATCH` | `{ expected, actual }` |
+| `FORM_VERSION_MISMATCH` | `{ expected, actual }` |
+| `FORM_SUBMITTED_AT_MISSING` | _(none)_ |
+| `FORM_SUBMITTED_AT_INVALID` | `{ actual }` |
 
 ```ts
 const result = engine.validate(doc)

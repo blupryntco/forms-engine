@@ -1,8 +1,4 @@
-/**
- * @jest-environment jsdom
- */
-
-import { createElement, type FC, type ReactNode } from 'react'
+import { type FC, type ReactNode } from 'react'
 
 import type {
     FieldContentItem,
@@ -20,89 +16,57 @@ import { Form } from './form-context'
 import { FormEditor } from './form-editor'
 import type { EditorComponentMap } from './types'
 
-// ── Mock components ──
+const MockString: FC<Record<string, unknown>> = jest.fn((props) => (
+    <div data-testid={`string-${(props.field as FieldContentItem).id}`}>{String(props.value ?? '')}</div>
+))
 
-const MockString: FC<Record<string, unknown>> = jest.fn((props) =>
-    createElement(
-        'div',
-        { 'data-testid': `string-${(props.field as FieldContentItem).id}` },
-        String(props.value ?? ''),
-    ),
-)
+const MockNumber: FC<Record<string, unknown>> = jest.fn((props) => (
+    <div data-testid={`number-${(props.field as FieldContentItem).id}`}>{String(props.value ?? '')}</div>
+))
 
-const MockNumber: FC<Record<string, unknown>> = jest.fn((props) =>
-    createElement(
-        'div',
-        { 'data-testid': `number-${(props.field as FieldContentItem).id}` },
-        String(props.value ?? ''),
-    ),
-)
+const MockBoolean: FC<Record<string, unknown>> = jest.fn((props) => (
+    <div data-testid={`boolean-${(props.field as FieldContentItem).id}`}>{String(props.value ?? '')}</div>
+))
 
-const MockBoolean: FC<Record<string, unknown>> = jest.fn((props) =>
-    createElement(
-        'div',
-        { 'data-testid': `boolean-${(props.field as FieldContentItem).id}` },
-        String(props.value ?? ''),
-    ),
-)
+const MockDate: FC<Record<string, unknown>> = jest.fn((props) => (
+    <div data-testid={`date-${(props.field as FieldContentItem).id}`}>{String(props.value ?? '')}</div>
+))
 
-const MockDate: FC<Record<string, unknown>> = jest.fn((props) =>
-    createElement('div', { 'data-testid': `date-${(props.field as FieldContentItem).id}` }, String(props.value ?? '')),
-)
+const MockSelect: FC<Record<string, unknown>> = jest.fn((props) => (
+    <div data-testid={`select-${(props.field as FieldContentItem).id}`}>{String(props.value ?? '')}</div>
+))
 
-const MockSelect: FC<Record<string, unknown>> = jest.fn((props) =>
-    createElement(
-        'div',
-        { 'data-testid': `select-${(props.field as FieldContentItem).id}` },
-        String(props.value ?? ''),
-    ),
-)
+const MockArray: FC<Record<string, unknown>> = jest.fn((props) => (
+    <div data-testid={`array-${(props.field as FieldContentItem).id}`}>{props.children as ReactNode}</div>
+))
 
-const MockArray: FC<Record<string, unknown>> = jest.fn((props) =>
-    createElement(
-        'div',
-        { 'data-testid': `array-${(props.field as FieldContentItem).id}` },
-        props.children as ReactNode,
-    ),
-)
+const MockFile: FC<Record<string, unknown>> = jest.fn((props) => (
+    <div data-testid={`file-${(props.field as FieldContentItem).id}`}>
+        {(props.value as { name?: string })?.name ?? ''}
+    </div>
+))
 
-const MockFile: FC<Record<string, unknown>> = jest.fn((props) =>
-    createElement(
-        'div',
-        { 'data-testid': `file-${(props.field as FieldContentItem).id}` },
-        (props.value as { name?: string })?.name ?? '',
-    ),
-)
+const MockSection: FC<Record<string, unknown>> = jest.fn((props) => (
+    <div data-testid={`section-${(props.section as SectionContentItem).id}`}>{props.children as ReactNode}</div>
+))
 
-const MockSection: FC<Record<string, unknown>> = jest.fn((props) =>
-    createElement(
-        'div',
-        { 'data-testid': `section-${(props.section as SectionContentItem).id}` },
-        props.children as ReactNode,
-    ),
-)
-
-const MockError: FC<Record<string, unknown>> = jest.fn((props) =>
-    createElement(
-        'div',
-        { 'data-testid': `error-${(props.field as FieldContentItem).id}` },
-        (props.errors as FieldValidationError[]).map((e) => e.message).join(', '),
-    ),
-)
+const MockError: FC<Record<string, unknown>> = jest.fn((props) => (
+    <div data-testid={`error-${(props.field as FieldContentItem).id}`}>
+        {(props.errors as FieldValidationError[]).map((e) => e.message).join(', ')}
+    </div>
+))
 
 const makeComponents = (withError = false): EditorComponentMap => ({
-    string: MockString as unknown as EditorComponentMap['string'],
-    number: MockNumber as unknown as EditorComponentMap['number'],
-    boolean: MockBoolean as unknown as EditorComponentMap['boolean'],
-    date: MockDate as unknown as EditorComponentMap['date'],
-    select: MockSelect as unknown as EditorComponentMap['select'],
-    array: MockArray as unknown as EditorComponentMap['array'],
-    file: MockFile as unknown as EditorComponentMap['file'],
-    section: MockSection as unknown as EditorComponentMap['section'],
-    ...(withError ? { error: MockError as unknown as EditorComponentMap['error'] } : {}),
+    string: MockString as EditorComponentMap['string'],
+    number: MockNumber as EditorComponentMap['number'],
+    boolean: MockBoolean as EditorComponentMap['boolean'],
+    date: MockDate as EditorComponentMap['date'],
+    select: MockSelect as EditorComponentMap['select'],
+    array: MockArray as EditorComponentMap['array'],
+    file: MockFile as EditorComponentMap['file'],
+    section: MockSection as EditorComponentMap['section'],
+    ...(withError ? { error: MockError as EditorComponentMap['error'] } : {}),
 })
-
-// ── Helpers ──
 
 const baseDef = (content: FormDefinition['content']): FormDefinition => ({
     id: 'test-form',
@@ -124,7 +88,6 @@ const lastCallProps = (mock: jest.Mock): Record<string, unknown> => {
     return calls[calls.length - 1][0] as Record<string, unknown>
 }
 
-/** Helper: wrap FormEditor in Form provider */
 const renderEditor = (
     formProps: {
         definition: FormDefinition
@@ -135,16 +98,18 @@ const renderEditor = (
         components: EditorComponentMap
         onChange: (data: FormDocument, validation: FormValidationResult) => void
     },
-) => render(createElement(Form, formProps, createElement(FormEditor, editorProps)))
+) =>
+    render(
+        <Form {...formProps}>
+            <FormEditor {...editorProps} />
+        </Form>,
+    )
 
 beforeEach(() => {
     jest.clearAllMocks()
 })
 
-// ── Tests ──
-
 describe('FormEditor', () => {
-    // 1. Renders visible fields with correct editor props
     describe('renders visible fields with correct editor props', () => {
         it('passes field, value, errors, and onChange to each field type', () => {
             const definition = baseDef([
@@ -197,7 +162,6 @@ describe('FormEditor', () => {
         })
     })
 
-    // 2. Field onChange triggers parent onChange
     describe('field onChange triggers parent onChange', () => {
         it('calls parent onChange with updated values and validation result', () => {
             const definition = baseDef([
@@ -246,7 +210,6 @@ describe('FormEditor', () => {
         })
     })
 
-    // 3. Array onAddItem
     describe('array onAddItem', () => {
         it('appends undefined and triggers onChange with updated array', () => {
             const definition = baseDef([
@@ -298,7 +261,6 @@ describe('FormEditor', () => {
         })
     })
 
-    // 4. Array onRemoveItem
     describe('array onRemoveItem', () => {
         it('removes item at the given index and triggers onChange', () => {
             const definition = baseDef([
@@ -325,7 +287,6 @@ describe('FormEditor', () => {
         })
     })
 
-    // 5. Array onMoveItem
     describe('array onMoveItem', () => {
         it('reorders items and triggers onChange', () => {
             const definition = baseDef([
@@ -353,7 +314,6 @@ describe('FormEditor', () => {
         })
     })
 
-    // 6. Validation errors passed to fields and error component rendered
     describe('validation errors', () => {
         it('passes errors to fields and renders error component', () => {
             const definition = baseDef([{ id: 1, type: 'string', label: 'Name', validation: { required: true } }])
@@ -401,7 +361,6 @@ describe('FormEditor', () => {
         })
     })
 
-    // 8. Section filter
     describe('section filter', () => {
         const sectionDef = () =>
             baseDef([
@@ -451,7 +410,6 @@ describe('FormEditor', () => {
         })
     })
 
-    // 9. Controlled re-render
     describe('controlled re-render', () => {
         it('updates field values when re-rendered with new values prop', () => {
             const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
@@ -466,11 +424,9 @@ describe('FormEditor', () => {
 
             // Re-render with new values
             rerender(
-                createElement(
-                    Form,
-                    { definition, data: doc({ '1': 'Bob' }) },
-                    createElement(FormEditor, { components: makeComponents(), onChange }),
-                ),
+                <Form definition={definition} data={doc({ '1': 'Bob' })}>
+                    <FormEditor components={makeComponents()} onChange={onChange} />
+                </Form>,
             )
 
             expect(screen.getByTestId('string-1').textContent).toBe('Bob')
@@ -482,7 +438,6 @@ describe('FormEditor', () => {
         })
     })
 
-    // 10. Hidden fields excluded
     describe('hidden fields excluded', () => {
         it('does not render fields hidden by conditions', () => {
             const definition = baseDef([
@@ -541,7 +496,6 @@ describe('FormEditor', () => {
         })
     })
 
-    // 11. File field rendering and onChange
     describe('file field', () => {
         const fileValue = {
             name: 'doc.pdf',
@@ -616,7 +570,6 @@ describe('FormEditor', () => {
         })
     })
 
-    // Additional: array item onChange
     describe('array item onChange', () => {
         it('updates a specific array item and triggers parent onChange', () => {
             const definition = baseDef([
@@ -637,7 +590,7 @@ describe('FormEditor', () => {
             const secondItemCall = stringCalls.find((c: unknown[]) => (c[0] as Record<string, unknown>).value === 'bar')
             expect(secondItemCall).toBeDefined()
 
-            const itemOnChange = (secondItemCall![0] as Record<string, unknown>).onChange as (value: unknown) => void
+            const itemOnChange = (secondItemCall?.[0] as Record<string, unknown>).onChange as (value: unknown) => void
             itemOnChange('baz')
 
             expect(onChange).toHaveBeenCalledTimes(1)
@@ -646,7 +599,6 @@ describe('FormEditor', () => {
         })
     })
 
-    // 12. submittedAt preservation
     describe('submittedAt', () => {
         it('preserves submittedAt in onChange', () => {
             const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
@@ -667,14 +619,50 @@ describe('FormEditor', () => {
         })
     })
 
-    // 13. useFormContext throws outside Form provider
     it('throws when rendered without a Form provider', () => {
         const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
 
-        expect(() => render(createElement(FormEditor, { components: makeComponents(), onChange: noop }))).toThrow(
+        expect(() => render(<FormEditor components={makeComponents()} onChange={noop} />)).toThrow(
             'useFormContext must be used within a <Form> provider',
         )
 
         consoleSpy.mockRestore()
+    })
+
+    it('returns null when document errors exist (duplicate IDs)', () => {
+        const definition = baseDef([
+            { id: 1, type: 'string', label: 'Name' },
+            { id: 1, type: 'number', label: 'Duplicate' },
+        ])
+        const values = { '1': 'Alice' }
+
+        const { container } = renderEditor(
+            { definition, data: doc(values) },
+            { components: makeComponents(), onChange: noop },
+        )
+
+        expect(container.innerHTML).toBe('')
+    })
+
+    it('returns null when no definition provided', () => {
+        const { container } = render(
+            <Form data={doc({ '1': 'Alice' })}>
+                <FormEditor components={makeComponents()} onChange={noop} />
+            </Form>,
+        )
+
+        expect(container.innerHTML).toBe('')
+    })
+
+    it('returns null when no data provided', () => {
+        const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
+
+        const { container } = render(
+            <Form definition={definition}>
+                <FormEditor components={makeComponents()} onChange={noop} />
+            </Form>,
+        )
+
+        expect(container.innerHTML).toBe('')
     })
 })

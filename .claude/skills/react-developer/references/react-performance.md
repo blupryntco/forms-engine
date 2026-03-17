@@ -59,7 +59,7 @@ useEffect(() => { callbackRef.current = onChanged }, [onChanged])
 
 1. **ErrorBoundary** — catches unhandled component tree errors
 2. **Suspense** — handles loading states
-3. **Component-level** — handles known error states from queries
+3. **Component-level** — handles known error states
 
 ```typescript
 // Page level: boundary + suspense
@@ -70,89 +70,12 @@ useEffect(() => { callbackRef.current = onChanged }, [onChanged])
 </ErrorBoundary>
 ```
 
-### Query Error Handling
-
-```typescript
-const { data, error } = useQuery({
-    queryKey: ['tasks'],
-    queryFn: fetchTasks,
-    retry: 3,
-});
-
-if (error) {
-    return <ErrorMessage message="Failed to load tasks" />;
-}
-```
-
-### Mutation Error Handling
-
-```typescript
-{
-    mutationKey: keys.mutations.tasks.update,
-    mutationFn: async (form) => { /* ... */ },
-    onError: error => {
-        toast('error', extractError(error))
-    },
-}
-```
-
 ### Component-Level Guards
 
 - Early returns for missing data: `if (!data) return null`
 - Optional chaining for nullable refs: `ref?.current?.method()`
-- Nullish coalescing for defaults: `const tasks = query.data?.list ?? []`
-- No try-catch in components — rely on query error states and type safety
-
-### Loading & Error UI Components
-
-**Skeleton placeholders** — used as `Suspense` fallbacks and loading states:
-
-```tsx
-// Skeleton mimics the shape of the content being loaded
-<Skeleton className="h-4 w-[200px]" />
-<Skeleton className="h-10 w-full rounded-md" />
-
-// Compose skeletons to match actual layout
-const UserCardSkeleton: FC = () => (
-    <div className="flex items-center gap-3 p-4">
-        <Skeleton className="size-10 rounded-full" />
-        <div className="flex flex-col gap-2">
-            <Skeleton className="h-4 w-[150px]" />
-            <Skeleton className="h-3 w-[100px]" />
-        </div>
-    </div>
-)
-```
-
-**Inline loading spinner** — used inside buttons and small containers:
-
-```tsx
-import { LoaderCircle } from 'lucide-react'
-
-<Button disabled={isSubmitting}>
-    {isSubmitting && <LoaderCircle className="animate-spin" />}
-    Save
-</Button>
-```
-
-**Error card** — used for entity-level error display:
-
-```tsx
-const CardError: FC<{ title: string; message?: string }> = ({ title, message }) => (
-    <Card className="border-destructive">
-        <CardHeader>
-            <CardTitle className="text-destructive">{title}</CardTitle>
-        </CardHeader>
-        {message && <CardContent><p className="text-sm text-muted-foreground">{message}</p></CardContent>}
-    </Card>
-)
-```
-
-**Conventions**:
-- Skeleton shape should match the content it replaces
-- Always show spinner inside the triggering button (not a separate overlay)
-- Use `CardError` for recoverable entity errors; `ErrorBoundary` for unrecoverable crashes
-- Icons from `lucide-react` (`LoaderCircle`, `AlertCircle`, etc.)
+- Nullish coalescing for defaults: `const items = data?.list ?? []`
+- Prefer type safety over try-catch in components
 
 ## Code Quality
 

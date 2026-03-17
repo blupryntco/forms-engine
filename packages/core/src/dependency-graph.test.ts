@@ -201,6 +201,18 @@ describe('DependencyGraph constructor (topologicalOrder)', () => {
         const depGraph = new DependencyGraph(registry)
         expect(depGraph.topologicalOrder).toEqual([1, 2, 3])
     })
+
+    it('handles parent-child edges: parent comes before child', () => {
+        const registry = new Map<number, FieldEntry>([
+            [10, makeEntry(10, { type: 'section' })],
+            [20, makeEntry(20, { parentId: 10 })],
+            [30, makeEntry(30, { parentId: 10 })],
+        ])
+        const depGraph = new DependencyGraph(registry)
+        const order = depGraph.topologicalOrder
+        expect(order.indexOf(10)).toBeLessThan(order.indexOf(20))
+        expect(order.indexOf(10)).toBeLessThan(order.indexOf(30))
+    })
 })
 
 describe('DependencyGraph.detectCycle', () => {
@@ -239,6 +251,34 @@ describe('DependencyGraph.detectCycle', () => {
         const result = DependencyGraph.detectCycle(registry)
         expect(result).toBeDefined()
         expect(result).toEqual([1, 2, 3, 1])
+    })
+
+    it('detects a 4+ node cycle (A → B → C → D → A)', () => {
+        const registry = new Map<number, FieldEntry>([
+            [1, makeEntry(1, { condition: { field: 4, op: 'set' } })],
+            [2, makeEntry(2, { condition: { field: 1, op: 'set' } })],
+            [3, makeEntry(3, { condition: { field: 2, op: 'set' } })],
+            [4, makeEntry(4, { condition: { field: 3, op: 'set' } })],
+        ])
+        const result = DependencyGraph.detectCycle(registry)
+        expect(result).toBeDefined()
+        // Should form a cycle containing all 4 nodes
+        expect(result?.length).toBe(5) // [start, ..., start]
+        expect(result?.[0]).toBe(result?.[result?.length - 1])
+    })
+
+    it('detects cycle in one component of a disconnected graph', () => {
+        const registry = new Map<number, FieldEntry>([
+            // Disconnected component without cycle
+            [10, makeEntry(10)],
+            [11, makeEntry(11, { condition: { field: 10, op: 'set' } })],
+            // Component with cycle: 1 → 2 → 1
+            [1, makeEntry(1, { condition: { field: 2, op: 'set' } })],
+            [2, makeEntry(2, { condition: { field: 1, op: 'set' } })],
+        ])
+        const result = DependencyGraph.detectCycle(registry)
+        expect(result).toBeDefined()
+        expect(result?.length).toBeGreaterThanOrEqual(3) // at least [a, b, a]
     })
 })
 
@@ -281,5 +321,46 @@ describe('DependencyGraph.getAffectedIds', () => {
         const second = depGraph.getAffectedIds(99)
         expect(first).toBe(second)
         expect(first.size).toBe(0)
+    })
+
+    it('returns empty set for fieldId not in registry', () => {
+        const registry = new Map<number, FieldEntry>([
+            [1, makeEntry(1)],
+            [2, makeEntry(2, { condition: { field: 1, op: 'set' } })],
+        ])
+        const depGraph = new DependencyGraph(registry)
+        const result = depGraph.getAffectedIds(999)
+        expect(result.size).toBe(0)
+    })
+})
+
+describe('DependencyGraph graph construction with compound conditions', () => {
+    it('creates forward edges for all refs in and/or conditions', () => {
+        const registry = new Map<number, FieldEntry>([
+            [1, makeEntry(1)],
+            [2, makeEntry(2)],
+            [3, makeEntry(3)],
+            [
+                4,
+                makeEntry(4, {
+                    condition: {
+                        or: [
+                            { field: 1, op: 'set' },
+                            {
+                                and: [
+                                    { field: 2, op: 'eq', value: 'x' },
+                                    { field: 3, op: 'gt', value: 5 },
+                                ],
+                            },
+                        ],
+                    },
+                }),
+            ],
+        ])
+        const depGraph = new DependencyGraph(registry)
+        // All three fields should have forward edges to field 4
+        expect(depGraph.graph.get(1)).toEqual(new Set([4]))
+        expect(depGraph.graph.get(2)).toEqual(new Set([4]))
+        expect(depGraph.graph.get(3)).toEqual(new Set([4]))
     })
 })

@@ -30,10 +30,29 @@ const visibility = engine.getVisibilityMap(doc)
 const result = engine.validate(doc)
 if (!result.valid) {
   result.documentErrors?.forEach(e => console.log(`Document: ${e.message}`))
-  for (const err of result.errors) {
-    console.log(`Field ${err.fieldId}: ${err.message}`)
+  for (const [fieldId, errs] of result.fieldErrors) {
+    for (const err of errs) {
+      console.log(`Field ${fieldId}: ${err.message}`)
+    }
   }
 }
+```
+
+### Building a Form Definition
+
+```ts
+import { FormDefinitionEditor } from '@bluprynt/forms-core'
+
+const editor = new FormDefinitionEditor({
+  id: 'my-form', version: '1.0.0', title: 'My Form', content: [],
+})
+
+editor
+  .addField({ type: 'string', label: 'Name', validation: { required: true } })
+  .addSection({ type: 'section', title: 'Details' })
+  .addField({ type: 'number', label: 'Age' }, 2) // into section id=2
+
+const definition = editor.toJSON()
 ```
 
 ### Editing Form Values
@@ -66,6 +85,8 @@ const doc = editor.toJSON()
 | [Validation & Conditions](./docs/validation-and-conditions.md) | How validation rules work per field type, condition operators, visibility resolution |
 | [Schema Issue Codes](./docs/schema-issue-codes.md) | All `DocumentError` error codes, validation stages, error handling |
 | [Development Guide](./docs/development-guide.md) | How to build, test, lint, and extend the engine (e.g., adding new field types) |
+
+For the complete list of exported classes, types, and utilities, see [API Reference](./docs/api-reference.md).
 
 ## Supported Field Types
 

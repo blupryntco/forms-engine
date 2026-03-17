@@ -652,4 +652,449 @@ describe('FormDefinitionEditor', () => {
             expect(section.content).toHaveLength(2) // name + age
         })
     })
+
+    describe('addSection — additional', () => {
+        it('inserts at specific index via index parameter', () => {
+            const editor = new FormDefinitionEditor(
+                defWith([
+                    { id: 1, type: 'string', label: 'A' },
+                    { id: 2, type: 'string', label: 'C' },
+                ]),
+            )
+            editor.addSection({ id: 10, type: 'section', title: 'B' }, undefined, 1)
+            const ids = editor.toJSON().content.map((c) => c.id)
+            expect(ids).toEqual([1, 10, 2])
+        })
+
+        it('throws when parent is a field (non-section)', () => {
+            const editor = new FormDefinitionEditor(defWith([{ id: 1, type: 'string', label: 'A' }]))
+            expect(() => editor.addSection({ id: 2, type: 'section', title: 'S' }, 1)).toThrow('not a section')
+        })
+
+        it('throws when parent does not exist', () => {
+            const editor = new FormDefinitionEditor(emptyDef())
+            expect(() => editor.addSection({ id: 1, type: 'section', title: 'S' }, 99)).toThrow('not found')
+        })
+
+        it('adds section at 3-level deep nesting', () => {
+            const editor = new FormDefinitionEditor(emptyDef())
+            editor.addSection({ id: 1, type: 'section', title: 'L1' })
+            editor.addSection({ id: 2, type: 'section', title: 'L2' }, 1)
+            editor.addSection({ id: 3, type: 'section', title: 'L3' }, 2)
+            const def = editor.toJSON()
+            const l1 = def.content[0] as SectionContentItem
+            const l2 = l1.content[0] as SectionContentItem
+            const l3 = l2.content[0] as SectionContentItem
+            expect(l3).toMatchObject({ id: 3, type: 'section', title: 'L3' })
+        })
+    })
+
+    describe('moveItem — additional', () => {
+        it('throws for non-existent item', () => {
+            const editor = new FormDefinitionEditor(emptyDef())
+            expect(() => editor.moveItem(99, undefined)).toThrow('not found')
+        })
+
+        it('moves item between two sections', () => {
+            const editor = new FormDefinitionEditor(
+                defWith([
+                    {
+                        id: 10,
+                        type: 'section',
+                        title: 'S1',
+                        content: [{ id: 1, type: 'string', label: 'A' }],
+                    },
+                    { id: 20, type: 'section', title: 'S2', content: [] },
+                ]),
+            )
+            editor.moveItem(1, 20)
+            const def = editor.toJSON()
+            const s1 = def.content[0] as SectionContentItem
+            const s2 = def.content[1] as SectionContentItem
+            expect(s1.content).toHaveLength(0)
+            expect(s2.content).toHaveLength(1)
+            expect(s2.content[0]?.id).toBe(1)
+        })
+
+        it('appends when index is out of bounds', () => {
+            const editor = new FormDefinitionEditor(
+                defWith([
+                    { id: 1, type: 'string', label: 'A' },
+                    { id: 2, type: 'string', label: 'B' },
+                    { id: 3, type: 'string', label: 'C' },
+                ]),
+            )
+            editor.moveItem(1, undefined, 999)
+            const ids = editor.toJSON().content.map((c) => c.id)
+            expect(ids).toEqual([2, 3, 1])
+        })
+
+        it('moves section with children to top-level', () => {
+            const editor = new FormDefinitionEditor(
+                defWith([
+                    {
+                        id: 10,
+                        type: 'section',
+                        title: 'Outer',
+                        content: [
+                            {
+                                id: 20,
+                                type: 'section',
+                                title: 'Inner',
+                                content: [{ id: 1, type: 'string', label: 'A' }],
+                            },
+                        ],
+                    },
+                ]),
+            )
+            editor.moveItem(20, undefined)
+            const def = editor.toJSON()
+            expect(def.content).toHaveLength(2)
+            const outer = def.content[0] as SectionContentItem
+            expect(outer.content).toHaveLength(0)
+            const moved = def.content[1] as SectionContentItem
+            expect(moved.id).toBe(20)
+            expect(moved.content).toHaveLength(1)
+            expect(moved.content[0]?.id).toBe(1)
+        })
+
+        it('no-op when moving to same position', () => {
+            const editor = new FormDefinitionEditor(
+                defWith([
+                    { id: 1, type: 'string', label: 'A' },
+                    { id: 2, type: 'string', label: 'B' },
+                    { id: 3, type: 'string', label: 'C' },
+                ]),
+            )
+            editor.moveItem(2, undefined, 1)
+            const ids = editor.toJSON().content.map((c) => c.id)
+            // After remove id=2 -> [1,3], then insert at 1 -> [1,2,3]
+            expect(ids).toEqual([1, 2, 3])
+        })
+    })
+
+    describe('item-not-found error paths', () => {
+        it('setValidation throws for non-existent id', () => {
+            const editor = new FormDefinitionEditor(emptyDef())
+            expect(() => editor.setValidation(99, { required: true })).toThrow('not found')
+        })
+
+        it('setCondition throws for non-existent id', () => {
+            const editor = new FormDefinitionEditor(emptyDef())
+            expect(() => editor.setCondition(99, { field: 1, op: 'set' })).toThrow('not found')
+        })
+
+        it('setOptions throws for non-existent id', () => {
+            const editor = new FormDefinitionEditor(emptyDef())
+            expect(() => editor.setOptions(99, [{ value: 'x', label: 'X' }])).toThrow('not found')
+        })
+
+        it('setArrayItem throws for non-existent id', () => {
+            const editor = new FormDefinitionEditor(emptyDef())
+            expect(() => editor.setArrayItem(99, { type: 'string', label: 'X' })).toThrow('not found')
+        })
+
+        it('setLabel throws for non-existent id', () => {
+            const editor = new FormDefinitionEditor(emptyDef())
+            expect(() => editor.setLabel(99, 'X')).toThrow('not found')
+        })
+
+        it('setFieldDescription throws for non-existent id', () => {
+            const editor = new FormDefinitionEditor(emptyDef())
+            expect(() => editor.setFieldDescription(99, 'X')).toThrow('not found')
+        })
+    })
+
+    describe('addField — additional', () => {
+        it('appends when negative index is provided', () => {
+            const editor = new FormDefinitionEditor(defWith([{ id: 1, type: 'string', label: 'A' }]))
+            editor.addField({ id: 2, type: 'string', label: 'B' }, undefined, -1)
+            const ids = editor.toJSON().content.map((c) => c.id)
+            expect(ids).toEqual([1, 2])
+        })
+
+        it('appends when index is beyond bounds', () => {
+            const editor = new FormDefinitionEditor(defWith([{ id: 1, type: 'string', label: 'A' }]))
+            editor.addField({ id: 2, type: 'string', label: 'B' }, undefined, 100)
+            const ids = editor.toJSON().content.map((c) => c.id)
+            expect(ids).toEqual([1, 2])
+        })
+
+        it('adds field into 3-level deep section', () => {
+            const editor = new FormDefinitionEditor(
+                defWith([
+                    {
+                        id: 1,
+                        type: 'section',
+                        title: 'L1',
+                        content: [
+                            {
+                                id: 2,
+                                type: 'section',
+                                title: 'L2',
+                                content: [{ id: 3, type: 'section', title: 'L3', content: [] }],
+                            },
+                        ],
+                    },
+                ]),
+            )
+            editor.addField({ id: 10, type: 'string', label: 'Deep' }, 3)
+            const l1 = editor.toJSON().content[0] as SectionContentItem
+            const l2 = l1.content[0] as SectionContentItem
+            const l3 = l2.content[0] as SectionContentItem
+            expect(l3.content).toHaveLength(1)
+            expect(l3.content[0]).toMatchObject({ id: 10, label: 'Deep' })
+        })
+    })
+
+    describe('updateField — additional', () => {
+        it('updates a nested field', () => {
+            const editor = new FormDefinitionEditor(
+                defWith([
+                    {
+                        id: 10,
+                        type: 'section',
+                        title: 'S',
+                        content: [{ id: 1, type: 'string', label: 'Old' }],
+                    },
+                ]),
+            )
+            editor.updateField(1, { label: 'New' })
+            const section = editor.toJSON().content[0] as SectionContentItem
+            expect(section.content[0]).toMatchObject({ id: 1, label: 'New' })
+        })
+
+        it('no-op when updating with empty object', () => {
+            const editor = new FormDefinitionEditor(defWith([{ id: 1, type: 'string', label: 'A' }]))
+            editor.updateField(1, {})
+            expect(editor.toJSON().content[0]).toMatchObject({ id: 1, type: 'string', label: 'A' })
+        })
+    })
+
+    describe('updateSection — additional', () => {
+        it('throws for non-existent id', () => {
+            const editor = new FormDefinitionEditor(emptyDef())
+            expect(() => editor.updateSection(99, { title: 'X' })).toThrow('not found')
+        })
+    })
+
+    describe('removeItem — additional', () => {
+        it('leaves empty content when removing last item from section', () => {
+            const editor = new FormDefinitionEditor(
+                defWith([
+                    {
+                        id: 10,
+                        type: 'section',
+                        title: 'S',
+                        content: [{ id: 1, type: 'string', label: 'A' }],
+                    },
+                ]),
+            )
+            editor.removeItem(1)
+            const section = editor.toJSON().content[0] as SectionContentItem
+            expect(section.content).toEqual([])
+        })
+
+        it('removes item from 3-level deep structure', () => {
+            const editor = new FormDefinitionEditor(
+                defWith([
+                    {
+                        id: 1,
+                        type: 'section',
+                        title: 'L1',
+                        content: [
+                            {
+                                id: 2,
+                                type: 'section',
+                                title: 'L2',
+                                content: [
+                                    {
+                                        id: 3,
+                                        type: 'section',
+                                        title: 'L3',
+                                        content: [{ id: 10, type: 'string', label: 'Deep' }],
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                ]),
+            )
+            editor.removeItem(10)
+            const l1 = editor.toJSON().content[0] as SectionContentItem
+            const l2 = l1.content[0] as SectionContentItem
+            const l3 = l2.content[0] as SectionContentItem
+            expect(l3.content).toEqual([])
+        })
+    })
+
+    describe('listing — additional', () => {
+        it('listAll returns empty array for empty form', () => {
+            const editor = new FormDefinitionEditor(emptyDef())
+            expect(editor.listAll()).toEqual([])
+        })
+
+        it('listFields returns empty array for empty form', () => {
+            const editor = new FormDefinitionEditor(emptyDef())
+            expect(editor.listFields()).toEqual([])
+        })
+
+        it('listSections returns empty array for empty form', () => {
+            const editor = new FormDefinitionEditor(emptyDef())
+            expect(editor.listSections()).toEqual([])
+        })
+
+        it('listAll on 3-level deep structure returns correct parent ids', () => {
+            const editor = new FormDefinitionEditor(
+                defWith([
+                    {
+                        id: 1,
+                        type: 'section',
+                        title: 'L1',
+                        content: [
+                            {
+                                id: 2,
+                                type: 'section',
+                                title: 'L2',
+                                content: [
+                                    {
+                                        id: 3,
+                                        type: 'section',
+                                        title: 'L3',
+                                        content: [{ id: 10, type: 'string', label: 'Deep' }],
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                ]),
+            )
+            const all = editor.listAll()
+            expect(all).toEqual([
+                { id: 1, type: 'section', label: undefined, title: 'L1', parentId: undefined },
+                { id: 2, type: 'section', label: undefined, title: 'L2', parentId: 1 },
+                { id: 3, type: 'section', label: undefined, title: 'L3', parentId: 2 },
+                { id: 10, type: 'string', label: 'Deep', title: undefined, parentId: 3 },
+            ])
+        })
+
+        it('listFields on 3-level deep structure returns only fields', () => {
+            const editor = new FormDefinitionEditor(
+                defWith([
+                    {
+                        id: 1,
+                        type: 'section',
+                        title: 'L1',
+                        content: [
+                            {
+                                id: 2,
+                                type: 'section',
+                                title: 'L2',
+                                content: [{ id: 10, type: 'string', label: 'Deep' }],
+                            },
+                        ],
+                    },
+                ]),
+            )
+            const fields = editor.listFields()
+            expect(fields).toHaveLength(1)
+            expect(fields[0]).toMatchObject({ id: 10, parentId: 2 })
+        })
+
+        it('listSections on 3-level deep structure returns all sections', () => {
+            const editor = new FormDefinitionEditor(
+                defWith([
+                    {
+                        id: 1,
+                        type: 'section',
+                        title: 'L1',
+                        content: [
+                            {
+                                id: 2,
+                                type: 'section',
+                                title: 'L2',
+                                content: [{ id: 3, type: 'section', title: 'L3', content: [] }],
+                            },
+                        ],
+                    },
+                ]),
+            )
+            const sections = editor.listSections()
+            expect(sections).toHaveLength(3)
+            expect(sections.map((s) => s.id)).toEqual([1, 2, 3])
+        })
+    })
+
+    // ─── LOWER PRIORITY ──────────────────────────────────────────────────
+
+    describe('setOptions — additional', () => {
+        it('sets empty options array', () => {
+            const editor = new FormDefinitionEditor(
+                defWith([
+                    {
+                        id: 1,
+                        type: 'select',
+                        label: 'Color',
+                        options: [{ value: 'r', label: 'Red' }],
+                    },
+                ]),
+            )
+            editor.setOptions(1, [])
+            expect((editor.toJSON().content[0] as FieldContentItem).options).toEqual([])
+        })
+    })
+
+    describe('nextId — additional', () => {
+        it('returns correct next id after removing items', () => {
+            const editor = new FormDefinitionEditor(
+                defWith([
+                    { id: 1, type: 'string', label: 'A' },
+                    { id: 5, type: 'string', label: 'B' },
+                    { id: 3, type: 'string', label: 'C' },
+                ]),
+            )
+            editor.removeItem(5)
+            // max is now 3, so nextId should be 4
+            expect(editor.nextId()).toBe(4)
+        })
+    })
+
+    describe('setValidation — additional field types', () => {
+        it('sets validation on a number field', () => {
+            const editor = new FormDefinitionEditor(defWith([{ id: 1, type: 'number', label: 'Age' }]))
+            editor.setValidation(1, { required: true, min: 0, max: 150 })
+            expect((editor.toJSON().content[0] as FieldContentItem).validation).toEqual({
+                required: true,
+                min: 0,
+                max: 150,
+            })
+        })
+
+        it('sets validation on a date field', () => {
+            const editor = new FormDefinitionEditor(defWith([{ id: 1, type: 'date', label: 'DOB' }]))
+            editor.setValidation(1, { required: true, min: '2000-01-01', max: '2025-12-31' })
+            expect((editor.toJSON().content[0] as FieldContentItem).validation).toEqual({
+                required: true,
+                min: '2000-01-01',
+                max: '2025-12-31',
+            })
+        })
+
+        it('sets validation on a boolean field', () => {
+            const editor = new FormDefinitionEditor(defWith([{ id: 1, type: 'boolean', label: 'Agree' }]))
+            editor.setValidation(1, { required: true })
+            expect((editor.toJSON().content[0] as FieldContentItem).validation).toEqual({ required: true })
+        })
+
+        it('sets validation on an array field', () => {
+            const editor = new FormDefinitionEditor(
+                defWith([{ id: 1, type: 'array', label: 'Tags', item: { type: 'string', label: 'Tag' } }]),
+            )
+            editor.setValidation(1, { minItems: 1, maxItems: 10 })
+            expect((editor.toJSON().content[0] as FieldContentItem).validation).toEqual({
+                minItems: 1,
+                maxItems: 10,
+            })
+        })
+    })
 })

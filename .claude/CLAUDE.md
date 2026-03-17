@@ -82,7 +82,7 @@ Conditionals control the visibility of individual fields or entire sections base
 - When a conditional evaluates to false, the associated field or section must be hidden.
 - When a conditional evaluates to true, the associated field or section must be shown.
 - Conditionals must be evaluated dynamically as form values change.
-- When a conditional field is hidded we do not consider it in form validation at all.
+- When a conditional field is hidden we do not consider it in form validation at all.
 
 ## 7. Workflows
 

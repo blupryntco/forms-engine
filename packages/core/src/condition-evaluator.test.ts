@@ -2241,4 +2241,70 @@ describe('ConditionEvaluator', () => {
             expect(evaluator.evalCondition({ field: 1, op: 'ne', value: 'a' }, { now, values: {} })).toBe(true)
         })
     })
+
+    describe('eq/ne with relative date string values', () => {
+        it('eq with +0d resolves to today ISO string and matches', () => {
+            const todayIso = now.toISOString()
+            expect(
+                evaluator.evalCondition({ field: 1, op: 'eq', value: '+0d' }, { now, values: { '1': todayIso } }),
+            ).toBe(true)
+        })
+
+        it('eq with +0d does not match a different date', () => {
+            expect(
+                evaluator.evalCondition(
+                    { field: 1, op: 'eq', value: '+0d' },
+                    { now, values: { '1': '2000-01-01T00:00:00.000Z' } },
+                ),
+            ).toBe(false)
+        })
+
+        it('ne with +0d returns false when field matches resolved date', () => {
+            const todayIso = now.toISOString()
+            expect(
+                evaluator.evalCondition({ field: 1, op: 'ne', value: '+0d' }, { now, values: { '1': todayIso } }),
+            ).toBe(false)
+        })
+
+        it('ne with +0d returns true when field does not match resolved date', () => {
+            expect(
+                evaluator.evalCondition(
+                    { field: 1, op: 'ne', value: '+0d' },
+                    { now, values: { '1': '2000-01-01T00:00:00.000Z' } },
+                ),
+            ).toBe(true)
+        })
+    })
+
+    describe('compound conditions with empty arrays', () => {
+        it('and with empty array returns true (vacuous truth)', () => {
+            const cond: Condition = { and: [] }
+            expect(evaluator.evalCondition(cond, { now, values: {} })).toBe(true)
+        })
+
+        it('or with empty array returns false', () => {
+            const cond: Condition = { or: [] }
+            expect(evaluator.evalCondition(cond, { now, values: {} })).toBe(false)
+        })
+    })
+
+    describe('in/notin when field value is itself an array', () => {
+        it('in returns false when field value is an array (no deep equality)', () => {
+            expect(
+                evaluator.evalCondition(
+                    { field: 1, op: 'in', value: [['a', 'b'], 'c'] },
+                    { now, values: { '1': ['a', 'b'] } },
+                ),
+            ).toBe(false)
+        })
+
+        it('notin returns true when field value is an array (not found by reference)', () => {
+            expect(
+                evaluator.evalCondition(
+                    { field: 1, op: 'notin', value: ['a', 'b', 'c'] },
+                    { now, values: { '1': ['a', 'b'] } },
+                ),
+            ).toBe(true)
+        })
+    })
 })

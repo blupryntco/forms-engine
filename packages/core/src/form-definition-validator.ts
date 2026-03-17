@@ -33,7 +33,7 @@ const validateFn = ajv.compile(formDefinitionSchema)
  *    only reference field ids that exist in the registry.
  * 4. **Condition references section** (`CONDITION_REFS_SECTION`) -- conditions
  *    must not reference section ids, because sections have no values.
- * 5. **Constraint contradictions** (`INVALID_RANGE_*`) -- e.g. `minLength > maxLength`,
+ * 5. **Constraint contradictions** (`INVALID_MIN_MAX`) -- e.g. `minLength > maxLength`,
  *    `min > max`, `minDate > maxDate` (absolute dates only), `minItems > maxItems`.
  * 6. **Invalid regex** (`INVALID_REGEX`) -- string field `pattern` values must
  *    be valid regular expressions.

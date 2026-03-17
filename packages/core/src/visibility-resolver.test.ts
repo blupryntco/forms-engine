@@ -198,6 +198,121 @@ describe('VisibilityResolver.getVisibilityMap', () => {
     })
 })
 
+describe('VisibilityResolver.isVisible – 3-level deep parent chain', () => {
+    it('returns false when great-grandparent section is hidden', () => {
+        // section 10 > section 20 > section 30 > field 40
+        const registry = new Map<number, FieldEntry>([
+            [1, makeEntry(1)],
+            [10, makeEntry(10, { type: 'section', condition: { field: 1, op: 'eq', value: 'show' } })],
+            [20, makeEntry(20, { type: 'section', parentId: 10 })],
+            [30, makeEntry(30, { type: 'section', parentId: 20 })],
+            [40, makeEntry(40, { parentId: 30 })],
+        ])
+        const resolver = new VisibilityResolver(registry, conditionEvaluator, [1, 10, 20, 30, 40])
+
+        // Great-grandparent hidden → all descendants hidden
+        expect(resolver.isVisible(40, { '1': 'hide' }, now)).toBe(false)
+        expect(resolver.isVisible(30, { '1': 'hide' }, now)).toBe(false)
+
+        // Great-grandparent visible → all descendants visible
+        expect(resolver.isVisible(40, { '1': 'show' }, now)).toBe(true)
+        expect(resolver.isVisible(30, { '1': 'show' }, now)).toBe(true)
+    })
+})
+
+describe('VisibilityResolver.getVisibilityMap – id not in registry', () => {
+    it('sets false for topologicalOrder id not in registry', () => {
+        const registry = new Map<number, FieldEntry>([[1, makeEntry(1)]])
+        // topologicalOrder contains id 99 which is not in registry
+        const resolver = new VisibilityResolver(registry, conditionEvaluator, [1, 99])
+        const map = resolver.getVisibilityMap({}, now)
+        expect(map.get(1)).toBe(true)
+        expect(map.get(99)).toBe(false)
+    })
+})
+
+describe('VisibilityResolver.getVisibilityMap – compound conditions', () => {
+    it('handles and compound condition correctly', () => {
+        const registry = new Map<number, FieldEntry>([
+            [1, makeEntry(1)],
+            [2, makeEntry(2)],
+            [
+                3,
+                makeEntry(3, {
+                    condition: {
+                        and: [
+                            { field: 1, op: 'eq', value: 'a' },
+                            { field: 2, op: 'eq', value: 'b' },
+                        ],
+                    },
+                }),
+            ],
+        ])
+        const resolver = new VisibilityResolver(registry, conditionEvaluator, [1, 2, 3])
+
+        // Both conditions met
+        const map1 = resolver.getVisibilityMap({ '1': 'a', '2': 'b' }, now)
+        expect(map1.get(3)).toBe(true)
+
+        // Only one condition met
+        const map2 = resolver.getVisibilityMap({ '1': 'a', '2': 'x' }, now)
+        expect(map2.get(3)).toBe(false)
+    })
+
+    it('handles or compound condition correctly', () => {
+        const registry = new Map<number, FieldEntry>([
+            [1, makeEntry(1)],
+            [2, makeEntry(2)],
+            [
+                3,
+                makeEntry(3, {
+                    condition: {
+                        or: [
+                            { field: 1, op: 'eq', value: 'a' },
+                            { field: 2, op: 'eq', value: 'b' },
+                        ],
+                    },
+                }),
+            ],
+        ])
+        const resolver = new VisibilityResolver(registry, conditionEvaluator, [1, 2, 3])
+
+        // One condition met
+        const map1 = resolver.getVisibilityMap({ '1': 'a', '2': 'x' }, now)
+        expect(map1.get(3)).toBe(true)
+
+        // Neither met
+        const map2 = resolver.getVisibilityMap({ '1': 'x', '2': 'x' }, now)
+        expect(map2.get(3)).toBe(false)
+    })
+})
+
+describe('VisibilityResolver – isVisible vs getVisibilityMap divergence', () => {
+    it('diverges due to hidden-field rule: isVisible=true but getVisibilityMap=false', () => {
+        // Field 1 controls field 2 visibility.
+        // Field 3 has condition: field 2 eq 'val'
+        // When field 1 is not set: field 2 is hidden.
+        // isVisible(3) does NOT use hidden-field rule → sees field 2's actual value → true
+        // getVisibilityMap uses hidden-field rule → field 2 hidden → treated as "not set" → false
+        const registry = new Map<number, FieldEntry>([
+            [1, makeEntry(1)],
+            [2, makeEntry(2, { condition: { field: 1, op: 'set' } })],
+            [3, makeEntry(3, { condition: { field: 2, op: 'eq', value: 'val' } })],
+        ])
+        const resolver = new VisibilityResolver(registry, conditionEvaluator, [1, 2, 3])
+
+        const values = { '1': '', '2': 'val' } // field 1 empty → field 2 hidden
+
+        // isVisible does NOT apply hidden-field rule, so field 2's value 'val' is seen
+        const singleResult = resolver.isVisible(3, values, now)
+        expect(singleResult).toBe(true)
+
+        // getVisibilityMap DOES apply hidden-field rule: field 2 hidden → "not set" → eq fails
+        const map = resolver.getVisibilityMap(values, now)
+        expect(map.get(3)).toBe(false)
+    })
+})
+
 describe('DependencyGraph.getAffectedIds (via VisibilityResolver context)', () => {
     it('returns empty set when field has no dependents', () => {
         const registry = new Map<number, FieldEntry>([[1, makeEntry(1)]])

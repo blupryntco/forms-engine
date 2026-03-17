@@ -1,4 +1,5 @@
 import { FormValuesEditor } from './form-values-editor'
+import type { FileValue } from './types/file-value'
 import type { ContentItem, FormDefinition } from './types/form-definition'
 import type { FormDocument, FormValues } from './types/form-values'
 
@@ -364,6 +365,332 @@ describe('FormValuesEditor', () => {
             expect(result.values['3']).toBe(true)
             expect(result.values['6']).toEqual(['tag1', 'tag2'])
             expect(result.form.submittedAt).toBe('2026-01-01T00:00:00.000Z')
+        })
+    })
+
+    describe('setFieldValue / getFieldValue (additional)', () => {
+        const defWithFile = baseDef([
+            { id: 1, type: 'file', label: 'Attachment' },
+            {
+                id: 2,
+                type: 'array',
+                label: 'Tags',
+                item: { type: 'string', label: 'Tag' },
+            },
+            { id: 3, type: 'string', label: 'Name' },
+        ])
+
+        it('set and get a file value', () => {
+            const fileVal: FileValue = {
+                name: 'report.pdf',
+                mimeType: 'application/pdf',
+                size: 12345,
+                url: 'https://example.com/report.pdf',
+            }
+            const editor = new FormValuesEditor(defWithFile)
+            editor.setFieldValue(1, fileVal)
+            expect(editor.getFieldValue(1)).toEqual(fileVal)
+        })
+
+        it('set array field directly via setFieldValue', () => {
+            const editor = new FormValuesEditor(defWithFile)
+            editor.setFieldValue(2, ['a', 'b', 'c'])
+            expect(editor.getFieldValue(2)).toEqual(['a', 'b', 'c'])
+        })
+
+        it('overwrite an existing value', () => {
+            const editor = new FormValuesEditor(defWithFile)
+            editor.setFieldValue(3, 'Alice')
+            expect(editor.getFieldValue(3)).toBe('Alice')
+            editor.setFieldValue(3, 'Bob')
+            expect(editor.getFieldValue(3)).toBe('Bob')
+        })
+
+        it('set value to null', () => {
+            const editor = new FormValuesEditor(defWithFile)
+            editor.setFieldValue(3, 'Alice')
+            editor.setFieldValue(3, null)
+            expect(editor.getFieldValue(3)).toBeNull()
+        })
+
+        it('set value to undefined', () => {
+            const editor = new FormValuesEditor(defWithFile)
+            editor.setFieldValue(3, 'Alice')
+            editor.setFieldValue(3, undefined)
+            expect(editor.getFieldValue(3)).toBeUndefined()
+        })
+    })
+
+    describe('clearFieldValue (additional)', () => {
+        it('clearing an already-clear field does not throw', () => {
+            const editor = new FormValuesEditor(simpleDef)
+            expect(() => editor.clearFieldValue(1)).not.toThrow()
+            expect(editor.getFieldValue(1)).toBeUndefined()
+        })
+
+        it('clearing a field inside a section', () => {
+            const editor = new FormValuesEditor(defWithSection)
+            editor.setFieldValue(2, 42)
+            expect(editor.getFieldValue(2)).toBe(42)
+            editor.clearFieldValue(2)
+            expect(editor.getFieldValue(2)).toBeUndefined()
+            expect('2' in editor.toJSON().values).toBe(false)
+        })
+    })
+
+    describe('array operations (additional)', () => {
+        it('moveArrayItem with same from/to index is a no-op', () => {
+            const editor = new FormValuesEditor(simpleDef)
+            editor.addArrayItem(6, 'a').addArrayItem(6, 'b').addArrayItem(6, 'c')
+            editor.moveArrayItem(6, 1, 1)
+            expect(editor.getFieldValue(6)).toEqual(['a', 'b', 'c'])
+        })
+
+        it('removeArrayItem that empties the array leaves an empty array', () => {
+            const editor = new FormValuesEditor(simpleDef)
+            editor.addArrayItem(6, 'only')
+            editor.removeArrayItem(6, 0)
+            expect(editor.getFieldValue(6)).toEqual([])
+        })
+
+        it('multiple sequential operations — add several, remove middle, verify state', () => {
+            const editor = new FormValuesEditor(simpleDef)
+            editor
+                .addArrayItem(6, 'a')
+                .addArrayItem(6, 'b')
+                .addArrayItem(6, 'c')
+                .addArrayItem(6, 'd')
+                .addArrayItem(6, 'e')
+            expect(editor.getFieldValue(6)).toEqual(['a', 'b', 'c', 'd', 'e'])
+
+            editor.removeArrayItem(6, 2) // remove 'c'
+            expect(editor.getFieldValue(6)).toEqual(['a', 'b', 'd', 'e'])
+
+            editor.removeArrayItem(6, 1) // remove 'b'
+            expect(editor.getFieldValue(6)).toEqual(['a', 'd', 'e'])
+
+            editor.setArrayItem(6, 1, 'D')
+            expect(editor.getFieldValue(6)).toEqual(['a', 'D', 'e'])
+
+            editor.moveArrayItem(6, 2, 0)
+            expect(editor.getFieldValue(6)).toEqual(['e', 'a', 'D'])
+        })
+    })
+
+    describe('setSubmittedAt (additional)', () => {
+        it('overwrite existing submittedAt', () => {
+            const editor = new FormValuesEditor(simpleDef)
+            editor.setSubmittedAt('2025-01-01T00:00:00.000Z')
+            expect(editor.toJSON().form.submittedAt).toBe('2025-01-01T00:00:00.000Z')
+            editor.setSubmittedAt('2026-06-15T12:00:00.000Z')
+            expect(editor.toJSON().form.submittedAt).toBe('2026-06-15T12:00:00.000Z')
+        })
+
+        it('invalid date string is accepted by editor (validation catches it)', () => {
+            const editor = new FormValuesEditor(simpleDef)
+            editor.setSubmittedAt('not-a-date')
+            expect(editor.toJSON().form.submittedAt).toBe('not-a-date')
+            const result = editor.validate()
+            expect(result.valid).toBe(false)
+            expect(result.documentErrors?.some((e) => e.code === 'FORM_SUBMITTED_AT_INVALID')).toBe(true)
+        })
+    })
+
+    describe('validate (additional)', () => {
+        it('hidden conditional field with required does not produce errors', () => {
+            const def = baseDef([
+                { id: 1, type: 'boolean', label: 'Toggle' },
+                {
+                    id: 2,
+                    type: 'string',
+                    label: 'Hidden Required',
+                    validation: { required: true },
+                    condition: { field: 1, op: 'eq', value: true },
+                },
+            ])
+            const editor = new FormValuesEditor(def)
+            editor.setFieldValue(1, false) // condition false → field 2 hidden
+            const result = editor.validate()
+            expect(result.valid).toBe(true)
+            expect(result.fieldErrors.has(2)).toBe(false)
+        })
+
+        it('string field with minLength violation', () => {
+            const def = baseDef([{ id: 1, type: 'string', label: 'Name', validation: { minLength: 5 } }])
+            const editor = new FormValuesEditor(def)
+            editor.setFieldValue(1, 'ab')
+            const result = editor.validate()
+            expect(result.valid).toBe(false)
+            expect(result.fieldErrors.get(1)?.some((e) => e.rule === 'MIN_LENGTH')).toBe(true)
+        })
+
+        it('string field with maxLength violation', () => {
+            const def = baseDef([{ id: 1, type: 'string', label: 'Name', validation: { maxLength: 3 } }])
+            const editor = new FormValuesEditor(def)
+            editor.setFieldValue(1, 'toolong')
+            const result = editor.validate()
+            expect(result.valid).toBe(false)
+            expect(result.fieldErrors.get(1)?.some((e) => e.rule === 'MAX_LENGTH')).toBe(true)
+        })
+
+        it('string field with pattern violation', () => {
+            const def = baseDef([{ id: 1, type: 'string', label: 'Code', validation: { pattern: '^[A-Z]+$' } }])
+            const editor = new FormValuesEditor(def)
+            editor.setFieldValue(1, 'abc123')
+            const result = editor.validate()
+            expect(result.valid).toBe(false)
+            expect(result.fieldErrors.get(1)?.some((e) => e.rule === 'PATTERN')).toBe(true)
+        })
+
+        it('date field with minDate violation', () => {
+            const def = baseDef([
+                { id: 1, type: 'date', label: 'Start', validation: { minDate: '2025-06-01T00:00:00.000Z' } },
+            ])
+            const editor = new FormValuesEditor(def)
+            editor.setFieldValue(1, '2025-01-01')
+            const result = editor.validate()
+            expect(result.valid).toBe(false)
+            expect(result.fieldErrors.get(1)?.some((e) => e.rule === 'MIN_DATE')).toBe(true)
+        })
+
+        it('date field with maxDate violation', () => {
+            const def = baseDef([
+                { id: 1, type: 'date', label: 'End', validation: { maxDate: '2025-06-01T00:00:00.000Z' } },
+            ])
+            const editor = new FormValuesEditor(def)
+            editor.setFieldValue(1, '2025-12-31')
+            const result = editor.validate()
+            expect(result.valid).toBe(false)
+            expect(result.fieldErrors.get(1)?.some((e) => e.rule === 'MAX_DATE')).toBe(true)
+        })
+
+        it('array field with minItems violation', () => {
+            const def = baseDef([
+                {
+                    id: 1,
+                    type: 'array',
+                    label: 'Items',
+                    item: { type: 'string', label: 'Item' },
+                    validation: { minItems: 2 },
+                },
+            ])
+            const editor = new FormValuesEditor(def)
+            editor.addArrayItem(1, 'only-one')
+            const result = editor.validate()
+            expect(result.valid).toBe(false)
+            expect(result.fieldErrors.get(1)?.some((e) => e.rule === 'MIN_ITEMS')).toBe(true)
+        })
+
+        it('array field with maxItems violation', () => {
+            const def = baseDef([
+                {
+                    id: 1,
+                    type: 'array',
+                    label: 'Items',
+                    item: { type: 'string', label: 'Item' },
+                    validation: { maxItems: 1 },
+                },
+            ])
+            const editor = new FormValuesEditor(def)
+            editor.addArrayItem(1, 'a').addArrayItem(1, 'b')
+            const result = editor.validate()
+            expect(result.valid).toBe(false)
+            expect(result.fieldErrors.get(1)?.some((e) => e.rule === 'MAX_ITEMS')).toBe(true)
+        })
+
+        it('missing submittedAt produces document error', () => {
+            const def = baseDef([{ id: 1, type: 'string', label: 'Name' }])
+            const d: FormDocument = {
+                form: { id: 'test-form', version: '1.0.0', submittedAt: '' },
+                values: {},
+            }
+            const editor = new FormValuesEditor(def, d)
+            const result = editor.validate()
+            expect(result.valid).toBe(false)
+            expect(result.documentErrors).toBeDefined()
+            expect(result.documentErrors?.some((e) => e.code === 'FORM_SUBMITTED_AT_MISSING')).toBe(true)
+        })
+
+        it('boolean required violation', () => {
+            const def = baseDef([{ id: 1, type: 'boolean', label: 'Accept', validation: { required: true } }])
+            const editor = new FormValuesEditor(def)
+            // do not set value
+            const result = editor.validate()
+            expect(result.valid).toBe(false)
+            expect(result.fieldErrors.get(1)?.some((e) => e.rule === 'REQUIRED')).toBe(true)
+        })
+    })
+
+    describe('visibility (additional)', () => {
+        it('section visibility with conditional section', () => {
+            const def = baseDef([
+                { id: 1, type: 'boolean', label: 'Show Section' },
+                {
+                    id: 10,
+                    type: 'section',
+                    title: 'Conditional Section',
+                    condition: { field: 1, op: 'eq', value: true },
+                    content: [{ id: 2, type: 'string', label: 'Inner' }],
+                },
+            ])
+            const editor = new FormValuesEditor(def)
+            editor.setFieldValue(1, false)
+            expect(editor.isVisible(10)).toBe(false)
+            expect(editor.isVisible(2)).toBe(false)
+
+            editor.setFieldValue(1, true)
+            expect(editor.isVisible(10)).toBe(true)
+            expect(editor.isVisible(2)).toBe(true)
+        })
+
+        it('visibility after value change — show then hide', () => {
+            const def = baseDef([
+                { id: 1, type: 'boolean', label: 'Toggle' },
+                {
+                    id: 2,
+                    type: 'string',
+                    label: 'Conditional',
+                    condition: { field: 1, op: 'eq', value: true },
+                },
+            ])
+            const editor = new FormValuesEditor(def)
+
+            editor.setFieldValue(1, true)
+            expect(editor.isVisible(2)).toBe(true)
+
+            editor.setFieldValue(1, false)
+            expect(editor.isVisible(2)).toBe(false)
+        })
+    })
+
+    describe('toJSON (additional)', () => {
+        it('toJSON with array values returns deep clone', () => {
+            const editor = new FormValuesEditor(simpleDef)
+            editor.addArrayItem(6, 'a').addArrayItem(6, 'b')
+            const snapshot = editor.toJSON()
+            expect(snapshot.values['6']).toEqual(['a', 'b'])
+
+            // mutate the snapshot array
+            ;(snapshot.values['6'] as string[]).push('c')
+            expect(editor.getFieldValue(6)).toEqual(['a', 'b'])
+        })
+
+        it('toJSON with file values returns deep clone of nested objects', () => {
+            const defWithFile = baseDef([{ id: 1, type: 'file', label: 'Upload' }])
+            const fileVal: FileValue = {
+                name: 'doc.pdf',
+                mimeType: 'application/pdf',
+                size: 999,
+                url: 'https://example.com/doc.pdf',
+            }
+            const editor = new FormValuesEditor(defWithFile)
+            editor.setFieldValue(1, fileVal)
+            const snapshot = editor.toJSON()
+            expect(snapshot.values['1']).toEqual(fileVal)
+
+            // mutate the snapshot's file object
+            ;(snapshot.values['1'] as FileValue).name = 'tampered.pdf'
+            expect((editor.getFieldValue(1) as FileValue).name).toBe('doc.pdf')
         })
     })
 })

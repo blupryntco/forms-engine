@@ -7,22 +7,22 @@ describe('getFieldErrors', () => {
         [
             1,
             [
-                { fieldId: 1, rule: 'required', message: 'Required' },
-                { fieldId: 1, rule: 'minLength', message: 'Too short', itemIndex: 0 },
-                { fieldId: 1, rule: 'minLength', message: 'Too short', itemIndex: 1 },
+                { fieldId: 1, rule: 'REQUIRED', message: 'Value is required' },
+                { fieldId: 1, rule: 'MIN_LENGTH', message: 'Too short', itemIndex: 0 },
+                { fieldId: 1, rule: 'MIN_LENGTH', message: 'Too short', itemIndex: 1 },
             ],
         ],
-        [2, [{ fieldId: 2, rule: 'required', message: 'Required' }]],
+        [2, [{ fieldId: 2, rule: 'REQUIRED', message: 'Value is required' }]],
     ])
 
     it('filters field-level errors (no itemIndex)', () => {
         const result = getFieldErrors(fieldErrors, 1)
-        expect(result).toEqual([{ fieldId: 1, rule: 'required', message: 'Required' }])
+        expect(result).toEqual([{ fieldId: 1, rule: 'REQUIRED', message: 'Value is required' }])
     })
 
     it('filters item-level errors by itemIndex', () => {
         const result = getFieldErrors(fieldErrors, 1, 0)
-        expect(result).toEqual([{ fieldId: 1, rule: 'minLength', message: 'Too short', itemIndex: 0 }])
+        expect(result).toEqual([{ fieldId: 1, rule: 'MIN_LENGTH', message: 'Too short', itemIndex: 0 }])
     })
 
     it('returns empty array for unknown field', () => {

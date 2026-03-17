@@ -122,7 +122,7 @@ if (!result.valid) {
   // Check document-level errors (id/version mismatch, submittedAt issues)
   result.documentErrors?.forEach(e => console.log(e.code, e.message))
   // Check field-level errors
-  result.errors.forEach(e => console.log(e.fieldId, e.rule, e.message))
+  result.fieldErrors.forEach((errors, fieldId) => errors.forEach(e => console.log(fieldId, e.rule, e.message)))
 }
 ```
 
@@ -185,7 +185,7 @@ Adds a section. Same ID and positioning logic as `addField`.
 editor.addSection({ title: 'Personal Info' })
 ```
 
-#### `updateField(id: number, updates: Partial<FieldDescriptor>): this`
+#### `updateField(id: number, updates: Partial<Omit<FieldContentItem, 'id' | 'type'>>): this`
 
 Partially updates a field. Cannot change `id` or `type`.
 
@@ -193,7 +193,7 @@ Partially updates a field. Cannot change `id` or `type`.
 editor.updateField(3, { label: 'Full Name', validation: { required: true } })
 ```
 
-#### `updateSection(id: number, updates: Partial<SectionDescriptor>): this`
+#### `updateSection(id: number, updates: Partial<Omit<SectionContentItem, 'id' | 'type' | 'content'>>): this`
 
 Partially updates a section. Cannot change `id`, `type`, or `content`.
 
@@ -201,13 +201,13 @@ Partially updates a section. Cannot change `id`, `type`, or `content`.
 
 Removes a field or section and all its descendants.
 
-#### `moveItem(id: number, targetParentId: number | null, index?: number): this`
+#### `moveItem(id: number, targetParentId: number | undefined, index?: number): this`
 
-Moves an item to a different parent (or top-level with `null`). Prevents moving a section into itself or its own descendants.
+Moves an item to a different parent (or top-level with `undefined`). Prevents moving a section into itself or its own descendants.
 
 ```ts
-editor.moveItem(5, 1)       // move field 5 into section 1
-editor.moveItem(5, null, 0)  // move field 5 to top-level, first position
+editor.moveItem(5, 1)            // move field 5 into section 1
+editor.moveItem(5, undefined, 0) // move field 5 to top-level, first position
 ```
 
 #### Field-Specific Setters
@@ -218,7 +218,7 @@ editor.setCondition(5, { field: 3, op: 'set' })
 editor.setOptions(7, [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }])
 editor.setArrayItem(8, { type: 'string', label: 'Item' })
 editor.setLabel(3, 'New Label')
-editor.setDescription_item(3, 'Help text')
+editor.setFieldDescription(3, 'Help text')
 ```
 
 Pass `undefined` to `setValidation` or `setCondition` to clear the value.
@@ -349,7 +349,7 @@ Validates the current document against the form definition. Delegates to `FormEn
 ```ts
 const result = editor.validate()
 if (!result.valid) {
-  result.errors.forEach(e => console.log(e.fieldId, e.message))
+  result.fieldErrors.forEach((errors, fieldId) => errors.forEach(e => console.log(fieldId, e.message)))
 }
 ```
 
@@ -399,7 +399,7 @@ Evaluates a simple or compound condition.
 const evaluator = new ConditionEvaluator()
 const visible = evaluator.evalCondition(
   { field: 3, op: 'eq', value: 'yes' },
-  { values: { '3': 'yes' } }
+  { values: { '3': 'yes' }, now: new Date() }
 )
 ```
 
@@ -409,7 +409,7 @@ const visible = evaluator.evalCondition(
 type EvaluationContext = {
   values: Record<string, unknown>   // form values keyed by stringified field ID
   visibilityMap?: Map<number, boolean>  // enables hidden-field rule
-  now?: Date                        // reference date for relative dates (resolved from form.submittedAt)
+  now: Date                         // reference date for relative dates (resolved from form.submittedAt)
 }
 ```
 
@@ -419,11 +419,15 @@ type EvaluationContext = {
 
 Computes field/section visibility. Used internally by `FormEngine`, but exported for advanced use.
 
-#### `isVisible(id: number, values: FormValues, now?: Date): boolean`
+#### `constructor(registry: Map<number, FieldEntry>, conditionEvaluator: ConditionEvaluator, topologicalOrder: number[])`
+
+Creates a new resolver from the engine's field registry, a condition evaluator, and the topological ordering from `DependencyGraph`.
+
+#### `isVisible(id: number, values: FormValues, now: Date): boolean`
 
 Single-item check. No hidden-field rule.
 
-#### `getVisibilityMap(values: FormValues, now?: Date): Map<number, boolean>`
+#### `getVisibilityMap(values: FormValues, now: Date): Map<number, boolean>`
 
 Bulk evaluation in topological order. Applies hidden-field rule and cascading parent visibility.
 
@@ -433,9 +437,9 @@ Bulk evaluation in topological order. Applies hidden-field rule and cascading pa
 
 Validates form values against schema rules. Used internally by `FormEngine`, but exported for advanced use.
 
-#### `validate(values: FormValues, visibilityMap: Map<number, boolean>, now?: Date): FormValidationResult`
+#### `validate(values: FormValues, visibilityMap: Map<number, boolean>, now: Date = new Date()): FormValidationResult`
 
-Validates all visible fields. Returns `{ valid: boolean, errors: FieldValidationError[] }`.
+Validates all visible fields. Returns `{ valid: boolean, fieldErrors: Map<number, FieldValidationError[]> }`.
 
 ---
 
@@ -447,17 +451,21 @@ Builds and queries the condition dependency DAG.
 
 Extracts all field IDs referenced in a condition tree.
 
-#### `static detectCycle(registry: Map<number, FieldEntry>): string | null`
+#### `static detectCycle(registry: Map<number, FieldEntry>): number[] | undefined`
 
-Detects circular dependencies. Returns a cycle path string (e.g., `"1 → 2 → 1"`) or `null`.
+Detects circular dependencies. Returns an array of field IDs forming the cycle, or `undefined` if no cycle exists.
 
 #### `getAffectedIds(fieldId: number): Set<number>`
 
 Returns transitive dependents via BFS. Results are memoized.
 
-#### `topologicalOrder: readonly number[]`
+#### `readonly topologicalOrder: number[]`
 
 All item IDs in topological order.
+
+#### `readonly graph: Map<number, Set<number>>`
+
+Forward adjacency map: key is a field ID, value is the set of item IDs whose conditions reference that field.
 
 ---
 
@@ -503,10 +511,10 @@ Performs semantic checks. Returns an array of errors. See [Schema Issue Codes](.
 
 | Type | Description |
 |------|-------------|
-| `FormValidationResult` | `{ valid: boolean, errors: FieldValidationError[], documentErrors?: DocumentValidationError[] }` |
+| `FormValidationResult` | `{ valid: boolean, fieldErrors: Map<number, FieldValidationError[]>, documentErrors?: DocumentValidationError[] }` |
 | `FieldValidationError` | `{ fieldId, rule, message, params?, itemIndex? }` |
-| `DocumentValidationErrorCode` | `'FORM_ID_MISMATCH' \| 'FORM_VERSION_MISMATCH' \| 'FORM_SUBMITTED_AT_MISSING' \| 'FORM_SUBMITTED_AT_INVALID'` |
-| `DocumentValidationError` | `{ code: DocumentValidationErrorCode, message: string, params?: Record<string, unknown> }` |
+| `DocumentValidationErrorCode` | `'SCHEMA_INVALID' \| 'DUPLICATE_ID' \| 'NESTING_DEPTH' \| 'UNKNOWN_FIELD_REF' \| 'CONDITION_REFS_SECTION' \| 'INVALID_MIN_MAX' \| 'INVALID_REGEX' \| 'CIRCULAR_DEPENDENCY' \| 'FORM_ID_MISMATCH' \| 'FORM_VERSION_MISMATCH' \| 'FORM_SUBMITTED_AT_MISSING' \| 'FORM_SUBMITTED_AT_INVALID'` |
+| `DocumentValidationError` | `{ code: DocumentValidationErrorCode, message: string, params?: Record<string, unknown>, itemId?: number }` |
 | `StringValidation` | `{ required?, minLength?, maxLength?, pattern?, patternMessage? }` |
 | `NumberValidation` | `{ required?, min?, max? }` |
 | `BooleanValidation` | `{ required? }` |
@@ -514,6 +522,8 @@ Performs semantic checks. Returns an array of errors. See [Schema Issue Codes](.
 | `SelectValidation` | `{ required? }` |
 | `ArrayValidation` | `{ minItems?, maxItems? }` |
 | `FileValidation` | `{ required? }` |
+| `TypeSpecificValidation` | Union of all type-specific validation shapes: `StringValidation \| NumberValidation \| BooleanValidation \| DateValidation \| SelectValidation \| ArrayValidation \| FileValidation` |
+| `FieldValidationRule` | `'REQUIRED' \| 'TYPE' \| 'MIN_LENGTH' \| 'MAX_LENGTH' \| 'PATTERN' \| 'MIN' \| 'MAX' \| 'MIN_DATE' \| 'MAX_DATE' \| 'INVALID_DATE' \| 'INVALID_OPTION' \| 'MIN_ITEMS' \| 'MAX_ITEMS'` |
 
 ### Other
 
@@ -524,7 +534,7 @@ Performs semantic checks. Returns an array of errors. See [Schema Issue Codes](.
 | `ArrayItemDef` | `{ type, label, description?, validation?, options? }` — no `id`, no nested arrays |
 | `FileValue` | `{ name, mimeType, size, url }` |
 | `DocumentError` | Error class with `.errors: DocumentValidationError[]` — thrown on definition validation failure or by `loadDocument()` on id/version mismatch |
-| `EvaluationContext` | `{ values, visibilityMap?, now? }` |
+| `EvaluationContext` | `{ values, visibilityMap?, now }` |
 | `FieldDescriptor` | `Omit<FieldContentItem, 'id'> & { id?: number }` |
 | `SectionDescriptor` | `Omit<SectionContentItem, 'id' \| 'content'> & { id?: number, content?: ContentItem[] }` |
 | `ContentItemInfo` | `{ id, type, label?, title?, parentId }` |

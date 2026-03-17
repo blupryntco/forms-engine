@@ -6,13 +6,42 @@
 packages/core/
 ├── src/
 │   ├── index.ts                       # Public API exports
-│   ├── types.ts                       # All type definitions
+│   ├── types/                         # All type definitions
+│   │   ├── array-item-def.ts
+│   │   ├── conditions.ts
+│   │   ├── errors.ts
+│   │   ├── field-entry.ts
+│   │   ├── field-types.ts
+│   │   ├── file-value.ts
+│   │   ├── form-definition.ts
+│   │   ├── form-snapshot.ts
+│   │   ├── form-values.ts
+│   │   ├── select-option.ts
+│   │   ├── validation-results.ts
+│   │   └── validation/               # Per-type validation rule types
+│   │       ├── array.ts
+│   │       ├── boolean.ts
+│   │       ├── date.ts
+│   │       ├── file.ts
+│   │       ├── number.ts
+│   │       ├── select.ts
+│   │       ├── string.ts
+│   │       └── type-specific.ts
+│   ├── validators/                    # Per-type field validators
+│   │   ├── type-validator.ts          # TypeValidator interface
+│   │   ├── string-validator.ts
+│   │   ├── number-validator.ts
+│   │   ├── boolean-validator.ts
+│   │   ├── date-validator.ts
+│   │   ├── select-validator.ts
+│   │   ├── array-validator.ts
+│   │   └── file-validator.ts
 │   ├── form-engine.ts                 # FormEngine — main entry point
 │   ├── form-definition-editor.ts      # FormDefinitionEditor — schema builder
 │   ├── form-values-editor.ts          # FormValuesEditor — values editor
-│   ├── condition-evaluator.ts              # ConditionEvaluator — condition logic
-│   ├── visibility.ts                  # VisibilityResolver — visibility computation
-│   ├── validate.ts                    # FieldValidator — value validation
+│   ├── condition-evaluator.ts         # ConditionEvaluator — condition logic
+│   ├── visibility-resolver.ts         # VisibilityResolver — visibility computation
+│   ├── field-validator.ts             # FieldValidator — value validation
 │   ├── dependency-graph.ts            # DependencyGraph — DAG + topological sort
 │   ├── form-definition-validator.ts   # JSON Schema + semantic validation
 │   ├── date-utils.ts                  # Relative date parsing and resolution
@@ -31,17 +60,26 @@ packages/core/
 FormEngine (form-engine.ts)
 ├── FormDefinitionValidator (form-definition-validator.ts)
 │   ├── form-definition.schema.json
-│   └── date-utils.ts
+│   ├── date-utils.ts
+│   └── DependencyGraph (calls extractFieldRefs())
 ├── DependencyGraph (dependency-graph.ts)
 ├── ConditionEvaluator (condition-evaluator.ts)
 │   └── date-utils.ts
-├── VisibilityResolver (visibility.ts)
-│   └── ConditionEvaluator
-└── FieldValidator (validate.ts)
-    └── date-utils.ts
+├── VisibilityResolver (visibility-resolver.ts)
+│   ├── ConditionEvaluator
+│   └── topologicalOrder (from DependencyGraph)
+└── FieldValidator (field-validator.ts)
+    └── validators/
+        ├── StringValidator
+        ├── NumberValidator
+        ├── BooleanValidator
+        ├── DateValidator
+        ├── SelectValidator
+        ├── ArrayValidator
+        └── FileValidator
 
 FormDefinitionEditor (form-definition-editor.ts)
-└── types.ts (standalone, no engine dependencies)
+└── types/ (standalone, no engine dependencies)
 
 FormValuesEditor (form-values-editor.ts)
 └── FormEngine (form-engine.ts)
@@ -57,36 +95,34 @@ When `new FormEngine(definition)` is called, the following steps execute in orde
 Input: FormDefinition (JSON)
   │
   ▼
-[1] JSON Schema Validation (AJV)
+[0] JSON Schema Validation (AJV)
   │  Validates structural correctness against form-definition.schema.json
   │  → Throws DocumentError if invalid
   │
   ▼
-[2] Build Field Registry
+[1] Build Field Registry
   │  Depth-first walk of definition.content tree
   │  → Produces: Map<id, FieldEntry> + contentOrder: number[]
   │
   ▼
-[3] Semantic Validation
+[2] Semantic Validation
   │  Checks: duplicate IDs, nesting depth, unknown field refs,
   │  condition refs to sections, constraint contradictions, invalid regex
   │  → Collects: DocumentValidationError[]
   │
   ▼
-[4] Cycle Detection
+[3] Cycle Detection + Error Gate
   │  DFS-based cycle detection on condition dependency graph
   │  → Appends CIRCULAR_DEPENDENCY issue if found
+  │  If any errors from steps 2-3: throw DocumentError(errors)
   │
   ▼
-[5] Error Gate
-  │  If any errors from steps 3-4: throw DocumentError(errors)
+[4] Build Dependency Graph
+  │  Forward adjacency map + Kahn's algorithm (topological sort
+  │  is internal to DependencyGraph constructor)
   │
   ▼
-[6] Build Dependency Graph + Topological Sort
-  │  Forward adjacency map + Kahn's algorithm
-  │
-  ▼
-[7] Assemble Components
+[5] Assemble Components
      → ConditionEvaluator, VisibilityResolver, FieldValidator
 ```
 
@@ -246,13 +282,16 @@ Validation always operates on the visibility map: hidden fields are skipped enti
 validate(doc)
   ├─ [1] Compatibility check: verify doc.form.id, doc.form.version,
   │      and doc.form.submittedAt → collect DocumentValidationError[]
+  │
+  │  If documentErrors exist → return early { valid: false, fieldErrors: empty, documentErrors }
+  │
   ├─ [2] Resolve reference time from doc.form.submittedAt
   ├─ [3] Compute visibilityMap (using resolved reference time)
   └─ [4] Validate only visible fields → collect FieldValidationError[]
-  → Return { valid, errors, documentErrors? }
+  → Return { valid, fieldErrors, documentErrors? }
 ```
 
-Step 1 (compatibility check) and steps 2-3 (field validation) always both run. If document errors are present, `valid` is `false` regardless of field results.
+Field validation (steps 2-4) only runs when no document errors exist. If document errors are present, the method returns early with `valid: false` and an empty `fieldErrors` map.
 
 ### Relative Date Resolution
 
@@ -272,6 +311,6 @@ This means date constraints are anchored to the submission time, ensuring consis
 
 | Dependency | Purpose |
 |------------|---------|
-| `ajv` (8.18.0) | JSON Schema validation of form definitions against `form-definition.schema.json` |
+| `ajv` (8.18.0) | JSON Schema validation of form definitions against `form-definition.schema.json`. Uses `ajv/dist/2020` for JSON Schema 2020-12 draft support. |
 
 No other runtime dependencies. Build tooling (`tsdown`, `typescript`, `jest`, `ts-jest`, `biome`) are dev-only.

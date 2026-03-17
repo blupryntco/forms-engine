@@ -69,4 +69,30 @@ describe('FileValidator', () => {
         })
         expect(errors[0]?.rule).toBe('TYPE')
     })
+
+    it('passes when optional and undefined', () => {
+        const errors = validator.validate({ fieldId, value: undefined, validation: undefined, now: new Date() })
+        expect(errors).toHaveLength(0)
+    })
+
+    it('passes with valid file when no validation rules', () => {
+        const errors = validator.validate({ fieldId, value: validFile, validation: undefined, now: new Date() })
+        expect(errors).toHaveLength(0)
+    })
+
+    it('returns type error for array value (typeof object)', () => {
+        const errors = validator.validate({ fieldId, value: [1, 2, 3], validation: undefined, now: new Date() })
+        expect(errors).toHaveLength(1)
+        expect(errors[0]).toMatchObject({ fieldId, rule: 'TYPE', params: { expectedType: 'file' } })
+    })
+
+    it('passes with extra properties on file object', () => {
+        const errors = validator.validate({
+            fieldId,
+            value: { ...validFile, extra: 'data', anotherProp: 42 },
+            validation: undefined,
+            now: new Date(),
+        })
+        expect(errors).toHaveLength(0)
+    })
 })

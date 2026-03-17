@@ -4,10 +4,9 @@ description: >
   TypeScript best practices for writing clean, maintainable, type-safe code. ALWAYS use when
   working with TypeScript: (1) Creating or modifying ANY .ts/.tsx/.mts files, (2) Defining types,
   interfaces, schemas, models, or domain entities, (3) Writing functions, classes, or utilities,
-  (4) Setting up validation with Zod schemas, (5) Creating model definitions, type definitions,
-  or entity types (examples: user models, task schemas, domain types), (6) Any TypeScript
-  development task requiring code quality guidance. Provides SOLID principles, strong typing
-  patterns, naming conventions, error handling, Zod validation best practices, and code
+  (4) Creating model definitions, type definitions, or entity types (examples: user models,
+  task schemas, domain types), (5) Any TypeScript development task requiring code quality guidance.
+  Provides SOLID principles, strong typing patterns, naming conventions, error handling, and code
   organization guidance. Auto-triggers for all TypeScript file operations.
 ---
 
@@ -49,10 +48,9 @@ See [functions-types.md](references/functions-types.md)
 
 ### Validation & Schemas
 See [validation.md](references/validation.md)
-- Zod schema patterns and type inference
-- Safe parsing with error handling
 - Type guards and data validation
 - Immutability patterns
+- Composite types
 
 ### Error Handling
 See [error-handling.md](references/error-handling.md)

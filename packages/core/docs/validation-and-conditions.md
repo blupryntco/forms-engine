@@ -6,8 +6,10 @@ Before field-level checks, `FormEngine.validate()` verifies the document is comp
 
 1. `doc.form.id` must match the engine's `formId` — otherwise a `FORM_ID_MISMATCH` error is produced.
 2. `doc.form.version` must match the engine's `formVersion` — otherwise a `FORM_VERSION_MISMATCH` error is produced.
+3. `doc.form.submittedAt` must be present — otherwise a `FORM_SUBMITTED_AT_MISSING` error is produced.
+4. `doc.form.submittedAt` must be a valid date — otherwise a `FORM_SUBMITTED_AT_INVALID` error is produced.
 
-These errors are collected in `result.documentErrors`. If any are present, `result.valid` is `false`. Field validation still runs regardless, so callers receive the full picture in a single call.
+These errors are collected in `result.documentErrors`. If any are present, `result.valid` is `false` and field validation is skipped entirely — `result.fieldErrors` will be an empty map.
 
 This is a **document-time** check (runs when validating user-submitted data), as opposed to **definition-time** validation (JSON Schema and semantic checks that run in the `FormEngine` constructor). Use `createFormDocument()` to produce documents that are guaranteed compatible.
 
@@ -35,10 +37,11 @@ For each field in registry:
 
 | Rule | Condition | Error rule name |
 |------|-----------|-----------------|
-| `required` | Value is `undefined`, `null`, or `""` | `required` |
-| `minLength` | `value.length < minLength` | `minLength` |
-| `maxLength` | `value.length > maxLength` | `maxLength` |
-| `pattern` | Value does not match regex | `pattern` |
+| `required` | Value is `undefined`, `null`, or `""` | `REQUIRED` |
+| type check | Value is not a `string` | `TYPE` |
+| `minLength` | `value.length < minLength` | `MIN_LENGTH` |
+| `maxLength` | `value.length > maxLength` | `MAX_LENGTH` |
+| `pattern` | Value does not match regex | `PATTERN` |
 
 If `pattern` fails and `patternMessage` is set, the custom message is used. Otherwise a generic message is generated.
 
@@ -48,16 +51,16 @@ If the field is empty and not required, no further rules are checked.
 
 | Rule | Condition | Error rule name |
 |------|-----------|-----------------|
-| `required` | Value is `undefined` or `null` | `required` |
-| type check | Value is not a `number` | `type` |
-| `min` | `value < min` | `min` |
-| `max` | `value > max` | `max` |
+| `required` | Value is `undefined` or `null` | `REQUIRED` |
+| type check | Value is not a `number` | `TYPE` |
+| `min` | `value < min` | `MIN` |
+| `max` | `value > max` | `MAX` |
 
 #### Boolean
 
 | Rule | Condition | Error rule name |
 |------|-----------|-----------------|
-| `required` | Value is not exactly `true` or `false` | `required` |
+| `required` | Value is not exactly `true` or `false` | `REQUIRED` |
 
 Both `true` and `false` satisfy the `required` rule. Only `null`/`undefined` fail it.
 
@@ -65,10 +68,11 @@ Both `true` and `false` satisfy the `required` rule. Only `null`/`undefined` fai
 
 | Rule | Condition | Error rule name |
 |------|-----------|-----------------|
-| `required` | Value is `undefined`, `null`, or `""` | `required` |
-| invalid date | `new Date(value)` produces `NaN` | `invalidDate` |
-| `minDate` | Value is earlier than resolved `minDate` | `minDate` |
-| `maxDate` | Value is later than resolved `maxDate` | `maxDate` |
+| `required` | Value is `undefined`, `null`, or `""` | `REQUIRED` |
+| type check | Value is not a `string` | `TYPE` |
+| invalid date | `new Date(value)` produces `NaN` | `INVALID_DATE` |
+| `minDate` | Value is earlier than resolved `minDate` | `MIN_DATE` |
+| `maxDate` | Value is later than resolved `maxDate` | `MAX_DATE` |
 
 Date boundaries support relative expressions (see [Relative Dates](#relative-dates)).
 
@@ -76,16 +80,16 @@ Date boundaries support relative expressions (see [Relative Dates](#relative-dat
 
 | Rule | Condition | Error rule name |
 |------|-----------|-----------------|
-| `required` | Value is `undefined` or `null` | `required` |
-| invalid option | Value does not match any `options[].value` | `invalidOption` |
+| `required` | Value is `undefined` or `null` | `REQUIRED` |
+| invalid option | Value does not match any `options[].value` | `INVALID_OPTION` |
 
 #### Array
 
 | Rule | Condition | Error rule name |
 |------|-----------|-----------------|
-| type check | Value is not an array | `type` |
-| `minItems` | `value.length < minItems` | `minItems` |
-| `maxItems` | `value.length > maxItems` | `maxItems` |
+| type check | Value is not an array | `TYPE` |
+| `minItems` | `value.length < minItems` | `MIN_ITEMS` |
+| `maxItems` | `value.length > maxItems` | `MAX_ITEMS` |
 | item validation | Each item validated against `item` definition | varies (per-item rule) |
 
 Item validation errors include `itemIndex` (zero-based) so consumers can pinpoint which array element failed.
@@ -94,15 +98,15 @@ Item validation errors include `itemIndex` (zero-based) so consumers can pinpoin
 
 | Rule | Condition | Error rule name |
 |------|-----------|-----------------|
-| `required` | Value is `undefined` or `null` | `required` |
-| type check | Value is not an object with `name`, `mimeType`, `size`, `url` | `type` |
+| `required` | Value is `undefined` or `null` | `REQUIRED` |
+| type check | Value is not an object with `name`, `mimeType`, `size`, `url` | `TYPE` |
 
 ### Error Shape
 
 ```ts
 {
   fieldId: number     // field that failed
-  rule: string        // e.g., "required", "minLength", "min", "pattern"
+  rule: FieldValidationRule  // e.g., "REQUIRED", "MIN_LENGTH", "MIN", "PATTERN"
   message: string     // human-readable description
   params?: Record<string, unknown>  // e.g., { minLength: 5, actual: 3 }
   itemIndex?: number  // zero-based index for array items
