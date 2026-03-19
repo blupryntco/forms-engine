@@ -1,1 +1,5 @@
-export { Builder } from './builder'
+export type { AddPlaceholderRenderProps } from './add-placeholder'
+export { FormBuilder } from './builder'
+export type { NewContentItem } from './core/types'
+export type { FieldRenderProps } from './field'
+export type { SectionRenderProps } from './section'

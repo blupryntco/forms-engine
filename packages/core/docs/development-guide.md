@@ -180,15 +180,3 @@ Produces:
 - `dist/form-definition.schema.json` — Exported JSON Schema
 
 The `tsdown` config (`tsdown.config.mts`) entry point is `src/index.ts`. Both ESM and CJS formats are generated with TypeScript declaration files.
-
-## Package Exports
-
-Consumers can import from two entry points:
-
-```ts
-// Main API
-import { FormEngine, FormDefinitionEditor, FormValuesEditor } from '@bluprynt/forms-core'
-
-// JSON Schema (for external validation tools)
-import schema from '@bluprynt/forms-core/schemas/form-definition.schema.json'
-```

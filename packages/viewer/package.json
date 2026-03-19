@@ -1,7 +1,6 @@
 {
     "name": "@bluprynt/forms-viewer",
     "version": "0.0.0",
-    "private": false,
     "sideEffects": false,
     "exports": {
         ".": {

@@ -20,7 +20,7 @@ export const FileView: FC<FileViewProps> = ({ field, value }) => (
                         {value.name}
                     </a>
                     <p className="text-xs text-gray-500">
-                        {value.mimeType} · {value.size.toLocaleString()} bytes
+                        {value.mimeType} · {value.size?.toLocaleString()} bytes
                     </p>
                 </div>
             ) : (

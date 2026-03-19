@@ -1,1 +1,1 @@
-export { formDefinitionAtom, formDocumentAtom } from './model/form'
+export { formDefinitionAtom, formDocumentAtom } from './model/form-atom'

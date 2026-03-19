@@ -26,12 +26,21 @@ export const Playground: FC = () => {
     const visibleCount = [jsonVisible, viewerVisible, editorVisible, builderVisible].filter(Boolean).length
     const defaultSize = visibleCount > 0 ? `${Math.floor(100 / visibleCount)}%` : '100%'
 
+    const panels = [
+        jsonVisible && <RawForm key="json" />,
+        viewerVisible && <FormViewer key="viewer" />,
+        editorVisible && <FormEditor key="editor" />,
+        builderVisible && <FormBuilder key="builder" />,
+    ].filter(Boolean)
+
     return (
         <div className="flex h-screen flex-col bg-gray-100">
             <Header />
             <div className="min-h-0 flex-1">
-                {visibleCount === 0 ? (
+                {panels.length === 0 ? (
                     <div className="flex h-full items-center justify-center text-gray-400">No panels visible</div>
+                ) : panels.length === 1 ? (
+                    <div className="h-full">{panels[0]}</div>
                 ) : (
                     <SplitPane
                         key={`${jsonVisible}-${viewerVisible}-${editorVisible}-${builderVisible}`}

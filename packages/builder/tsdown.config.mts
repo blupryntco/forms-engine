@@ -6,6 +6,13 @@ export default defineConfig({
     dts: true,
     clean: true,
     deps: {
-        neverBundle: ['react', '@bluprynt/forms-core'],
+        neverBundle: [
+            'react',
+            '@bluprynt/forms-core',
+            '@bluprynt/forms-viewer',
+            '@dnd-kit/react',
+            '@dnd-kit/helpers',
+            '@dnd-kit/state',
+        ],
     },
 })
