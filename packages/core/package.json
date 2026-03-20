@@ -2,6 +2,12 @@
     "name": "@bluprynt/forms-core",
     "version": "0.0.0",
     "private": false,
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/blupryntco/forms-engine.git",
+        "directory": "packages/core"
+    },
+    "homepage": "https://blupryntco.github.io/forms-engine/",
     "sideEffects": false,
     "exports": {
         ".": {
@@ -26,15 +32,16 @@
         "test:watch": "jest --watch",
         "test:cov": "jest --coverage"
     },
+    "peerDependencies": {
+        "ajv": "^8.0.0"
+    },
     "devDependencies": {
         "@repo/typescript-config": "workspace:*",
         "@types/jest": "catalog:",
+        "ajv": "catalog:",
         "jest": "catalog:",
         "ts-jest": "catalog:",
         "tsdown": "catalog:",
         "typescript": "catalog:"
-    },
-    "dependencies": {
-        "ajv": "8.18.0"
     }
 }

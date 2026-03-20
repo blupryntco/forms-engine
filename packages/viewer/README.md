@@ -10,6 +10,14 @@ Headless React components for rendering and editing JSON-driven dynamic forms. P
 - **Validation display** — `FormFieldsValidation` groups field-level errors by field; `FormDocumentValidation` renders document-level errors (schema mismatch, missing `submittedAt`, etc.).
 - **Headless architecture** — all rendering is delegated to component maps you provide (`ViewerComponentMap`, `EditorComponentMap`), so the package has zero UI opinions.
 
+## Installation
+
+```bash
+npm install @bluprynt/forms-viewer @bluprynt/forms-core ajv react react-dom
+```
+
+`@bluprynt/forms-core`, `react`, and `react-dom` are peer dependencies and must be installed in your project.
+
 ## Quick Start
 
 ### Setting Up the Form Provider

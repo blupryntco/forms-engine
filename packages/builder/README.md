@@ -10,6 +10,14 @@ Headless React component for building and editing form schemas with drag-and-dro
 - **Depth-aware nesting** — horizontal drag offset controls nesting depth. Only sections can accept nested children, enforced during drag projection.
 - **Add placeholders** — automatic insertion points at the end of each section and at the root level for adding new items.
 
+## Installation
+
+```bash
+npm install @bluprynt/forms-builder @bluprynt/forms-core ajv react react-dom @dnd-kit/abstract @dnd-kit/dom @dnd-kit/helpers @dnd-kit/react @dnd-kit/state
+```
+
+`@bluprynt/forms-core`, `react`, `react-dom`, and `@dnd-kit/*` packages are peer dependencies and must be installed in your project.
+
 ## Quick Start
 
 ```tsx

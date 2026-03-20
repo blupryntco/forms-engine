@@ -311,6 +311,6 @@ This means date constraints are anchored to the submission time, ensuring consis
 
 | Dependency | Purpose |
 |------------|---------|
-| `ajv` (8.18.0) | JSON Schema validation of form definitions against `form-definition.schema.json`. Uses `ajv/dist/2020` for JSON Schema 2020-12 draft support. |
+| `ajv` (^8.0.0) | **Peer dependency.** JSON Schema validation of form definitions against `form-definition.schema.json`. Uses `ajv/dist/2020` for JSON Schema 2020-12 draft support. Must be installed by the consuming project. |
 
-No other runtime dependencies. Build tooling (`tsdown`, `typescript`, `jest`, `ts-jest`, `biome`) are dev-only.
+No other runtime dependencies. `ajv` is a peer dependency and must be provided by the host project. Build tooling (`tsdown`, `typescript`, `jest`, `ts-jest`, `biome`) are dev-only.

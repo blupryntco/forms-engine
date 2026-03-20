@@ -35,7 +35,7 @@ Headless React component for constructing form schemas visually. Provides drag-a
 ### Install
 
 ```bash
-npm install @bluprynt/forms-core @bluprynt/forms-viewer
+npm install @bluprynt/forms-core @bluprynt/forms-viewer ajv react react-dom
 ```
 
 ### Display a form (read-only)
@@ -106,14 +106,46 @@ const App: FC = () => {
 }
 ```
 
-## Setup
+## Development Guidelines
+
+Requires Node.js >= 22 and pnpm 10+.
+
+### Install dependencies
 
 ```bash
 pnpm install
-pnpm build        # build all packages
-pnpm test         # run all tests
-pnpm lint         # lint all packages
-pnpm check-types  # type-check all packages
 ```
 
-Requires Node.js >= 22 and pnpm 10+.
+### Build
+
+```bash
+pnpm build
+```
+
+Builds all packages using Turbo. Each package compiles to ESM, CJS, and TypeScript declarations.
+
+### Run tests
+
+```bash
+pnpm test             # run all tests
+pnpm test --filter=@bluprynt/forms-core   # run tests for a specific package
+```
+
+### Run playground
+
+```bash
+pnpm dev --filter=@bluprynt/playground
+```
+
+Opens the playground app at `http://localhost:3000` with Turbopack. The playground depends on all library packages, so they must be built first (or run `pnpm dev` from root to watch everything).
+
+### Development Workflow
+
+1. Create a feature branch.
+2. Implement your changes.
+3. Once changes are ready, run `pnpm changeset` and follow the prompts to select affected packages and bump type (patch / minor / major). Commit the generated changeset file along with your changes.
+4. Create a PR and merge it to `main`.
+5. The CI automatically creates a **Version Packages** PR that bumps versions, updates changelogs, and removes consumed changesets.
+6. Merge the **Version Packages** PR — CI publishes the new versions to npm.
+
+All three published packages (`@bluprynt/forms-core`, `@bluprynt/forms-viewer`, `@bluprynt/forms-builder`) use fixed versioning — they always share the same version number.

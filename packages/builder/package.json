@@ -1,6 +1,12 @@
 {
     "name": "@bluprynt/forms-builder",
     "version": "0.0.0",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/blupryntco/forms-engine.git",
+        "directory": "packages/builder"
+    },
+    "homepage": "https://blupryntco.github.io/forms-engine/",
     "sideEffects": false,
     "exports": {
         ".": {
@@ -26,28 +32,32 @@
     },
     "peerDependencies": {
         "@bluprynt/forms-core": "workspace:*",
-        "react": "^18.0.0 || ^19.0.0"
+        "@dnd-kit/abstract": "^0.3.0",
+        "@dnd-kit/dom": "^0.3.0",
+        "@dnd-kit/helpers": "^0.3.0",
+        "@dnd-kit/react": "^0.3.0",
+        "@dnd-kit/state": "^0.3.0",
+        "react": "^18.0.0 || ^19.0.0",
+        "react-dom": "^18.0.0 || ^19.0.0"
     },
     "devDependencies": {
         "@bluprynt/forms-core": "workspace:*",
+        "@dnd-kit/abstract": "catalog:",
+        "@dnd-kit/dom": "catalog:",
+        "@dnd-kit/helpers": "catalog:",
+        "@dnd-kit/react": "catalog:",
+        "@dnd-kit/state": "catalog:",
         "@repo/typescript-config": "workspace:*",
-        "@testing-library/react": "16.3.2",
+        "@testing-library/react": "catalog:",
         "@types/jest": "catalog:",
         "@types/react": "catalog:",
-        "@types/react-dom": "19.1.6",
+        "@types/react-dom": "catalog:",
         "jest": "catalog:",
-        "jest-environment-jsdom": "30.3.0",
+        "jest-environment-jsdom": "catalog:",
         "react": "catalog:",
-        "react-dom": "19.1.0",
+        "react-dom": "catalog:",
         "ts-jest": "catalog:",
         "tsdown": "catalog:",
         "typescript": "catalog:"
-    },
-    "dependencies": {
-        "@dnd-kit/abstract": "0.3.2",
-        "@dnd-kit/dom": "0.3.2",
-        "@dnd-kit/helpers": "0.3.2",
-        "@dnd-kit/react": "0.3.2",
-        "@dnd-kit/state": "0.3.2"
     }
 }

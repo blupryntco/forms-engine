@@ -163,7 +163,7 @@ If the new type requires specific setter methods (like `setOptions` for select),
 ## Code Style
 
 - **Linter/Formatter:** Biome. The package-level `biome.json` contains only `"extends": "//"`, which tells Biome to inherit the full configuration from the workspace root `biome.json`.
-- **No runtime dependencies** beyond `ajv` — keep the package lightweight
+- **No runtime dependencies** — `ajv` is a peer dependency provided by the consuming project; keep the package lightweight
 - **Co-located tests** — each `*.ts` file has a corresponding `*.test.ts`
 - **Type safety** — avoid `any`; use `unknown` and narrow explicitly
 

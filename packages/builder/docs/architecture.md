@@ -251,11 +251,11 @@ Every structural mutation creates a new `FormDefinitionEditor` instance from the
 
 | Dependency | Version | Purpose |
 |---|---|---|
-| `@dnd-kit/react` | 0.3.2 | `DragDropProvider`, React drag-drop context |
-| `@dnd-kit/react/sortable` | 0.3.2 | `useSortable` hook for sortable items |
-| `@dnd-kit/helpers` | 0.3.2 | `move()` utility for reordering flat arrays |
-| `@dnd-kit/dom` | 0.3.2 | DOM sensor layer (peer of `@dnd-kit/react`) |
-| `@dnd-kit/abstract` | 0.3.2 | Abstract drag-drop primitives |
-| `@dnd-kit/state` | 0.3.2 | State management for dnd-kit |
+| `@dnd-kit/react` | ^0.3.0 | **Peer dependency.** `DragDropProvider`, React drag-drop context |
+| `@dnd-kit/react/sortable` | ^0.3.0 | **Peer dependency.** `useSortable` hook for sortable items |
+| `@dnd-kit/helpers` | ^0.3.0 | **Peer dependency.** `move()` utility for reordering flat arrays |
+| `@dnd-kit/dom` | ^0.3.0 | **Peer dependency.** DOM sensor layer (peer of `@dnd-kit/react`) |
+| `@dnd-kit/abstract` | ^0.3.0 | **Peer dependency.** Abstract drag-drop primitives |
+| `@dnd-kit/state` | ^0.3.0 | **Peer dependency.** State management for dnd-kit |
 
-Peer dependencies: `@bluprynt/forms-core` (workspace), `react` (^18.0.0 || ^19.0.0).
+Peer dependencies: `@bluprynt/forms-core` (workspace), `react` (^18.0.0 || ^19.0.0), `react-dom` (^18.0.0 || ^19.0.0), `@dnd-kit/*` (^0.3.0).
