@@ -30,6 +30,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm turbo run build --filter=@bluprynt/playground
+        env:
+          NEXT_PUBLIC_BASE_PATH: /forms-engine
 
       - uses: actions/upload-pages-artifact@v3
         with:
