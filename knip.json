@@ -1,0 +1,22 @@
+{
+    "$schema": "https://unpkg.com/knip@5/schema.json",
+    "ignore": ["wip/**"],
+    "workspaces": {
+        "packages/typescript-config": {
+            "entry": [],
+            "project": []
+        },
+        "packages/*": {
+            "project": ["src/**/*.ts"]
+        },
+        "packages/viewer": {
+            "project": ["src/**/*.ts"],
+            "ignoreDependencies": ["react", "@types/react", "@bluprynt/forms-core"]
+        },
+        "packages/playground": {
+            "entry": ["src/app/layout.tsx", "src/app/page.tsx", "next.config.ts"],
+            "project": ["src/**/*.ts", "src/**/*.tsx"],
+            "ignoreDependencies": ["@bluprynt/forms-core", "@bluprynt/forms-viewer"]
+        }
+    }
+}

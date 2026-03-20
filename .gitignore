@@ -137,3 +137,16 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Claude
+.claude/*.local.*
+**/.claude/*.local.*
+
+# Turbo
+.turbo/
+
+# .env
+.env
+**/.env
+wip/
+plans/

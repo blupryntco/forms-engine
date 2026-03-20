@@ -1,0 +1,352 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Bluprynt Form Definition",
+    "type": "object",
+    "required": ["id", "version", "title", "content"],
+    "additionalProperties": false,
+    "properties": {
+        "id": { "type": "string" },
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "content": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/$defs/contentItem" }
+        }
+    },
+    "$defs": {
+        "conditionNoValue": {
+            "type": "object",
+            "required": ["field", "op"],
+            "properties": {
+                "field": { "type": "integer", "minimum": 1 },
+                "op": { "type": "string", "enum": ["set", "notset"] }
+            },
+            "additionalProperties": false
+        },
+        "conditionWithValue": {
+            "type": "object",
+            "required": ["field", "op", "value"],
+            "properties": {
+                "field": { "type": "integer", "minimum": 1 },
+                "op": { "type": "string", "enum": ["eq", "ne", "lt", "gt", "lte", "gte"] },
+                "value": {}
+            },
+            "additionalProperties": false
+        },
+        "conditionWithArrayValue": {
+            "type": "object",
+            "required": ["field", "op", "value"],
+            "properties": {
+                "field": { "type": "integer", "minimum": 1 },
+                "op": { "type": "string", "enum": ["in", "notin"] },
+                "value": { "type": "array" }
+            },
+            "additionalProperties": false
+        },
+        "simpleCondition": {
+            "oneOf": [
+                { "$ref": "#/$defs/conditionNoValue" },
+                { "$ref": "#/$defs/conditionWithValue" },
+                { "$ref": "#/$defs/conditionWithArrayValue" }
+            ]
+        },
+        "condition": {
+            "oneOf": [
+                { "$ref": "#/$defs/simpleCondition" },
+                {
+                    "type": "object",
+                    "required": ["and"],
+                    "properties": {
+                        "and": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/condition" } }
+                    },
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "required": ["or"],
+                    "properties": {
+                        "or": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/condition" } }
+                    },
+                    "additionalProperties": false
+                }
+            ]
+        },
+
+        "stringValidation": {
+            "type": "object",
+            "properties": {
+                "required": { "type": "boolean" },
+                "minLength": { "type": "integer", "minimum": 0 },
+                "maxLength": { "type": "integer", "minimum": 1 },
+                "pattern": { "type": "string" },
+                "patternMessage": { "type": "string" }
+            },
+            "additionalProperties": false
+        },
+        "numberValidation": {
+            "type": "object",
+            "properties": {
+                "required": { "type": "boolean" },
+                "min": { "type": "number" },
+                "max": { "type": "number" }
+            },
+            "additionalProperties": false
+        },
+        "booleanValidation": {
+            "type": "object",
+            "properties": {
+                "required": { "type": "boolean" }
+            },
+            "additionalProperties": false
+        },
+        "dateValidation": {
+            "type": "object",
+            "properties": {
+                "required": { "type": "boolean" },
+                "minDate": {
+                    "type": "string",
+                    "pattern": "^([+-]\\d+[dwmy]|\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z)$"
+                },
+                "maxDate": {
+                    "type": "string",
+                    "pattern": "^([+-]\\d+[dwmy]|\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z)$"
+                }
+            },
+            "additionalProperties": false
+        },
+        "selectValidation": {
+            "type": "object",
+            "properties": {
+                "required": { "type": "boolean" }
+            },
+            "additionalProperties": false
+        },
+        "arrayValidation": {
+            "type": "object",
+            "properties": {
+                "minItems": { "type": "integer", "minimum": 0 },
+                "maxItems": { "type": "integer", "minimum": 1 }
+            },
+            "additionalProperties": false
+        },
+        "fileValidation": {
+            "type": "object",
+            "properties": {
+                "required": { "type": "boolean" }
+            },
+            "additionalProperties": false
+        },
+
+        "selectOption": {
+            "type": "object",
+            "required": ["value", "label"],
+            "properties": {
+                "value": { "oneOf": [{ "type": "string" }, { "type": "number" }] },
+                "label": { "type": "string" }
+            },
+            "additionalProperties": false
+        },
+
+        "arrayItemString": {
+            "type": "object",
+            "required": ["type", "label"],
+            "properties": {
+                "type": { "const": "string" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "validation": { "$ref": "#/$defs/stringValidation" }
+            },
+            "additionalProperties": false
+        },
+        "arrayItemNumber": {
+            "type": "object",
+            "required": ["type", "label"],
+            "properties": {
+                "type": { "const": "number" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "validation": { "$ref": "#/$defs/numberValidation" }
+            },
+            "additionalProperties": false
+        },
+        "arrayItemBoolean": {
+            "type": "object",
+            "required": ["type", "label"],
+            "properties": {
+                "type": { "const": "boolean" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "validation": { "$ref": "#/$defs/booleanValidation" }
+            },
+            "additionalProperties": false
+        },
+        "arrayItemDate": {
+            "type": "object",
+            "required": ["type", "label"],
+            "properties": {
+                "type": { "const": "date" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "validation": { "$ref": "#/$defs/dateValidation" }
+            },
+            "additionalProperties": false
+        },
+        "arrayItemSelect": {
+            "type": "object",
+            "required": ["type", "label", "options"],
+            "properties": {
+                "type": { "const": "select" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "options": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/selectOption" } },
+                "validation": { "$ref": "#/$defs/selectValidation" }
+            },
+            "additionalProperties": false
+        },
+        "arrayItemFile": {
+            "type": "object",
+            "required": ["type", "label"],
+            "properties": {
+                "type": { "const": "file" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "validation": { "$ref": "#/$defs/fileValidation" }
+            },
+            "additionalProperties": false
+        },
+        "arrayItem": {
+            "oneOf": [
+                { "$ref": "#/$defs/arrayItemString" },
+                { "$ref": "#/$defs/arrayItemNumber" },
+                { "$ref": "#/$defs/arrayItemBoolean" },
+                { "$ref": "#/$defs/arrayItemDate" },
+                { "$ref": "#/$defs/arrayItemSelect" },
+                { "$ref": "#/$defs/arrayItemFile" }
+            ]
+        },
+
+        "stringField": {
+            "type": "object",
+            "required": ["id", "type", "label"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "string" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "condition": { "$ref": "#/$defs/condition" },
+                "validation": { "$ref": "#/$defs/stringValidation" }
+            },
+            "additionalProperties": false
+        },
+        "numberField": {
+            "type": "object",
+            "required": ["id", "type", "label"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "number" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "condition": { "$ref": "#/$defs/condition" },
+                "validation": { "$ref": "#/$defs/numberValidation" }
+            },
+            "additionalProperties": false
+        },
+        "booleanField": {
+            "type": "object",
+            "required": ["id", "type", "label"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "boolean" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "condition": { "$ref": "#/$defs/condition" },
+                "validation": { "$ref": "#/$defs/booleanValidation" }
+            },
+            "additionalProperties": false
+        },
+        "dateField": {
+            "type": "object",
+            "required": ["id", "type", "label"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "date" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "condition": { "$ref": "#/$defs/condition" },
+                "validation": { "$ref": "#/$defs/dateValidation" }
+            },
+            "additionalProperties": false
+        },
+        "selectField": {
+            "type": "object",
+            "required": ["id", "type", "label", "options"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "select" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "condition": { "$ref": "#/$defs/condition" },
+                "options": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/selectOption" } },
+                "validation": { "$ref": "#/$defs/selectValidation" }
+            },
+            "additionalProperties": false
+        },
+        "arrayField": {
+            "type": "object",
+            "required": ["id", "type", "label", "item"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "array" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "condition": { "$ref": "#/$defs/condition" },
+                "item": { "$ref": "#/$defs/arrayItem" },
+                "validation": { "$ref": "#/$defs/arrayValidation" }
+            },
+            "additionalProperties": false
+        },
+        "fileField": {
+            "type": "object",
+            "required": ["id", "type", "label"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "file" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "condition": { "$ref": "#/$defs/condition" },
+                "validation": { "$ref": "#/$defs/fileValidation" }
+            },
+            "additionalProperties": false
+        },
+        "fieldItem": {
+            "oneOf": [
+                { "$ref": "#/$defs/stringField" },
+                { "$ref": "#/$defs/numberField" },
+                { "$ref": "#/$defs/booleanField" },
+                { "$ref": "#/$defs/dateField" },
+                { "$ref": "#/$defs/selectField" },
+                { "$ref": "#/$defs/arrayField" },
+                { "$ref": "#/$defs/fileField" }
+            ]
+        },
+
+        "section": {
+            "type": "object",
+            "required": ["id", "type", "title", "content"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "section" },
+                "title": { "type": "string" },
+                "description": { "type": "string" },
+                "condition": { "$ref": "#/$defs/condition" },
+                "content": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/contentItem" } }
+            },
+            "additionalProperties": false
+        },
+        "contentItem": {
+            "oneOf": [{ "$ref": "#/$defs/fieldItem" }, { "$ref": "#/$defs/section" }]
+        }
+    }
+}
