@@ -32,3 +32,5 @@ jobs:
           version: "2.4.6"
 
       - run: biome ci .
+
+      - run: pnpm test
