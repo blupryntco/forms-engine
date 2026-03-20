@@ -33,4 +33,4 @@ jobs:
 
       - run: biome ci .
 
-      - run: pnpm test
+      - run: pnpm test:cov

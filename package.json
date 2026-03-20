@@ -6,6 +6,7 @@
 		"lint": "turbo run lint",
 		"check-types": "turbo run check-types",
 		"test": "turbo run test",
+		"test:cov": "turbo run test:cov",
 		"format": "biome format --write .",
 		"deps": "sherif && knip",
 		"deps:fix": "sherif --fix && knip --fix",
