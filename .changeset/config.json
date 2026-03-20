@@ -1,0 +1,15 @@
+{
+    "$schema": "https://unpkg.com/@changesets/config@3.1.1/schema.json",
+    "changelog": ["@changesets/changelog-github", { "repo": "blupryntco/forms-engine" }],
+    "commit": false,
+    "fixed": [["@bluprynt/forms-core", "@bluprynt/forms-viewer", "@bluprynt/forms-builder"]],
+    "linked": [],
+    "access": "public",
+    "baseBranch": "main",
+    "updateInternalDependencies": "patch",
+    "ignore": ["@bluprynt/playground", "@repo/typescript-config"],
+    "privatePackages": {
+        "version": false,
+        "tag": false
+    }
+}

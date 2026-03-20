@@ -13,7 +13,7 @@ From the monorepo root:
 pnpm install
 ```
 
-The viewer package depends on `@bluprynt/forms-core` as a peer dependency. The workspace link is resolved automatically by pnpm.
+The viewer package depends on `@bluprynt/forms-core`, `react`, and `react-dom` as peer dependencies. The workspace links are resolved automatically by pnpm.
 
 ## Scripts
 

@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   build:
+    name: Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,6 +39,7 @@ jobs:
           path: packages/playground/out
 
   deploy:
+    name: Deploy
     needs: build
     runs-on: ubuntu-latest
     environment:

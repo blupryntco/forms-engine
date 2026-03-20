@@ -13,7 +13,7 @@ From the monorepo root:
 pnpm install
 ```
 
-The builder package depends on `@bluprynt/forms-core` as a peer dependency. The workspace link is resolved automatically by pnpm.
+The builder package depends on `@bluprynt/forms-core`, `react`, `react-dom`, and `@dnd-kit/*` as peer dependencies. The workspace links are resolved automatically by pnpm.
 
 ## Scripts
 
@@ -63,4 +63,4 @@ Produces:
 - `dist/index.cjs` — CJS
 - `dist/index.d.ts` — Type declarations
 
-The `tsdown` config (`tsdown.config.mts`) entry point is `src/index.ts`. Both ESM and CJS formats are generated with TypeScript declaration files. Peer dependencies (`react`, `@bluprynt/forms-core`) and runtime dependencies (`@dnd-kit/*`) are never bundled — they are externalized via `neverBundle` in the tsdown config.
+The `tsdown` config (`tsdown.config.mts`) entry point is `src/index.ts`. Both ESM and CJS formats are generated with TypeScript declaration files. Peer dependencies (`react`, `react-dom`, `@bluprynt/forms-core`, `@dnd-kit/*`) are never bundled — they are externalized via `neverBundle` in the tsdown config.

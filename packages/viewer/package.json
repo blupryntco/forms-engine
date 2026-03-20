@@ -1,6 +1,12 @@
 {
     "name": "@bluprynt/forms-viewer",
     "version": "0.0.0",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/blupryntco/forms-engine.git",
+        "directory": "packages/viewer"
+    },
+    "homepage": "https://blupryntco.github.io/forms-engine/",
     "sideEffects": false,
     "exports": {
         ".": {
@@ -26,19 +32,20 @@
     },
     "peerDependencies": {
         "@bluprynt/forms-core": "workspace:*",
-        "react": "^18.0.0 || ^19.0.0"
+        "react": "^18.0.0 || ^19.0.0",
+        "react-dom": "^18.0.0 || ^19.0.0"
     },
     "devDependencies": {
         "@bluprynt/forms-core": "workspace:*",
         "@repo/typescript-config": "workspace:*",
-        "@testing-library/react": "16.3.2",
+        "@testing-library/react": "catalog:",
         "@types/jest": "catalog:",
         "@types/react": "catalog:",
-        "@types/react-dom": "19.1.6",
+        "@types/react-dom": "catalog:",
         "jest": "catalog:",
-        "jest-environment-jsdom": "30.3.0",
+        "jest-environment-jsdom": "catalog:",
         "react": "catalog:",
-        "react-dom": "19.1.0",
+        "react-dom": "catalog:",
         "ts-jest": "catalog:",
         "tsdown": "catalog:",
         "typescript": "catalog:"
