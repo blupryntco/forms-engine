@@ -3,7 +3,7 @@ import type { FC, PropsWithChildren } from 'react'
 import type { FormDefinition, FormDocument, FormValues } from '@bluprynt/forms-core'
 import { render, screen } from '@testing-library/react'
 
-import { ROOT } from './constants'
+import { DEFAULT, ROOT } from './constants'
 import { Form } from './form-context'
 import { type FormSectionItemProps, FormSections } from './form-sections'
 
@@ -35,12 +35,12 @@ const renderSections = (
     formProps: {
         definition: FormDefinition
         data: FormDocument
-        section?: typeof ROOT | number
+        section?: typeof ROOT | typeof DEFAULT | number
     },
     sectionProps: {
         defaultSectionTitle?: string
         defaultSectionDescription?: string
-        onSelect?: (id: typeof ROOT | number) => void
+        onSelect?: (id: typeof ROOT | typeof DEFAULT | number) => void
     } = {},
 ) =>
     render(
@@ -235,6 +235,47 @@ describe('FormSections', () => {
 
         expect(screen.getByTestId('section-item-10').getAttribute('data-active')).toBe('true')
         expect(screen.getByTestId('section-item-root').getAttribute('data-active')).toBe('false')
+    })
+
+    it('marks first section as active when section is DEFAULT', () => {
+        const definition = baseDef([
+            { id: 1, type: 'string', label: 'Name' },
+            {
+                id: 10,
+                type: 'section',
+                title: 'Details',
+                content: [{ id: 2, type: 'string', label: 'Address' }],
+            },
+        ])
+        const values = { '1': 'Alice', '2': 'Street' }
+
+        renderSections({ definition, data: doc(values), section: DEFAULT })
+
+        expect(screen.getByTestId('section-item-root').getAttribute('data-active')).toBe('true')
+        expect(screen.getByTestId('section-item-10').getAttribute('data-active')).toBe('false')
+    })
+
+    it('marks first named section as active when DEFAULT and no root fields', () => {
+        const definition = baseDef([
+            {
+                id: 10,
+                type: 'section',
+                title: 'First',
+                content: [{ id: 1, type: 'string', label: 'A' }],
+            },
+            {
+                id: 20,
+                type: 'section',
+                title: 'Second',
+                content: [{ id: 2, type: 'string', label: 'B' }],
+            },
+        ])
+        const values = { '1': 'x', '2': 'y' }
+
+        renderSections({ definition, data: doc(values), section: DEFAULT })
+
+        expect(screen.getByTestId('section-item-10').getAttribute('data-active')).toBe('true')
+        expect(screen.getByTestId('section-item-20').getAttribute('data-active')).toBe('false')
     })
 
     it('handles nested sections within visible parent', () => {

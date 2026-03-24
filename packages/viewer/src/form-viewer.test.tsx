@@ -10,7 +10,7 @@ import type {
 } from '@bluprynt/forms-core'
 import { render, screen } from '@testing-library/react'
 
-import { ROOT } from './constants'
+import { DEFAULT, ROOT } from './constants'
 import { Form } from './form-context'
 import { FormViewer } from './form-viewer'
 import type { ViewerComponentMap } from './types'
@@ -83,7 +83,7 @@ const renderViewer = (
     formProps: {
         definition: FormDefinition
         data: FormDocument
-        section?: typeof ROOT | number
+        section?: typeof ROOT | typeof DEFAULT | number
     },
     components: ViewerComponentMap,
 ) =>
@@ -272,6 +272,78 @@ describe('FormViewer', () => {
         const { container } = renderViewer({ definition, data: doc(values), section: 999 }, makeComponents())
 
         expect(container.children[0]?.children.length ?? 0).toBe(0)
+    })
+
+    it('renders first visible root fields when section filter is DEFAULT with root fields', () => {
+        const definition = baseDef([
+            { id: 1, type: 'string', label: 'Top' },
+            {
+                id: 2,
+                type: 'section',
+                title: 'Sec',
+                content: [{ id: 3, type: 'number', label: 'Inner' }],
+            },
+            { id: 4, type: 'boolean', label: 'Another top' },
+        ])
+        const values = { '1': 'a', '3': 10, '4': true }
+
+        renderViewer({ definition, data: doc(values), section: DEFAULT }, makeComponents())
+
+        expect(screen.getByTestId('string-1')).toBeTruthy()
+        expect(screen.getByTestId('boolean-4')).toBeTruthy()
+        expect(screen.queryByTestId('section-2')).toBeNull()
+        expect(screen.queryByTestId('number-3')).toBeNull()
+    })
+
+    it('renders first visible section when DEFAULT and no root fields', () => {
+        const definition = baseDef([
+            {
+                id: 10,
+                type: 'section',
+                title: 'First',
+                content: [{ id: 1, type: 'string', label: 'A' }],
+            },
+            {
+                id: 20,
+                type: 'section',
+                title: 'Second',
+                content: [{ id: 2, type: 'number', label: 'B' }],
+            },
+        ])
+        const values = { '1': 'x', '2': 5 }
+
+        renderViewer({ definition, data: doc(values), section: DEFAULT }, makeComponents())
+
+        expect(screen.getByTestId('section-10')).toBeTruthy()
+        expect(screen.getByTestId('string-1')).toBeTruthy()
+        expect(screen.queryByTestId('section-20')).toBeNull()
+    })
+
+    it('skips hidden first section with DEFAULT and renders next visible', () => {
+        const definition = baseDef([
+            { id: 1, type: 'boolean', label: 'Toggle' },
+            {
+                id: 10,
+                type: 'section',
+                title: 'Hidden',
+                condition: { field: 1, op: 'eq' as const, value: true },
+                content: [{ id: 2, type: 'string', label: 'A' }],
+            },
+            {
+                id: 20,
+                type: 'section',
+                title: 'Visible',
+                content: [{ id: 3, type: 'number', label: 'B' }],
+            },
+        ])
+        const values = { '1': false, '2': 'x', '3': 5 }
+
+        renderViewer({ definition, data: doc(values), section: DEFAULT }, makeComponents())
+
+        // Root fields visible (boolean-1), so DEFAULT should show root fields
+        expect(screen.getByTestId('boolean-1')).toBeTruthy()
+        expect(screen.queryByTestId('section-10')).toBeNull()
+        expect(screen.queryByTestId('section-20')).toBeNull()
     })
 
     it('renders nothing when the filtered section is hidden by condition', () => {

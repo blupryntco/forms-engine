@@ -4,6 +4,7 @@ import type { FC } from 'react'
 import { useCallback, useState } from 'react'
 
 import {
+    DEFAULT,
     Form,
     FormDocumentValidation,
     FormFieldsValidation,
@@ -51,15 +52,15 @@ export const FormViewer: FC = () => {
     const formDoc = useAtomValue(formDocumentAtom)
 
     const [sectionSteps, setSectionSteps] = useState(false)
-    const [activeSection, setActiveSection] = useState<typeof ROOT | number | undefined>(undefined)
+    const [activeSection, setActiveSection] = useState<typeof ROOT | typeof DEFAULT | number | undefined>(undefined)
 
-    const handleSectionSelect = useCallback((id: typeof ROOT | number) => {
+    const handleSectionSelect = useCallback((id: typeof ROOT | typeof DEFAULT | number) => {
         setActiveSection(id)
     }, [])
 
     const handleToggleSections = useCallback((checked: boolean) => {
         setSectionSteps(checked)
-        setActiveSection(checked ? ROOT : undefined)
+        setActiveSection(checked ? DEFAULT : undefined)
     }, [])
 
     return (

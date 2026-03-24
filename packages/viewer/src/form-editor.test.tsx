@@ -11,7 +11,7 @@ import type {
 } from '@bluprynt/forms-core'
 import { render, screen } from '@testing-library/react'
 
-import { ROOT } from './constants'
+import { DEFAULT, ROOT } from './constants'
 import { Form } from './form-context'
 import { FormEditor } from './form-editor'
 import type { EditorComponentMap } from './types'
@@ -92,7 +92,7 @@ const renderEditor = (
     formProps: {
         definition: FormDefinition
         data: FormDocument
-        section?: typeof ROOT | number
+        section?: typeof ROOT | typeof DEFAULT | number
     },
     editorProps: {
         components: EditorComponentMap
@@ -407,6 +407,44 @@ describe('FormEditor', () => {
             expect(screen.getByTestId('section-2')).toBeTruthy()
             expect(screen.getByTestId('number-3')).toBeTruthy()
             expect(screen.queryByTestId('string-1')).toBeNull()
+        })
+
+        it('renders root fields when section is DEFAULT and root fields exist', () => {
+            renderEditor(
+                { definition: sectionDef(), data: doc({ '1': 'a', '3': 10, '4': true }), section: DEFAULT },
+                { components: makeComponents(), onChange: noop },
+            )
+
+            expect(screen.getByTestId('string-1')).toBeTruthy()
+            expect(screen.getByTestId('boolean-4')).toBeTruthy()
+            expect(screen.queryByTestId('section-2')).toBeNull()
+            expect(screen.queryByTestId('number-3')).toBeNull()
+        })
+
+        it('renders first visible section when DEFAULT and no root fields', () => {
+            const sectionsOnly = baseDef([
+                {
+                    id: 10,
+                    type: 'section',
+                    title: 'First',
+                    content: [{ id: 1, type: 'string', label: 'A' }],
+                },
+                {
+                    id: 20,
+                    type: 'section',
+                    title: 'Second',
+                    content: [{ id: 2, type: 'number', label: 'B' }],
+                },
+            ])
+
+            renderEditor(
+                { definition: sectionsOnly, data: doc({ '1': 'x', '2': 5 }), section: DEFAULT },
+                { components: makeComponents(), onChange: noop },
+            )
+
+            expect(screen.getByTestId('section-10')).toBeTruthy()
+            expect(screen.getByTestId('string-1')).toBeTruthy()
+            expect(screen.queryByTestId('section-20')).toBeNull()
         })
     })
 

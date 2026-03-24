@@ -10,7 +10,7 @@ import {
     FormValidationResult,
 } from '@bluprynt/forms-core'
 
-import type { ROOT } from './constants'
+import type { DEFAULT, ROOT } from './constants'
 
 type FormContextValue = {
     definition: FormDefinition | undefined
@@ -20,7 +20,7 @@ type FormContextValue = {
     validation: FormValidationResult | undefined
     documentErrors: readonly DocumentValidationError[] | undefined
     fieldErrors: Map<number, FieldValidationError[]>
-    section: typeof ROOT | number | undefined
+    section: typeof ROOT | typeof DEFAULT | number | undefined
     showInlineValidation: boolean
 }
 
@@ -36,7 +36,7 @@ export const useFormContext = (): FormContextValue => {
 type FormProps = {
     definition?: FormDefinition
     data?: FormDocument
-    section?: typeof ROOT | number
+    section?: typeof ROOT | typeof DEFAULT | number
     showInlineValidation?: boolean
     children: ReactNode
 }
