@@ -52,3 +52,4 @@ export type {
     StringViewProps,
     ViewerComponentMap,
 } from './types'
+export { useFormSections } from './use-form-sections'
