@@ -1,5 +1,16 @@
 # @bluprynt/forms-viewer
 
+## 2.0.0
+
+### Minor Changes
+
+- [#7](https://github.com/blupryntco/forms-engine/pull/7) [`a2a48d5`](https://github.com/blupryntco/forms-engine/commit/a2a48d5767f2df3dd44f08cb7d6ad088192a11f6) Thanks [@sergeyzwezdin](https://github.com/sergeyzwezdin)! - `useFormSections` hook added
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @bluprynt/forms-core@2.0.0
+
 ## 1.0.0
 
 ### Major Changes
