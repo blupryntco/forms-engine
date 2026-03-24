@@ -9,7 +9,7 @@ import type {
 } from '@bluprynt/forms-core'
 import { render, screen } from '@testing-library/react'
 
-import { ROOT } from '../constants'
+import { DEFAULT, ROOT } from '../constants'
 import type { EditorArrayItemProps, EditorComponentMap, EditorFieldProps, ViewerComponentMap } from '../types'
 import { FormContent, type FormContentProps } from './form-content'
 
@@ -304,6 +304,162 @@ describe('FormContent', () => {
             render(<FormContent {...props} />)
 
             expect(renderArrayItemProps).toHaveBeenCalledTimes(2)
+        })
+    })
+
+    describe('section=DEFAULT — renders first visible section', () => {
+        it('renders root fields when they are visible (viewer mode)', () => {
+            const props: FormContentProps = {
+                mode: 'viewer',
+                items,
+                visibilityMap,
+                values,
+                fieldErrors,
+                section: DEFAULT,
+                showInlineValidation: false,
+                components: makeViewerComponents(),
+            }
+
+            render(<FormContent {...props} />)
+
+            expect(screen.getByTestId('string-1')).toBeTruthy()
+            expect(screen.getByTestId('boolean-4')).toBeTruthy()
+            expect(screen.queryByTestId('section-2')).toBeNull()
+            expect(screen.queryByTestId('number-3')).toBeNull()
+        })
+
+        it('renders root fields when they are visible (editor mode)', () => {
+            const props: FormContentProps = {
+                mode: 'editor',
+                items,
+                visibilityMap,
+                values,
+                fieldErrors,
+                section: DEFAULT,
+                showInlineValidation: false,
+                components: makeEditorComponents(),
+                renderFieldProps,
+                renderArrayItemProps,
+            }
+
+            render(<FormContent {...props} />)
+
+            expect(screen.getByTestId('string-1')).toBeTruthy()
+            expect(screen.getByTestId('boolean-4')).toBeTruthy()
+            expect(screen.queryByTestId('section-2')).toBeNull()
+        })
+
+        it('falls back to first visible section when no root fields are visible', () => {
+            const sectionOnlyItems: ContentItem[] = [
+                {
+                    id: 10,
+                    type: 'section',
+                    title: 'First',
+                    content: [{ id: 11, type: 'string', label: 'A' } as ContentItem],
+                } as ContentItem,
+                {
+                    id: 20,
+                    type: 'section',
+                    title: 'Second',
+                    content: [{ id: 21, type: 'number', label: 'B' } as ContentItem],
+                } as ContentItem,
+            ]
+
+            const vis = new Map<number, boolean>([
+                [10, true],
+                [11, true],
+                [20, true],
+                [21, true],
+            ])
+
+            const props: FormContentProps = {
+                mode: 'viewer',
+                items: sectionOnlyItems,
+                visibilityMap: vis,
+                values: { '11': 'x', '21': 1 },
+                fieldErrors,
+                section: DEFAULT,
+                showInlineValidation: false,
+                components: makeViewerComponents(),
+            }
+
+            render(<FormContent {...props} />)
+
+            expect(screen.getByTestId('section-10')).toBeTruthy()
+            expect(screen.getByTestId('string-11')).toBeTruthy()
+            expect(screen.queryByTestId('section-20')).toBeNull()
+        })
+
+        it('skips hidden first section and renders second visible section', () => {
+            const sectionOnlyItems: ContentItem[] = [
+                {
+                    id: 10,
+                    type: 'section',
+                    title: 'Hidden',
+                    content: [{ id: 11, type: 'string', label: 'A' } as ContentItem],
+                } as ContentItem,
+                {
+                    id: 20,
+                    type: 'section',
+                    title: 'Visible',
+                    content: [{ id: 21, type: 'number', label: 'B' } as ContentItem],
+                } as ContentItem,
+            ]
+
+            const vis = new Map<number, boolean>([
+                [10, false],
+                [11, true],
+                [20, true],
+                [21, true],
+            ])
+
+            const props: FormContentProps = {
+                mode: 'viewer',
+                items: sectionOnlyItems,
+                visibilityMap: vis,
+                values: { '11': 'x', '21': 1 },
+                fieldErrors,
+                section: DEFAULT,
+                showInlineValidation: false,
+                components: makeViewerComponents(),
+            }
+
+            render(<FormContent {...props} />)
+
+            expect(screen.queryByTestId('section-10')).toBeNull()
+            expect(screen.getByTestId('section-20')).toBeTruthy()
+            expect(screen.getByTestId('number-21')).toBeTruthy()
+        })
+
+        it('returns null when no sections are visible and no root fields', () => {
+            const sectionOnlyItems: ContentItem[] = [
+                {
+                    id: 10,
+                    type: 'section',
+                    title: 'Hidden',
+                    content: [{ id: 11, type: 'string', label: 'A' } as ContentItem],
+                } as ContentItem,
+            ]
+
+            const vis = new Map<number, boolean>([
+                [10, false],
+                [11, true],
+            ])
+
+            const props: FormContentProps = {
+                mode: 'viewer',
+                items: sectionOnlyItems,
+                visibilityMap: vis,
+                values: {},
+                fieldErrors,
+                section: DEFAULT,
+                showInlineValidation: false,
+                components: makeViewerComponents(),
+            }
+
+            const { container } = render(<FormContent {...props} />)
+
+            expect(container.innerHTML).toBe('')
         })
     })
 

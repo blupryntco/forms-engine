@@ -1,6 +1,6 @@
 import { type ComponentType, type FC, type PropsWithChildren } from 'react'
 
-import { ROOT } from './constants'
+import { DEFAULT, ROOT } from './constants'
 import { useFormContext } from './form-context'
 import { type FormSectionEntry, useFormSections } from './use-form-sections'
 
@@ -18,7 +18,7 @@ type FormSectionsProps = {
     item: ComponentType<FormSectionItemProps>
     defaultSectionTitle?: string
     defaultSectionDescription?: string
-    onSelect?: (id: typeof ROOT | number) => void
+    onSelect?: (id: typeof ROOT | typeof DEFAULT | number) => void
 }
 
 export const FormSections: FC<FormSectionsProps> = ({
@@ -40,7 +40,7 @@ export const FormSections: FC<FormSectionsProps> = ({
                     key={entry.id === ROOT ? 'root' : String(entry.id)}
                     index={index}
                     section={entry}
-                    active={entry.id === section}
+                    active={section === DEFAULT ? index === 0 : entry.id === section}
                     select={() => onSelect?.(entry.id)}
                 />
             ))}

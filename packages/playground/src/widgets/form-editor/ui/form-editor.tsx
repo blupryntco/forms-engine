@@ -3,6 +3,7 @@
 import { type FC, useCallback, useState } from 'react'
 
 import {
+    DEFAULT,
     EditorComponentMap,
     Form,
     FormDocumentValidation,
@@ -50,15 +51,15 @@ export const FormEditor: FC = () => {
     const [formDoc, setFormDoc] = useAtom(formDocumentAtom)
 
     const [sectionSteps, setSectionSteps] = useState(false)
-    const [activeSection, setActiveSection] = useState<typeof ROOT | number | undefined>(undefined)
+    const [activeSection, setActiveSection] = useState<typeof ROOT | typeof DEFAULT | number | undefined>(undefined)
 
-    const handleSectionSelect = useCallback((id: typeof ROOT | number) => {
+    const handleSectionSelect = useCallback((id: typeof ROOT | typeof DEFAULT | number) => {
         setActiveSection(id)
     }, [])
 
     const handleToggleSections = useCallback((checked: boolean) => {
         setSectionSteps(checked)
-        setActiveSection(checked ? ROOT : undefined)
+        setActiveSection(checked ? DEFAULT : undefined)
     }, [])
 
     return (

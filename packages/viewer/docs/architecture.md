@@ -179,12 +179,21 @@ export const ROOT: unique symbol = Symbol('ROOT')
 
 `ROOT` is a unique symbol that represents "top-level fields not inside any section." It is used as a section ID in the `section` prop of `Form` and in `FormSections` entries.
 
+### DEFAULT Sentinel
+
+```ts
+export const DEFAULT: unique symbol = Symbol('DEFAULT')
+```
+
+`DEFAULT` is a unique symbol that means "show the first visible section." At render time, `FormContent` resolves `DEFAULT` to the first visible section — root-level fields if any are visible, otherwise the first visible named section. `FormSections` marks the first entry as active when `section === DEFAULT`.
+
 ### FormContent Section Filtering
 
 When `section` is provided to `FormContent`, it filters content before rendering:
 
 ```
 section === undefined  → render all items (no filtering)
+section === DEFAULT    → resolve to first visible section (root fields first, then named sections)
 section === ROOT       → render only items where type !== 'section'
 section === <number>   → findSection(items, id) → render that section's content
 ```

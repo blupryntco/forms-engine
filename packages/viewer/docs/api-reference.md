@@ -12,6 +12,16 @@ import { ROOT } from '@bluprynt/forms-viewer'
 
 Used as the `section` prop value on `Form` to display only top-level non-section fields.
 
+### DEFAULT
+
+A unique symbol used to automatically select the first visible section. When used as the `section` prop value on `Form`, it resolves at render time to the first visible section — root fields first (if any are visible), then the first visible named section.
+
+```ts
+import { DEFAULT } from '@bluprynt/forms-viewer'
+```
+
+Used as the initial `section` prop value when enabling section-based navigation without knowing which section should be active.
+
 ---
 
 ## Components
@@ -30,7 +40,7 @@ import { Form } from '@bluprynt/forms-viewer'
 |------|------|---------|-------------|
 | `definition` | `FormDefinition \| undefined` | — | The form schema. When `undefined`, children receive empty context. |
 | `data` | `FormDocument \| undefined` | — | The form document with values. When `undefined`, validation and visibility are skipped. |
-| `section` | `typeof ROOT \| number \| undefined` | `undefined` | Restricts rendered content to a specific section (or root-level fields when `ROOT`). |
+| `section` | `typeof ROOT \| typeof DEFAULT \| number \| undefined` | `undefined` | Restricts rendered content to a specific section (or root-level fields when `ROOT`, or first visible section when `DEFAULT`). |
 | `showInlineValidation` | `boolean` | `true` | Whether inline validation errors are shown next to fields. |
 | `children` | `ReactNode` | — | Child components (typically `FormViewer`, `FormEditor`, etc.). |
 
@@ -129,7 +139,7 @@ import { FormSections } from '@bluprynt/forms-viewer'
 | `item` | `ComponentType<FormSectionItemProps>` | — | Component rendered for each section entry. |
 | `defaultSectionTitle` | `string` | `'General'` | Title for the synthetic root section. |
 | `defaultSectionDescription` | `string \| undefined` | `undefined` | Description for the synthetic root section. |
-| `onSelect` | `(id: typeof ROOT \| number) => void` | — | Called when a section is selected. |
+| `onSelect` | `(id: typeof ROOT \| typeof DEFAULT \| number) => void` | — | Called when a section is selected. |
 
 #### Behavior
 
@@ -233,7 +243,7 @@ import { useFormContext } from '@bluprynt/forms-viewer'
 | `validation` | `FormValidationResult \| undefined` | Full validation result. `undefined` when engine/data is missing. |
 | `documentErrors` | `readonly DocumentValidationError[] \| undefined` | Merged definition + document errors. |
 | `fieldErrors` | `Map<number, FieldValidationError[]>` | Field-level errors indexed by field ID. Empty map when no errors. |
-| `section` | `typeof ROOT \| number \| undefined` | The active section from the `<Form>` provider. |
+| `section` | `typeof ROOT \| typeof DEFAULT \| number \| undefined` | The active section from the `<Form>` provider. |
 | `showInlineValidation` | `boolean` | Whether inline validation is enabled. |
 
 **Throws:** `Error` if called outside a `<Form>` provider.

@@ -18,7 +18,7 @@ export type {
 } from '@bluprynt/forms-core'
 export { DocumentError, FormValuesEditor } from '@bluprynt/forms-core'
 
-export { ROOT } from './constants'
+export { DEFAULT, ROOT } from './constants'
 export { Form, useFormContext } from './form-context'
 export { FormDocumentValidation } from './form-document-validation'
 export { FormEditor } from './form-editor'
