@@ -1,5 +1,18 @@
 # @bluprynt/forms-viewer
 
+## 3.0.0
+
+### Minor Changes
+
+- [#9](https://github.com/blupryntco/forms-engine/pull/9) [`e4f211b`](https://github.com/blupryntco/forms-engine/commit/e4f211b3e4c67916fc63e05defac30d0aa4b485e) Thanks [@sergeyzwezdin](https://github.com/sergeyzwezdin)! - `useFormSections` hook added
+
+- [#9](https://github.com/blupryntco/forms-engine/pull/9) [`e4f211b`](https://github.com/blupryntco/forms-engine/commit/e4f211b3e4c67916fc63e05defac30d0aa4b485e) Thanks [@sergeyzwezdin](https://github.com/sergeyzwezdin)! - Ability to select default section
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @bluprynt/forms-core@3.0.0
+
 ## 2.0.0
 
 ### Minor Changes
