@@ -1,5 +1,12 @@
 # @bluprynt/forms-builder
 
+## 2.0.0
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @bluprynt/forms-core@2.0.0
+
 ## 1.0.0
 
 ### Major Changes
