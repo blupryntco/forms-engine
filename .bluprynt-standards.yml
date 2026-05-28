@@ -1,0 +1,10 @@
+# Per-repo configuration for the Bluprynt Engineering Standards gates.
+# Field reference:
+# https://github.com/blupryntco/engineering-standards/blob/v1/templates/bluprynt-standards.yml
+
+# ---- Gate: security-tier-declared (BLU-1863) -------------------------------
+
+# Tier 0 per the BLU-1863 repo inventory. Determines which security gates
+# apply. They currently run in `warn` (feedback period) — no blocking yet.
+security:
+  tier: 0
