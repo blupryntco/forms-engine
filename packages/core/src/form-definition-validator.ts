@@ -1,3 +1,4 @@
+import type { ErrorObject } from 'ajv'
 import Ajv2020 from 'ajv/dist/2020'
 
 import { isRelativeDate } from './date-utils'
@@ -13,6 +14,35 @@ import type { DocumentValidationError } from './types/validation-results'
 
 const ajv = new Ajv2020({ allErrors: true })
 const validateFn = ajv.compile(formDefinitionSchema)
+
+type SchemaIssue = {
+    path: string
+    keyword: string
+    message: string
+    property?: string
+}
+
+const itemRequiredProperties = new Map<string, Set<string>>([
+    ['string', new Set(['id', 'type', 'label'])],
+    ['number', new Set(['id', 'type', 'label'])],
+    ['boolean', new Set(['id', 'type', 'label'])],
+    ['date', new Set(['id', 'type', 'label'])],
+    ['select', new Set(['id', 'type', 'label', 'options'])],
+    ['array', new Set(['id', 'type', 'label', 'item'])],
+    ['file', new Set(['id', 'type', 'label'])],
+    ['section', new Set(['id', 'type', 'title', 'content'])],
+])
+
+const itemAllowedProperties = new Map<string, Set<string>>([
+    ['string', new Set(['id', 'type', 'label', 'description', 'condition', 'validation'])],
+    ['number', new Set(['id', 'type', 'label', 'description', 'condition', 'validation'])],
+    ['boolean', new Set(['id', 'type', 'label', 'description', 'condition', 'validation'])],
+    ['date', new Set(['id', 'type', 'label', 'description', 'condition', 'validation'])],
+    ['select', new Set(['id', 'type', 'label', 'description', 'condition', 'options', 'validation'])],
+    ['array', new Set(['id', 'type', 'label', 'description', 'condition', 'item', 'validation'])],
+    ['file', new Set(['id', 'type', 'label', 'description', 'condition', 'validation'])],
+    ['section', new Set(['id', 'type', 'title', 'description', 'condition', 'content'])],
+])
 
 /**
  * Validates form definitions at both the structural (JSON Schema) and
@@ -48,17 +78,236 @@ export class FormDefinitionValidator {
     validateSchema(input: unknown): DocumentValidationError[] {
         if (validateFn(input)) return []
 
-        return (validateFn.errors ?? []).map((err) => {
+        return this.formatSchemaErrors(validateFn.errors ?? [], input)
+    }
+
+    private formatSchemaErrors(errors: ErrorObject[], input: unknown): DocumentValidationError[] {
+        const issues = this.collectSchemaIssues(errors, input)
+        const dedupedIssues = this.deduplicateSchemaIssues(issues)
+        const specificIssuePaths = dedupedIssues.filter((issue) => issue.keyword !== 'oneOf').map((issue) => issue.path)
+
+        return dedupedIssues
+            .filter((issue) => !this.isRedundantOneOfIssue(issue, specificIssuePaths))
+            .map((issue) => ({
+                code: 'SCHEMA_INVALID',
+                message: issue.message,
+                params: {
+                    path: issue.path,
+                    keyword: issue.keyword,
+                    ...(issue.property ? { property: issue.property } : {}),
+                },
+            }))
+    }
+
+    private collectSchemaIssues(errors: ErrorObject[], input: unknown): SchemaIssue[] {
+        const additionalByPath = new Map<string, Set<string>>()
+        const issues: SchemaIssue[] = []
+
+        for (const err of errors) {
             const path = err.instancePath || '/'
-            const message = err.message ?? 'Unknown error'
+
+            if (!this.shouldKeepSchemaError(err, input)) continue
 
             if (err.keyword === 'additionalProperties') {
-                const additional = (err.params as { additionalProperty?: string }).additionalProperty
-                return { code: 'SCHEMA_INVALID', message: `${path}: ${message}: '${additional}'` }
+                const property = (err.params as { additionalProperty?: string }).additionalProperty
+                if (!property) continue
+                if (!this.shouldKeepAdditionalPropertyError(path, property, input)) continue
+
+                const properties = additionalByPath.get(path) ?? new Set<string>()
+                properties.add(property)
+                additionalByPath.set(path, properties)
+                continue
             }
 
-            return { code: 'SCHEMA_INVALID', message: `${path}: ${message}` }
-        })
+            issues.push(this.formatSchemaIssue(err))
+        }
+
+        for (const [path, properties] of additionalByPath) {
+            issues.push(this.formatAdditionalPropertiesIssue(path, [...properties].sort()))
+        }
+
+        return issues
+    }
+
+    private shouldKeepSchemaError(err: ErrorObject, input: unknown): boolean {
+        if (err.keyword === 'const' && this.getLastPathSegment(err.instancePath) === 'type') {
+            const value = this.getValueAtPath(input, this.getParentPath(err.instancePath))
+            return !(this.isRecord(value) && typeof value.type === 'string' && itemAllowedProperties.has(value.type))
+        }
+
+        if (err.keyword !== 'required') return true
+
+        const missingProperty = (err.params as { missingProperty?: string }).missingProperty
+        if (!missingProperty) return true
+
+        const value = this.getValueAtPath(input, err.instancePath)
+        if (this.isRecord(value) && value.type === undefined && this.isContentItemPath(err.instancePath)) {
+            return missingProperty === 'id' || missingProperty === 'type'
+        }
+
+        if (!this.isRecord(value) || typeof value.type !== 'string') return true
+
+        const requiredProperties = itemRequiredProperties.get(value.type)
+        return requiredProperties ? requiredProperties.has(missingProperty) : true
+    }
+
+    private shouldKeepAdditionalPropertyError(path: string, property: string, input: unknown): boolean {
+        const value = this.getValueAtPath(input, path)
+        if (!this.isRecord(value) || typeof value.type !== 'string') return true
+
+        const allowedProperties = itemAllowedProperties.get(value.type)
+        return allowedProperties ? !allowedProperties.has(property) : true
+    }
+
+    private formatSchemaIssue(err: ErrorObject): SchemaIssue {
+        const path = err.instancePath || '/'
+
+        switch (err.keyword) {
+            case 'required': {
+                const property = (err.params as { missingProperty?: string }).missingProperty ?? 'unknown'
+                return {
+                    path,
+                    keyword: err.keyword,
+                    property,
+                    message: `${this.formatPath(path)} is missing required property "${property}".`,
+                }
+            }
+            case 'const': {
+                const propertyPath = this.formatPath(path)
+                const parentPath = this.getParentPath(path)
+                const property = this.getLastPathSegment(path)
+
+                return {
+                    path,
+                    keyword: err.keyword,
+                    property,
+                    message:
+                        property === 'type'
+                            ? `${this.formatPath(parentPath)} has an invalid type.`
+                            : `${propertyPath} has an invalid value.`,
+                }
+            }
+            case 'type': {
+                const params = err.params as { type?: string }
+                return {
+                    path,
+                    keyword: err.keyword,
+                    property: this.getLastPathSegment(path),
+                    message: `${this.formatPath(path)} must be ${this.formatArticle(params.type)} ${params.type ?? 'valid value'}.`,
+                }
+            }
+            case 'oneOf':
+                return {
+                    path,
+                    keyword: err.keyword,
+                    message: `${this.formatPath(path)} is invalid.`,
+                }
+            default:
+                return {
+                    path,
+                    keyword: err.keyword,
+                    property: this.getLastPathSegment(path),
+                    message: `${this.formatPath(path)} ${err.message ?? 'is invalid'}.`,
+                }
+        }
+    }
+
+    private formatAdditionalPropertiesIssue(path: string, properties: string[]): SchemaIssue {
+        const propertyList = properties.map((property) => `"${property}"`).join(', ')
+        const noun = properties.length === 1 ? 'property' : 'properties'
+
+        return {
+            path,
+            keyword: 'additionalProperties',
+            property: properties.join(','),
+            message: `${this.formatPath(path)} has unsupported ${noun}: ${propertyList}.`,
+        }
+    }
+
+    private deduplicateSchemaIssues(issues: SchemaIssue[]): SchemaIssue[] {
+        const seen = new Set<string>()
+        const result: SchemaIssue[] = []
+
+        for (const issue of issues) {
+            const key = `${issue.path}:${issue.keyword}:${issue.property ?? ''}:${issue.message}`
+            if (seen.has(key)) continue
+
+            seen.add(key)
+            result.push(issue)
+        }
+
+        return result
+    }
+
+    private isRedundantOneOfIssue(issue: SchemaIssue, specificIssuePaths: string[]): boolean {
+        if (issue.keyword !== 'oneOf') return false
+
+        return specificIssuePaths.some((path) => path === issue.path || path.startsWith(`${issue.path}/`))
+    }
+
+    private formatPath(path: string): string {
+        if (!path || path === '/') return 'Form definition'
+
+        const segments = path.split('/').filter(Boolean)
+        const parts: string[] = []
+
+        for (let index = 0; index < segments.length; index += 1) {
+            const segment = segments[index]
+            const nextSegment = segments[index + 1]
+            if (segment === undefined) continue
+
+            if (segment === 'content' && nextSegment !== undefined && /^\d+$/.test(nextSegment)) {
+                parts.push(`${parts.length === 0 ? 'Content' : 'content'} item ${Number(nextSegment) + 1}`)
+                index += 1
+                continue
+            }
+
+            if (segment === 'validation' && parts.length > 0) {
+                parts[parts.length - 1] = `${parts[parts.length - 1]} validation`
+                continue
+            }
+
+            parts.push(segment)
+        }
+
+        return parts.join(' > ')
+    }
+
+    private getValueAtPath(input: unknown, path: string): unknown {
+        if (!path) return input
+
+        return path
+            .split('/')
+            .filter(Boolean)
+            .reduce<unknown>((value, segment) => {
+                if (Array.isArray(value)) return value[Number(segment)]
+                if (this.isRecord(value)) return value[segment]
+                return undefined
+            }, input)
+    }
+
+    private getParentPath(path: string): string {
+        const segments = path.split('/').filter(Boolean)
+        return segments.length > 1 ? `/${segments.slice(0, -1).join('/')}` : '/'
+    }
+
+    private getLastPathSegment(path: string): string | undefined {
+        return path.split('/').filter(Boolean).at(-1)
+    }
+
+    private isContentItemPath(path: string): boolean {
+        const segments = path.split('/').filter(Boolean)
+        return segments.at(-2) === 'content' && /^\d+$/.test(segments.at(-1) ?? '')
+    }
+
+    private formatArticle(value: string | undefined): string {
+        if (!value) return 'a'
+
+        return /^[aeiou]/i.test(value) ? 'an' : 'a'
+    }
+
+    private isRecord(value: unknown): value is Record<string, unknown> {
+        return typeof value === 'object' && value !== null && !Array.isArray(value)
     }
 
     /**

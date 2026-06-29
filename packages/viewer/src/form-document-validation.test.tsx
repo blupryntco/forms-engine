@@ -76,6 +76,14 @@ describe('FormDocumentValidation', () => {
 
         expect(MockContainer).toHaveBeenCalled()
         expect(MockError).toHaveBeenCalled()
+        expect(MockError).toHaveBeenCalledWith(
+            expect.objectContaining({
+                code: 'DUPLICATE_ID',
+                itemId: 1,
+                message: 'Duplicate id: 1',
+            }),
+            undefined,
+        )
     })
 
     it('returns null when no document errors', () => {
