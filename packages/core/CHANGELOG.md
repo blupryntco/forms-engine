@@ -1,5 +1,11 @@
 # @bluprynt/forms-core
 
+## 4.0.1
+
+### Patch Changes
+
+- Fixing form schema validation errors
+
 ## 3.0.0
 
 ## 2.0.0

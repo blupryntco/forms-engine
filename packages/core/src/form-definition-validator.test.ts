@@ -392,7 +392,7 @@ describe('FormDefinitionValidator.validateSchema', () => {
         it('rejects missing required fields', () => {
             const result = schemaIssues({})
             expect(result.length).toBeGreaterThan(0)
-            expect(result.some((i) => i.message.includes("'id'"))).toBe(true)
+            expect(result.some((i) => i.message.includes('required property "id"'))).toBe(true)
         })
 
         it('rejects invalid version format', () => {
@@ -894,10 +894,72 @@ describe('FormDefinitionValidator.validateSchema', () => {
             expect(result.length).toBeGreaterThan(1)
         })
 
-        it('each issue has path and message in message field', () => {
+        it('formats unsupported properties with readable paths', () => {
             const result = schemaIssues({ ...minimal, content: [{ id: 1, type: 'string', label: 'A', extra: true }] })
-            expect(result.length).toBeGreaterThan(0)
-            expect(result[0]?.message).toContain('extra')
+
+            expect(result).toContainEqual(
+                expect.objectContaining({
+                    code: 'SCHEMA_INVALID',
+                    message: 'Content item 1 has unsupported property: "extra".',
+                    params: expect.objectContaining({
+                        keyword: 'additionalProperties',
+                        path: '/content/0',
+                        property: 'extra',
+                    }),
+                }),
+            )
+        })
+
+        it('deduplicates oneOf branch errors and suppresses generic oneOf errors', () => {
+            const result = schemaIssues({
+                ...minimal,
+                content: [
+                    {
+                        id: 1,
+                        type: 'section',
+                        title: 'Section',
+                        content: [{ id: 2, label: 'Name', validation: { required: true, maxLength: 10 } }],
+                    },
+                ],
+            })
+            const messages = result.map((issue) => issue.message)
+
+            expect(messages).toContain('Content item 1 > content item 1 is missing required property "type".')
+            expect(messages).toContain(
+                'Content item 1 > content item 1 validation has unsupported properties: "maxLength", "required".',
+            )
+            expect(messages).not.toContain('Content item 1 is invalid.')
+            expect(messages).not.toContain('Content item 1 > content item 1 is invalid.')
+            expect(messages.filter((message) => message.includes('required property "type"'))).toHaveLength(1)
+        })
+
+        it('does not report required properties from unrelated oneOf branches for known item types', () => {
+            const result = schemaIssues({
+                ...minimal,
+                content: [{ id: 1, type: 'section', content: [{ id: 2, type: 'string', label: 'Name' }] }],
+            })
+            const messages = result.map((issue) => issue.message)
+
+            expect(messages).toContain('Content item 1 is missing required property "title".')
+            expect(messages).not.toContain('Content item 1 is missing required property "label".')
+            expect(messages).not.toContain('Content item 1 is missing required property "options".')
+            expect(messages).not.toContain('Content item 1 is missing required property "item".')
+        })
+
+        it('formats invalid type errors with readable paths', () => {
+            const result = schemaIssues({ ...minimal, content: [{ id: 'bad', type: 'string', label: 'A' }] })
+
+            expect(result).toContainEqual(
+                expect.objectContaining({
+                    code: 'SCHEMA_INVALID',
+                    message: 'Content item 1 > id must be an integer.',
+                    params: expect.objectContaining({
+                        keyword: 'type',
+                        path: '/content/0/id',
+                        property: 'id',
+                    }),
+                }),
+            )
         })
 
         it('returns empty array for valid input', () => {

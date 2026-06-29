@@ -1,5 +1,14 @@
 # @bluprynt/forms-builder
 
+## 4.0.1
+
+### Patch Changes
+
+- Fixing form schema validation errors
+
+- Updated dependencies []:
+  - @bluprynt/forms-core@4.0.1
+
 ## 3.0.0
 
 ### Patch Changes
