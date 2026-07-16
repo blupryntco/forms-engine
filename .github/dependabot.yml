@@ -4,6 +4,11 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    # Dependency cooldown (control 4): hold new releases for 14 days before
+    # opening update PRs, so freshly-published (potentially compromised) versions
+    # are not adopted immediately.
+    cooldown:
+      default-days: 14
   - package-ecosystem: github-actions
     directory: "/"
     schedule:

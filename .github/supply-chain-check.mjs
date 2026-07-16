@@ -29,17 +29,19 @@ for (const f of installFiles) {
   else pass(`${f} install is frozen (or has no install)`);
 }
 
-// 3. cooldown + 4. script allow-list
+// 3. script allow-list (pnpm 10 blocks third-party install scripts; keys make it explicit)
 const ws = read("pnpm-workspace.yaml");
-/minimumReleaseAge:/.test(ws)
-  ? pass("minimumReleaseAge set")
-  : fail("minimumReleaseAge not set");
 /onlyBuiltDependencies:/.test(ws)
   ? pass("onlyBuiltDependencies present")
   : fail("onlyBuiltDependencies allow-list missing");
 
-// 5. dependency vulnerability monitoring via Dependabot (npm ecosystem)
+// 4. dependency cooldown via Dependabot (hold new releases before adopting)
 const dependabot = read(".github/dependabot.yml");
+/cooldown:/.test(dependabot)
+  ? pass("Dependabot cooldown configured")
+  : fail("no cooldown in .github/dependabot.yml");
+
+// 5. dependency vulnerability monitoring via Dependabot (npm ecosystem)
 /package-ecosystem:\s*["']?npm["']?/.test(dependabot)
   ? pass("Dependabot configured for npm ecosystem")
   : fail("no npm package-ecosystem in .github/dependabot.yml");

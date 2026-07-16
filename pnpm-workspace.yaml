@@ -2,9 +2,8 @@ packages:
   - "packages/*"
 
 # Supply-chain hardening (BLU-2696)
-minimumReleaseAge: 20160 # 14 days, in minutes — requires pnpm >= 10.16
 # pnpm 10 blocks all third-party install scripts by default. These keys make that
-# policy explicit:
+# policy explicit (dependency cooldown lives in .github/dependabot.yml):
 #   onlyBuiltDependencies — allow-list of deps permitted to run install scripts (empty:
 #     nothing is trusted; tsdown/rolldown/oxc ship prebuilt binaries and need nothing).
 #   ignoredBuiltDependencies — deps whose install scripts are explicitly denied (silences
