@@ -1,6 +1,19 @@
 packages:
   - "packages/*"
 
+# Supply-chain hardening (BLU-2696)
+# pnpm 10 blocks all third-party install scripts by default. These keys make that
+# policy explicit (dependency cooldown lives in .github/dependabot.yml):
+#   onlyBuiltDependencies — allow-list of deps permitted to run install scripts (empty:
+#     nothing is trusted; tsdown/rolldown/oxc ship prebuilt binaries and need nothing).
+#   ignoredBuiltDependencies — deps whose install scripts are explicitly denied (silences
+#     the "ignored build scripts" notice). sharp loads prebuilt @img/sharp-* platform
+#     packages at runtime; its install script is a no-op binary-fetch fallback. sharp is
+#     transitive via next in the private @bluprynt/playground only (never published).
+onlyBuiltDependencies: []
+ignoredBuiltDependencies:
+  - sharp
+
 catalog:
   typescript: "5.9.3"
   tsdown: "0.21.1"
