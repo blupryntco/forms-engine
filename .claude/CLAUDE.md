@@ -42,6 +42,8 @@ Each field in a form has a type. The following types must be supported:
 | **array** | A list of values (any of existing field types described above) |
 | **file** | File upload (stores name, MIME type, size, URL) |
 | **static** | Display-only text (`text` property). Holds no value, is never validated, and cannot be referenced by a condition. |
+| **blockchain** | A CAIP address identifying an on-chain asset. The value is an opaque string — the engine never checks its format. |
+| **sustainability** | Sustainability references for an on-chain asset; the value is an object `{ address, ccri, cmc }`. |
 
 Future consideration: custom field types with type-specific properties.
 
@@ -60,6 +62,8 @@ Each field may have validation rules depending on its type:
 | **array** | min items, max items |
 | **file** | required |
 | **static** | *(none — static blocks hold no value)* |
+| **blockchain** | required |
+| **sustainability** | required (the value's `address` must be a non-empty string; `ccri` and `cmc` are always optional) |
 
 ## 5. Sections
 
@@ -93,6 +97,7 @@ Conditionals control the visibility of individual fields or entire sections base
 - When a conditional evaluates to true, the associated field or section must be shown.
 - Conditionals must be evaluated dynamically as form values change.
 - When a conditional field is hidden we do not consider it in form validation at all.
+- Against an object-valued field (`file`, `sustainability`) only `set` and `notset` are meaningful: any object present counts as set, and the comparison operators compare by reference so they never match. A half-filled `{ address: "", ccri: "", cmc: "" }` therefore still counts as set.
 - Against a `multiselect` field the operators are set-oriented: `set` means at least one option is chosen, `eq`/`ne` compare the whole selection as a set (order- and duplicate-insensitive), `in`/`notin` test whether *any* chosen option appears in the given list, and the ordering operators are always false. Every other type — including `array` — keeps scalar semantics.
 
 ## 7. Workflows

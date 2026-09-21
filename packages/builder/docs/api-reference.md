@@ -131,7 +131,6 @@ Props passed to the consumer's field render component.
 | `parentId` | `number \| null` | Parent section ID, or `null` for root-level items. |
 | `type` | `FieldType` | Field type (`'string'`, `'number'`, etc.). |
 | `item` | `AnyFieldContentItem` | The item itself. A `'static'` block carries `text` and an optional `label`; every other type carries a required `label`. |
-| `item` | `FieldContentItem` | The full field content item from the definition. |
 | `isDragging` | `boolean` | `true` when this item is being dragged. |
 | `isSelected` | `boolean` | `true` when this item's ID matches `selectedId`. |
 | `onAdd` | `(item: NewContentItem) => number` | Add a new item to this field's parent section. Returns the new item's ID. |

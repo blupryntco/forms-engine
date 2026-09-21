@@ -9,6 +9,7 @@ import type {
     FormValues,
     SectionContentItem,
     StaticFieldContentItem,
+    SustainabilityValue,
 } from '@bluprynt/forms-core'
 import { render, screen } from '@testing-library/react'
 
@@ -59,6 +60,16 @@ const MockStatic: FC<Record<string, unknown>> = jest.fn((props) => (
     </div>
 ))
 
+const MockBlockchain: FC<Record<string, unknown>> = jest.fn((props) => (
+    <div data-testid={`blockchain-${(props.field as FieldContentItem).id}`}>{String(props.value ?? '')}</div>
+))
+
+const MockSustainability: FC<Record<string, unknown>> = jest.fn((props) => (
+    <div data-testid={`sustainability-${(props.field as FieldContentItem).id}`}>
+        {(props.value as SustainabilityValue | undefined)?.address ?? ''}
+    </div>
+))
+
 const MockSection: FC<Record<string, unknown>> = jest.fn((props) => (
     <div data-testid={`section-${(props.section as SectionContentItem).id}`}>{props.children as ReactNode}</div>
 ))
@@ -81,11 +92,13 @@ const makeComponents = (withError = false): EditorComponentMap => ({
     ...(withError ? { error: MockError as EditorComponentMap['error'] } : {}),
 })
 
-/** The same map plus the two optional keys, for the new field types. */
+/** The same map plus every optional key, for the newer field types. */
 const makeComponentsWithNewTypes = (withError = false): EditorComponentMap => ({
     ...makeComponents(withError),
     multiselect: MockMultiselect as EditorComponentMap['multiselect'],
     static: MockStatic as EditorComponentMap['static'],
+    blockchain: MockBlockchain as EditorComponentMap['blockchain'],
+    sustainability: MockSustainability as EditorComponentMap['sustainability'],
 })
 
 const baseDef = (content: FormDefinition['content']): FormDefinition => ({
@@ -935,6 +948,107 @@ describe('FormEditor', () => {
             ).not.toThrow()
             expect(screen.queryByTestId('static-1')).toBeNull()
             expect(screen.queryByTestId('multiselect-2')).toBeNull()
+        })
+    })
+
+    describe('blockchain and sustainability fields', () => {
+        const ADDRESS = 'eip155:1/erc20:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'
+
+        const def = baseDef([
+            { id: 1, type: 'blockchain', label: 'Token', validation: { required: true } },
+            { id: 2, type: 'sustainability', label: 'Footprint', validation: { required: true } },
+        ])
+
+        it('renders both with their values', () => {
+            render(
+                <Form definition={def} data={doc({ '1': ADDRESS, '2': { address: ADDRESS } })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={noop} />
+                </Form>,
+            )
+
+            expect(screen.getByTestId('blockchain-1').textContent).toBe(ADDRESS)
+            expect(screen.getByTestId('sustainability-2').textContent).toBe(ADDRESS)
+        })
+
+        it('writes a blockchain address through onChange', () => {
+            const onChange = jest.fn()
+            render(
+                <Form definition={def} data={doc({ '2': { address: ADDRESS } })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={onChange} />
+                </Form>,
+            )
+
+            const props = lastCallProps(MockBlockchain as unknown as jest.Mock)
+            ;(props.onChange as (value: unknown) => void)(ADDRESS)
+
+            const [document, validation] = onChange.mock.calls[0] as [FormDocument, FormValidationResult]
+            expect(document.values['1']).toBe(ADDRESS)
+            expect(validation.valid).toBe(true)
+        })
+
+        it('writes a sustainability object wholesale through onChange', () => {
+            const onChange = jest.fn()
+            render(
+                <Form definition={def} data={doc({ '1': ADDRESS })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={onChange} />
+                </Form>,
+            )
+
+            const value = { address: ADDRESS, ccri: 'CCRI-1', cmc: '3408' }
+            const props = lastCallProps(MockSustainability as unknown as jest.Mock)
+            ;(props.onChange as (value: unknown) => void)(value)
+
+            const [document, validation] = onChange.mock.calls[0] as [FormDocument, FormValidationResult]
+            expect(document.values['2']).toEqual(value)
+            expect(validation.valid).toBe(true)
+        })
+
+        it('reports a required error when only the address is cleared', () => {
+            const onChange = jest.fn()
+            render(
+                <Form definition={def} data={doc({ '1': ADDRESS, '2': { address: ADDRESS } })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={onChange} />
+                </Form>,
+            )
+
+            const props = lastCallProps(MockSustainability as unknown as jest.Mock)
+            ;(props.onChange as (value: unknown) => void)({ address: '', ccri: 'CCRI-1', cmc: '' })
+
+            const [, validation] = onChange.mock.calls[0] as [FormDocument, FormValidationResult]
+            expect(validation.fieldErrors.get(2)?.[0]?.rule).toBe('REQUIRED')
+        })
+
+        it('re-evaluates a condition driven by a blockchain field', () => {
+            const conditional = baseDef([
+                { id: 1, type: 'blockchain', label: 'Token' },
+                { id: 2, type: 'string', label: 'Notes', condition: { field: 1, op: 'set' } },
+            ])
+
+            const { rerender } = render(
+                <Form definition={conditional} data={doc({})}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={noop} />
+                </Form>,
+            )
+            expect(screen.queryByTestId('string-2')).toBeNull()
+
+            rerender(
+                <Form definition={conditional} data={doc({ '1': ADDRESS })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={noop} />
+                </Form>,
+            )
+            expect(screen.getByTestId('string-2')).toBeTruthy()
+        })
+
+        it('renders nothing instead of crashing when their components are absent', () => {
+            expect(() =>
+                render(
+                    <Form definition={def} data={doc({ '1': ADDRESS, '2': { address: ADDRESS } })}>
+                        <FormEditor components={makeComponents()} onChange={noop} />
+                    </Form>,
+                ),
+            ).not.toThrow()
+            expect(screen.queryByTestId('blockchain-1')).toBeNull()
+            expect(screen.queryByTestId('sustainability-2')).toBeNull()
         })
     })
 })

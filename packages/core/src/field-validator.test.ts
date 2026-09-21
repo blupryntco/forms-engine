@@ -34,6 +34,8 @@ describe('FieldValidator', () => {
             'multiselect',
             'array',
             'file',
+            'blockchain',
+            'sustainability',
         ]
 
         it.each(fieldTypes.filter((t) => t !== 'array'))('has a validator registered for "%s" field type', (type) => {

@@ -4,6 +4,7 @@ import type { FC } from 'react'
 
 import type { MultiselectEditProps, MultiselectViewProps, SelectOption } from '@bluprynt/forms-viewer'
 
+import { AnswerGuidelines } from './answer-guidelines'
 import { FieldLabel } from './field-label'
 import { Suggestion } from './suggestion'
 
@@ -16,12 +17,7 @@ export const MultiselectView: FC<MultiselectViewProps> = ({ field, value, option
 
     return (
         <div className="mb-4">
-            <FieldLabel
-                label={field.label}
-                description={field.description}
-                answerGuidelines={field.answer_guidelines}
-                referenceId={field.reference_id}
-            />
+            <FieldLabel label={field.label} description={field.description} referenceId={field.reference_id} />
             <div className="flex flex-wrap gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900">
                 {chosen.length > 0 ? (
                     chosen.map((label) => (
@@ -33,6 +29,7 @@ export const MultiselectView: FC<MultiselectViewProps> = ({ field, value, option
                     <span className="text-gray-400 italic">—</span>
                 )}
             </div>
+            <AnswerGuidelines text={field.answer_guidelines} />
             <Suggestion suggestion={suggestion} />
         </div>
     )
@@ -59,12 +56,7 @@ export const MultiselectEdit: FC<MultiselectEditProps> = ({
 
     return (
         <div className="mb-4">
-            <FieldLabel
-                label={field.label}
-                description={field.description}
-                answerGuidelines={field.answer_guidelines}
-                referenceId={field.reference_id}
-            />
+            <FieldLabel label={field.label} description={field.description} referenceId={field.reference_id} />
             <div
                 className={`flex flex-col gap-1.5 rounded-md border px-3 py-2 transition-colors ${
                     hasError ? 'border-red-400' : 'border-gray-300'
@@ -82,6 +74,7 @@ export const MultiselectEdit: FC<MultiselectEditProps> = ({
                     </label>
                 ))}
             </div>
+            <AnswerGuidelines text={field.answer_guidelines} />
             <Suggestion suggestion={suggestion} onAccept={onAcceptSuggestion} onReject={onRejectSuggestion} />
         </div>
     )

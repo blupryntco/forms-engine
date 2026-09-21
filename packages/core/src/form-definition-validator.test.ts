@@ -656,7 +656,7 @@ describe('FormDefinitionValidator.validateSchema', () => {
         })
 
         it('accepts all scalar item types', () => {
-            for (const type of ['string', 'number', 'boolean', 'date']) {
+            for (const type of ['string', 'number', 'boolean', 'date', 'blockchain', 'sustainability']) {
                 expect(
                     schemaValid({
                         ...minimal,
@@ -983,7 +983,19 @@ describe('FormDefinitionValidator.validateSchema', () => {
             return base
         }
 
-        const FIELD_TYPES = ['string', 'number', 'boolean', 'date', 'select', 'multiselect', 'array', 'file', 'static']
+        const FIELD_TYPES = [
+            'string',
+            'number',
+            'boolean',
+            'date',
+            'select',
+            'multiselect',
+            'array',
+            'file',
+            'static',
+            'blockchain',
+            'sustainability',
+        ]
 
         it.each(FIELD_TYPES)('accepts the metadata on a %s field', (type) => {
             expect(schemaValid({ ...minimal, content: [{ ...fieldOfType(type), ...METADATA }] })).toBe(true)
@@ -1194,6 +1206,65 @@ describe('FormDefinitionValidator.validateSchema', () => {
                 ],
             }
             expect(schemaIssues(legacy)).toEqual([])
+        })
+    })
+
+    describe('blockchain and sustainability fields', () => {
+        it('accepts a blockchain field', () => {
+            expect(
+                schemaValid({
+                    ...minimal,
+                    content: [{ id: 1, type: 'blockchain', label: 'Token', validation: { required: true } }],
+                }),
+            ).toBe(true)
+        })
+
+        it('accepts a sustainability field', () => {
+            expect(
+                schemaValid({
+                    ...minimal,
+                    content: [{ id: 1, type: 'sustainability', label: 'Footprint', validation: { required: true } }],
+                }),
+            ).toBe(true)
+        })
+
+        it('rejects unknown validation rules on a blockchain field', () => {
+            expect(
+                schemaValid({
+                    ...minimal,
+                    content: [{ id: 1, type: 'blockchain', label: 'Token', validation: { pattern: '^eip155' } }],
+                }),
+            ).toBe(false)
+        })
+
+        it('rejects a blockchain field without a label', () => {
+            expect(schemaValid({ ...minimal, content: [{ id: 1, type: 'blockchain' }] })).toBe(false)
+        })
+
+        it('accepts both as array item types', () => {
+            for (const type of ['blockchain', 'sustainability']) {
+                expect(
+                    schemaValid({
+                        ...minimal,
+                        content: [{ id: 1, type: 'array', label: 'Assets', item: { type, label: 'Asset' } }],
+                    }),
+                ).toBe(true)
+            }
+        })
+
+        it.each([
+            'blockchain',
+            'sustainability',
+        ] as const)('accepts a condition referencing a %s field -- neither is valueless', (type) => {
+            const def = minimalDef([
+                { id: 1, type, label: 'Asset' },
+                { id: 2, type: 'string', label: 'Notes', condition: { field: 1, op: 'set' } },
+            ])
+            const registry = new Map<number, FieldEntry>([
+                [1, makeEntry(1, { type })],
+                [2, makeEntry(2, { condition: { field: 1, op: 'set' } })],
+            ])
+            expect(validator.validate(def, registry)).toEqual([])
         })
     })
 })

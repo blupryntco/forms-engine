@@ -65,6 +65,8 @@ Each module has its own test file:
 | `validators/date-validator.ts` | `validators/date-validator.test.ts` | Date: required, minDate, maxDate, relative dates |
 | `validators/select-validator.ts` | `validators/select-validator.test.ts` | Select: required, option membership |
 | `validators/file-validator.ts` | `validators/file-validator.test.ts` | File: required |
+| `validators/blockchain-validator.ts` | `validators/blockchain-validator.test.ts` | Blockchain: required, string type check |
+| `validators/sustainability-validator.ts` | `validators/sustainability-validator.test.ts` | Sustainability: required (`address`), object shape check |
 | `validators/array-validator.ts` | `validators/array-validator.test.ts` | Array: minItems, maxItems, per-item validation |
 | `dependency-graph.ts` | `dependency-graph.test.ts` | Graph building, cycle detection, affected IDs |
 | `form-definition-validator.ts` | `form-definition-validator.test.ts` | JSON Schema validation, error mapping, all semantic checks |
@@ -91,6 +93,8 @@ export type FieldType =
     | 'array'
     | 'file'
     | 'static'
+    | 'blockchain'
+    | 'sustainability'
     | 'email'
 ```
 
@@ -204,11 +208,13 @@ If the new type has constraint pairs that can contradict (like `min/max`), add a
 - Add integration tests in `form-engine.test.ts`
 - If condition behavior differs, add tests in `condition-evaluator.test.ts`
 
-Three **hard-coded type lists** in the test suites are plain string arrays, so TypeScript will not flag
+Several **hard-coded type lists** in the test suites are plain string arrays, so TypeScript will not flag
 them when `FieldType` grows. Update them by hand:
 
 - `field-validator.test.ts` — the `fieldTypes` array driving the validator-registration sweep.
 - `form-definition-validator.test.ts` — `FIELD_TYPES` (the metadata sweep) and the array-item type list.
+- `packages/builder/src/core/types.test.ts` — four `it.each` arrays (the `isSection`, `isField`,
+  `isAddPlaceholder` and mutual-exclusivity sweeps).
 
 ### 7. Update the editors (`form-definition-editor.ts`, `form-values-editor.ts`)
 
@@ -226,7 +232,11 @@ them when `FieldType` grows. Update them by hand:
 - `packages/viewer/src/form/form-items.tsx` — inject any extra props (e.g. `options`) for the new type.
 - `packages/builder` is generic over `ContentItem` and normally needs nothing.
 - `packages/playground` — the component maps, the `Record<FieldType, …>` maps in `builder-item.tsx` (these
-  *do* fail compilation), the palette, and the field-editor form.
+  *do* fail compilation), the palette in `builder-add-field.tsx`, the type dropdown in `field-form.tsx`,
+  the `ValidationEditor` switch, `ARRAY_ITEM_TYPES` in `array-item-editor.tsx` when the type is a legal
+  array item, and the condition-source value input in `conditional-editor.tsx`.
+- Put the demo field in `shared/data/token-listing-application.ts` only — the other eight samples are kept
+  untouched on purpose, as a backward-compatibility corpus.
 
 ## Code Style
 

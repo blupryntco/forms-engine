@@ -17,6 +17,8 @@ import {
     ChevronDown,
     GripVertical,
     Hash,
+    Leaf,
+    Link2,
     List,
     ListChecks,
     Paperclip,
@@ -41,6 +43,8 @@ const TYPE_ICONS: Record<FieldType, FC<{ className?: string }>> = {
     array: List,
     file: Paperclip,
     static: Text,
+    blockchain: Link2,
+    sustainability: Leaf,
 }
 
 const TYPE_LABELS: Record<FieldType, string> = {
@@ -53,6 +57,8 @@ const TYPE_LABELS: Record<FieldType, string> = {
     array: 'Array',
     file: 'File',
     static: 'Static',
+    blockchain: 'Chain',
+    sustainability: 'Sustain',
 }
 
 const getValidationBadges = (type: FieldType, validation: TypeSpecificValidation | undefined): ReactNode[] => {
@@ -144,6 +150,8 @@ const getValidationBadges = (type: FieldType, validation: TypeSpecificValidation
         case 'multiselect':
         case 'file':
         case 'static':
+        case 'blockchain':
+        case 'sustainability':
             break
     }
 

@@ -4,17 +4,13 @@ import type { FC } from 'react'
 
 import type { FileEditProps, FileViewProps } from '@bluprynt/forms-viewer'
 
+import { AnswerGuidelines } from './answer-guidelines'
 import { FieldLabel } from './field-label'
 import { Suggestion } from './suggestion'
 
 export const FileView: FC<FileViewProps> = ({ field, value, suggestion }) => (
     <div className="mb-4">
-        <FieldLabel
-            label={field.label}
-            description={field.description}
-            answerGuidelines={field.answer_guidelines}
-            referenceId={field.reference_id}
-        />
+        <FieldLabel label={field.label} description={field.description} referenceId={field.reference_id} />
         <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900">
             {value ? (
                 <div>
@@ -33,6 +29,7 @@ export const FileView: FC<FileViewProps> = ({ field, value, suggestion }) => (
                 <span className="text-gray-400 italic">—</span>
             )}
         </div>
+        <AnswerGuidelines text={field.answer_guidelines} />
         <Suggestion suggestion={suggestion} />
     </div>
 )
@@ -49,12 +46,7 @@ export const FileEdit: FC<FileEditProps> = ({
     const hasError = errors.length > 0
     return (
         <div className="mb-4">
-            <FieldLabel
-                label={field.label}
-                description={field.description}
-                answerGuidelines={field.answer_guidelines}
-                referenceId={field.reference_id}
-            />
+            <FieldLabel label={field.label} description={field.description} referenceId={field.reference_id} />
             {value ? (
                 <div
                     className={`flex items-center justify-between rounded-md border px-3 py-2 text-sm ${
@@ -90,6 +82,7 @@ export const FileEdit: FC<FileEditProps> = ({
                     />
                 </label>
             )}
+            <AnswerGuidelines text={field.answer_guidelines} />
             <Suggestion suggestion={suggestion} onAccept={onAcceptSuggestion} onReject={onRejectSuggestion} />
         </div>
     )

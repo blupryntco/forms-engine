@@ -6,6 +6,7 @@ import type {
     SectionContentItem,
     SelectOption,
     StaticFieldContentItem,
+    SustainabilityValue,
 } from '@bluprynt/forms-core'
 
 import type { BaseViewFieldProps, ErrorProps } from './base'
@@ -55,6 +56,18 @@ export type FileViewProps = BaseViewFieldProps & {
     value: FileValue | undefined
 }
 
+/**
+ * Props for a `blockchain` field. The value is an opaque CAIP address string --
+ * the engine never checks its format, so the component is free to parse it.
+ */
+export type BlockchainViewProps = BaseViewFieldProps & {
+    value: string | undefined
+}
+
+export type SustainabilityViewProps = BaseViewFieldProps & {
+    value: SustainabilityValue | undefined
+}
+
 export type SectionViewProps = {
     section: SectionContentItem
     children: ReactNode
@@ -73,5 +86,9 @@ export type ViewerComponentMap = {
     multiselect?: ComponentType<MultiselectViewProps>
     /** Optional: fields of this type render nothing when no component is supplied. */
     static?: ComponentType<StaticViewProps>
+    /** Optional: fields of this type render nothing when no component is supplied. */
+    blockchain?: ComponentType<BlockchainViewProps>
+    /** Optional: fields of this type render nothing when no component is supplied. */
+    sustainability?: ComponentType<SustainabilityViewProps>
     error?: ComponentType<ErrorProps>
 }

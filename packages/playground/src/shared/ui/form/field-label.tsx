@@ -5,11 +5,12 @@ import type { FC } from 'react'
 type FieldLabelProps = {
     label: string
     description?: string
-    answerGuidelines?: string
     referenceId?: string
 }
 
-export const FieldLabel: FC<FieldLabelProps> = ({ label, description, answerGuidelines, referenceId }) => (
+/** `answer_guidelines` is deliberately not rendered here — it belongs below the
+ * control, as an {@link AnswerGuidelines} block. */
+export const FieldLabel: FC<FieldLabelProps> = ({ label, description, referenceId }) => (
     <div className="mb-1">
         <div className="flex items-baseline justify-between gap-2">
             <span className="text-sm font-medium text-gray-700">{label}</span>
@@ -20,8 +21,5 @@ export const FieldLabel: FC<FieldLabelProps> = ({ label, description, answerGuid
             )}
         </div>
         {description && <p className="text-xs text-gray-500">{description}</p>}
-        {answerGuidelines && (
-            <p className="mt-0.5 border-l-2 border-amber-300 pl-2 text-xs text-amber-700">{answerGuidelines}</p>
-        )}
     </div>
 )

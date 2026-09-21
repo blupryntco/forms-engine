@@ -20,6 +20,8 @@ const FIELD_TYPES: { value: FieldType; label: string }[] = [
     { value: 'array', label: 'Array' },
     { value: 'file', label: 'File' },
     { value: 'static', label: 'Static text' },
+    { value: 'blockchain', label: 'Blockchain' },
+    { value: 'sustainability', label: 'Sustainability' },
 ]
 
 export const FieldForm: FC<{

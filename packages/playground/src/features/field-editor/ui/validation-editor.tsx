@@ -36,7 +36,9 @@ export const ValidationEditor: FC<{
             return <DateValidationEditor validation={(validation ?? {}) as DateValidation} onChange={onChange} />
         case 'select':
         case 'multiselect':
-            // Both shapes are `{ required?: boolean }`, so one editor serves both.
+        case 'blockchain':
+        case 'sustainability':
+            // Every one of these shapes is `{ required?: boolean }`, so one editor serves them all.
             return <SelectValidationEditor validation={(validation ?? {}) as SelectValidation} onChange={onChange} />
         case 'array':
             return <ArrayValidationEditor validation={(validation ?? {}) as ArrayValidation} onChange={onChange} />

@@ -21,15 +21,15 @@ export const Suggestion: FC<SuggestionProps> = ({ suggestion, onAccept, onReject
     if (!suggestion) return null
 
     return (
-        <div className="mt-1.5 rounded-md border border-violet-200 bg-violet-50 px-3 py-2">
+        <div className="mt-1.5 overflow-hidden rounded-md border border-violet-200 bg-violet-50 px-3 py-2">
             <div className="flex items-baseline justify-between gap-2">
                 <span className="text-[10px] font-semibold tracking-wide text-violet-700 uppercase">Suggested</span>
                 <span className="shrink-0 text-[10px] text-violet-600">
                     {Math.round(suggestion.confidence * 100)}% confidence
                 </span>
             </div>
-            <p className="mt-0.5 text-sm text-gray-900">{formatValue(suggestion.value)}</p>
-            <p className="mt-0.5 text-xs text-violet-700">{suggestion.source}</p>
+            <p className="mt-0.5 text-sm break-words text-gray-900">{formatValue(suggestion.value)}</p>
+            <p className="mt-0.5 text-xs break-words text-violet-700">{suggestion.source}</p>
             {(onAccept || onReject) && (
                 <div className="mt-2 flex gap-2">
                     {onAccept && (

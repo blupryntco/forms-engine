@@ -145,6 +145,20 @@
             },
             "additionalProperties": false
         },
+        "blockchainValidation": {
+            "type": "object",
+            "properties": {
+                "required": { "type": "boolean" }
+            },
+            "additionalProperties": false
+        },
+        "sustainabilityValidation": {
+            "type": "object",
+            "properties": {
+                "required": { "type": "boolean" }
+            },
+            "additionalProperties": false
+        },
 
         "selectOption": {
             "type": "object",
@@ -241,6 +255,34 @@
             },
             "additionalProperties": false
         },
+        "arrayItemBlockchain": {
+            "type": "object",
+            "required": ["type", "label"],
+            "properties": {
+                "type": { "const": "blockchain" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
+                "validation": { "$ref": "#/$defs/blockchainValidation" }
+            },
+            "additionalProperties": false
+        },
+        "arrayItemSustainability": {
+            "type": "object",
+            "required": ["type", "label"],
+            "properties": {
+                "type": { "const": "sustainability" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
+                "validation": { "$ref": "#/$defs/sustainabilityValidation" }
+            },
+            "additionalProperties": false
+        },
         "arrayItem": {
             "oneOf": [
                 { "$ref": "#/$defs/arrayItemString" },
@@ -248,7 +290,9 @@
                 { "$ref": "#/$defs/arrayItemBoolean" },
                 { "$ref": "#/$defs/arrayItemDate" },
                 { "$ref": "#/$defs/arrayItemSelect" },
-                { "$ref": "#/$defs/arrayItemFile" }
+                { "$ref": "#/$defs/arrayItemFile" },
+                { "$ref": "#/$defs/arrayItemBlockchain" },
+                { "$ref": "#/$defs/arrayItemSustainability" }
             ]
         },
 
@@ -399,6 +443,38 @@
             },
             "additionalProperties": false
         },
+        "blockchainField": {
+            "type": "object",
+            "required": ["id", "type", "label"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "blockchain" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
+                "condition": { "$ref": "#/$defs/condition" },
+                "validation": { "$ref": "#/$defs/blockchainValidation" }
+            },
+            "additionalProperties": false
+        },
+        "sustainabilityField": {
+            "type": "object",
+            "required": ["id", "type", "label"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "sustainability" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
+                "condition": { "$ref": "#/$defs/condition" },
+                "validation": { "$ref": "#/$defs/sustainabilityValidation" }
+            },
+            "additionalProperties": false
+        },
         "fieldItem": {
             "oneOf": [
                 { "$ref": "#/$defs/stringField" },
@@ -409,7 +485,9 @@
                 { "$ref": "#/$defs/multiselectField" },
                 { "$ref": "#/$defs/arrayField" },
                 { "$ref": "#/$defs/fileField" },
-                { "$ref": "#/$defs/staticField" }
+                { "$ref": "#/$defs/staticField" },
+                { "$ref": "#/$defs/blockchainField" },
+                { "$ref": "#/$defs/sustainabilityField" }
             ]
         },
 

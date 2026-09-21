@@ -4,17 +4,13 @@ import type { FC } from 'react'
 
 import type { ArrayEditProps, ArrayViewProps } from '@bluprynt/forms-viewer'
 
+import { AnswerGuidelines } from './answer-guidelines'
 import { FieldLabel } from './field-label'
 import { Suggestion } from './suggestion'
 
 export const ArrayView: FC<ArrayViewProps> = ({ field, value, children, suggestion }) => (
     <div className="mb-4">
-        <FieldLabel
-            label={field.label}
-            description={field.description}
-            answerGuidelines={field.answer_guidelines}
-            referenceId={field.reference_id}
-        />
+        <FieldLabel label={field.label} description={field.description} referenceId={field.reference_id} />
         {value && value.length > 0 ? (
             <div className="space-y-2 rounded-md border border-gray-200 bg-gray-50 p-3">{children}</div>
         ) : (
@@ -22,6 +18,7 @@ export const ArrayView: FC<ArrayViewProps> = ({ field, value, children, suggesti
                 No items
             </div>
         )}
+        <AnswerGuidelines text={field.answer_guidelines} />
         <Suggestion suggestion={suggestion} />
     </div>
 )
@@ -41,12 +38,7 @@ export const ArrayEdit: FC<ArrayEditProps> = ({
     const items = value ?? []
     return (
         <div className="mb-4">
-            <FieldLabel
-                label={field.label}
-                description={field.description}
-                answerGuidelines={field.answer_guidelines}
-                referenceId={field.reference_id}
-            />
+            <FieldLabel label={field.label} description={field.description} referenceId={field.reference_id} />
             <div className={`rounded-md border p-3 ${hasError ? 'border-red-400' : 'border-gray-300'}`}>
                 {items.length > 0 ? (
                     <div className="space-y-2">
@@ -72,6 +64,7 @@ export const ArrayEdit: FC<ArrayEditProps> = ({
                     + Add item
                 </button>
             </div>
+            <AnswerGuidelines text={field.answer_guidelines} />
             <Suggestion suggestion={suggestion} onAccept={onAcceptSuggestion} onReject={onRejectSuggestion} />
         </div>
     )

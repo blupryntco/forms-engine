@@ -558,7 +558,7 @@ None of these validate that `fieldId` refers to an existing, non-section field �
 | `FieldContentItem` | Value-producing field node: `{ id, type, label, description?, placeholder?, answer_guidelines?, reference_id?, condition?, validation?, options?, item? }`. `type` excludes `'static'`. |
 | `StaticFieldContentItem` | Display-only block: `{ id, type: 'static', text, label?, description?, placeholder?, answer_guidelines?, reference_id?, condition? }` — no value, no validation, no options |
 | `SectionContentItem` | Section node: `{ id, type: 'section', title, description?, placeholder?, answer_guidelines?, reference_id?, condition?, content[] }` |
-| `FieldType` | `'string' \| 'number' \| 'boolean' \| 'date' \| 'select' \| 'multiselect' \| 'array' \| 'file' \| 'static'` |
+| `FieldType` | `'string' \| 'number' \| 'boolean' \| 'date' \| 'select' \| 'multiselect' \| 'array' \| 'file' \| 'static' \| 'blockchain' \| 'sustainability'` |
 | `ContentItemType` | `FieldType \| 'section'` |
 | `FormValues` | `Record<string, unknown>` — flat map keyed by stringified field ID |
 | `FormDocument` | `{ form: { id, version, submittedAt }, values: FormValues, suggestions?: FormSuggestions }` |
@@ -590,6 +590,8 @@ None of these validate that `fieldId` refers to an existing, non-section field �
 | `MultiselectValidation` | `{ required? }` — an absent value and an empty array both fail `required` |
 | `ArrayValidation` | `{ minItems?, maxItems? }` |
 | `FileValidation` | `{ required? }` |
+| `BlockchainValidation` | `{ required? }` — no format rule; a CAIP address is an opaque string |
+| `SustainabilityValidation` | `{ required? }` — satisfied by a non-empty `address`; `ccri` and `cmc` are always optional |
 | `TypeSpecificValidation` | Union of all type-specific validation shapes: `StringValidation \| NumberValidation \| BooleanValidation \| DateValidation \| SelectValidation \| MultiselectValidation \| ArrayValidation \| FileValidation` |
 | `FieldValidationRule` | `'REQUIRED' \| 'TYPE' \| 'MIN_LENGTH' \| 'MAX_LENGTH' \| 'PATTERN' \| 'MIN' \| 'MAX' \| 'MIN_DATE' \| 'MAX_DATE' \| 'INVALID_DATE' \| 'INVALID_OPTION' \| 'MIN_ITEMS' \| 'MAX_ITEMS'` |
 
@@ -601,6 +603,7 @@ None of these validate that `fieldId` refers to an existing, non-section field �
 | `SelectOption` | `{ value: string \| number, label: string }` |
 | `ArrayItemDef` | `{ type, label, description?, placeholder?, answer_guidelines?, reference_id?, validation?, options? }` — no `id`; `type` excludes `'array'`, `'multiselect'` and `'static'` |
 | `FileValue` | `{ name, mimeType, size, url }` |
+| `SustainabilityValue` | `{ address, ccri?, cmc? }` — the value of a `sustainability` field |
 | `DocumentError` | Error class with `.errors: DocumentValidationError[]` — thrown on definition validation failure or by `loadDocument()` on id/version mismatch |
 | `EvaluationContext` | `{ values, visibilityMap?, now }` |
 | `FieldDescriptor` | `Omit<FieldContentItem, 'id'> & { id?: number }` |

@@ -27,6 +27,8 @@ const FIELD_TYPES = [
     { type: 'array', label: 'Array' },
     { type: 'file', label: 'File' },
     { type: 'static', label: 'Static text' },
+    { type: 'blockchain', label: 'Blockchain' },
+    { type: 'sustainability', label: 'Sustainability' },
 ] as const
 
 /** A static block carries `text` instead of a required `label`. */

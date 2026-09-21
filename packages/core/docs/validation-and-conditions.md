@@ -114,6 +114,27 @@ Item validation errors include `itemIndex` (zero-based) so consumers can pinpoin
 | `required` | Value is `undefined` or `null` | `REQUIRED` |
 | type check | Value is not an object with `name`, `mimeType`, `size`, `url` | `TYPE` |
 
+#### Blockchain
+
+| Rule | Condition | Error rule name |
+|------|-----------|-----------------|
+| `required` | Value is `undefined`, `null` or `''` | `REQUIRED` |
+| type check | Value is present but not a string | `TYPE` (`params.expectedType: 'blockchain'`) |
+
+There is no format rule. A CAIP address is an opaque string to the engine, so a malformed address never
+produces an error here — validate it at your own ingestion boundary if you need to.
+
+#### Sustainability
+
+| Rule | Condition | Error rule name |
+|------|-----------|-----------------|
+| `required` | Value is `undefined`/`null`, or its `address` is missing or `''` | `REQUIRED` |
+| type check | Value is not an object, or `address`/`ccri`/`cmc` is present but not a string | `TYPE` (`params.expectedType: 'sustainability'`) |
+
+`required` reads `address` alone — `ccri` and `cmc` are optional and never trigger it. A missing `address`
+key is treated as an empty address rather than a type error. There is no per-property error channel, so a
+sustainability field produces at most one field-level error.
+
 ### Error Shape
 
 ```ts
@@ -157,6 +178,11 @@ A simple condition evaluates a single field:
 
 **Multiselect fields** are compared as sets rather than scalars — see the table below. Every other type,
 including `array`, keeps the scalar behaviour described here.
+
+**Object-valued fields** (`file`, `sustainability`) take the scalar path too, which makes only `set` and
+`notset` useful: any object present counts as set — including a half-filled
+`{ address: '', ccri: '', cmc: '' }` — while `eq`/`ne`/`in`/`notin` compare by reference and never match.
+A `blockchain` field is an ordinary string and keeps full scalar semantics.
 
 | Operator | Meaning against a `multiselect` |
 |----------|--------------------------------|

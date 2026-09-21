@@ -246,4 +246,27 @@ describe('FormBuilder', () => {
         expect(screen.getByTestId('field-2').dataset.type).toBe('multiselect')
         expect(screen.getByTestId('field-2').dataset.label).toBe('Tags')
     })
+
+    it('renders blockchain and sustainability fields through the field render prop', () => {
+        const def: FormDefinition = {
+            ...emptyDef,
+            content: [
+                { id: 1, type: 'blockchain', label: 'Token' },
+                { id: 2, type: 'sustainability', label: 'Footprint' },
+            ],
+        }
+
+        render(
+            <FormBuilder
+                definition={def}
+                container={Container}
+                field={MockField}
+                section={MockSection}
+                addPlaceholder={MockPlaceholder}
+            />,
+        )
+
+        expect(screen.getByTestId('field-1').dataset.type).toBe('blockchain')
+        expect(screen.getByTestId('field-2').dataset.type).toBe('sustainability')
+    })
 })

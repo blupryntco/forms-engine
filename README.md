@@ -14,7 +14,7 @@ A system for defining custom form schemas (JSON), rendering forms from those sch
 
 The foundation. Compiles a JSON form definition into a runtime engine that handles:
 - Field visibility via conditional logic (simple and compound conditions)
-- Type-aware validation (string, number, boolean, date, select, multiselect, array, file; `static` blocks hold no value)
+- Type-aware validation (string, number, boolean, date, select, multiselect, array, file, blockchain, sustainability; `static` blocks hold no value)
 - Dependency graph with cycle detection and topological ordering
 - Fluent APIs for building schemas (`FormDefinitionEditor`) and editing values (`FormValuesEditor`)
 
@@ -63,6 +63,10 @@ const components: ViewerComponentMap = {
     <p>{field.label}: {(value ?? []).map(v => options.find(o => o.value === v)?.label).join(', ')}</p>
   ),
   static:  ({ field }) => <p>{field.text}</p>,
+  blockchain: ({ field, value }) => <p>{field.label}: <code>{value}</code></p>,
+  sustainability: ({ field, value }) => (
+    <p>{field.label}: {value?.address} · CCRI {value?.ccri || '—'} · CMC {value?.cmc || '—'}</p>
+  ),
 }
 
 const App: FC = () => (
@@ -115,6 +119,27 @@ const components: EditorComponentMap = {
     </>
   ),
   static:  ({ field }) => <p>{field.text}</p>,
+  // A blockchain value is an opaque CAIP string; the engine never checks its format.
+  blockchain: ({ value, onChange }) => (
+    <input value={value ?? ''} onChange={e => onChange(e.target.value || undefined)} />
+  ),
+  // A sustainability value is written wholesale. Emit undefined when every part is
+  // blank, so `required` behaves the way it does for every other type.
+  sustainability: ({ value, onChange }) => (
+    <>
+      {(['address', 'ccri', 'cmc'] as const).map(key => (
+        <input
+          key={key}
+          placeholder={key}
+          value={value?.[key] ?? ''}
+          onChange={e => {
+            const next = { address: '', ...value, [key]: e.target.value }
+            onChange(next.address || next.ccri || next.cmc ? next : undefined)
+          }}
+        />
+      ))}
+    </>
+  ),
 }
 
 const App: FC = () => {

@@ -47,6 +47,10 @@ export type EvaluationContext = {
  * appears in the condition's list, and the ordering operators are always
  * `false`. Fields of every other type -- including `array` -- keep the original
  * scalar semantics.
+ *
+ * **Object-valued fields** (`file`, `sustainability`) go through the scalar path
+ * too, so only `set`/`notset` are meaningful: any object present counts as
+ * `set`, and `eq`/`ne`/`in`/`notin` compare by reference and so never match.
  */
 export class ConditionEvaluator {
     /**

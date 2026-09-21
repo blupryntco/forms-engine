@@ -17,6 +17,7 @@ import { useAtom, useAtomValue } from 'jotai'
 import { formDefinitionAtom, formDocumentAtom } from '@/entities/form'
 import {
     ArrayEdit,
+    BlockchainEdit,
     BooleanEdit,
     DateEdit,
     DocumentErrorItem,
@@ -34,6 +35,7 @@ import {
     SelectEdit,
     StaticEdit,
     StringEdit,
+    SustainabilityEdit,
 } from '@/shared/ui/form'
 
 export const components: EditorComponentMap = {
@@ -46,6 +48,8 @@ export const components: EditorComponentMap = {
     array: ArrayEdit,
     file: FileEdit,
     static: StaticEdit,
+    blockchain: BlockchainEdit,
+    sustainability: SustainabilityEdit,
     section: SectionEdit,
     error: ErrorView,
 }

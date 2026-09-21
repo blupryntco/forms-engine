@@ -3,6 +3,7 @@ import type { FormValues } from './types/form-values'
 import type { FieldValidationError, FormValidationResult } from './types/validation-results'
 import type { ArrayValidatorContext } from './validators/array-validator'
 import { ArrayValidator } from './validators/array-validator'
+import { BlockchainValidator } from './validators/blockchain-validator'
 import { BooleanValidator } from './validators/boolean-validator'
 import { DateValidator } from './validators/date-validator'
 import { FileValidator } from './validators/file-validator'
@@ -10,6 +11,7 @@ import { MultiselectValidator } from './validators/multiselect-validator'
 import { NumberValidator } from './validators/number-validator'
 import { SelectValidator } from './validators/select-validator'
 import { StringValidator } from './validators/string-validator'
+import { SustainabilityValidator } from './validators/sustainability-validator'
 import type { TypeValidator } from './validators/type-validator'
 
 /**
@@ -30,6 +32,9 @@ import type { TypeValidator } from './validators/type-validator'
  * - `multiselect` -- `required` (an absent value and an empty array both fail),
  *   plus every selected value must be one of the defined options.
  * - `static` -- never validated; static blocks hold no value.
+ * - `blockchain` -- `required` only. The CAIP address format is never checked.
+ * - `sustainability` -- `required` (the value's `address` must be a non-empty
+ *   string) plus a shape check; `ccri` and `cmc` are optional text.
  * - `array` -- `minItems`, `maxItems`, plus each item is validated
  *   individually according to the array's {@link ArrayItemDef}. Item-level
  *   errors carry an `itemIndex`.
@@ -56,6 +61,8 @@ export class FieldValidator {
             multiselect: new MultiselectValidator(),
             array: new ArrayValidator(),
             file: new FileValidator(),
+            blockchain: new BlockchainValidator(),
+            sustainability: new SustainabilityValidator(),
         }
     }
 

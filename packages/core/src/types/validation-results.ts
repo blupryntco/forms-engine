@@ -16,6 +16,9 @@
  * | `INVALID_OPTION` | `select` (value not in options list) |
  * | `MIN_ITEMS` | `array` |
  * | `MAX_ITEMS` | `array` |
+ *
+ * On a `sustainability` field `REQUIRED` means the value's `address` is missing
+ * or empty -- `ccri` and `cmc` never trigger it.
  */
 export type FieldValidationRule =
     | 'REQUIRED'

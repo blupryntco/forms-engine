@@ -13,6 +13,8 @@ const ARRAY_ITEM_TYPES: { value: ArrayItemDef['type']; label: string }[] = [
     { value: 'date', label: 'Date' },
     { value: 'select', label: 'Select' },
     { value: 'file', label: 'File' },
+    { value: 'blockchain', label: 'Blockchain' },
+    { value: 'sustainability', label: 'Sustainability' },
 ]
 
 export const ArrayItemEditor: FC<{

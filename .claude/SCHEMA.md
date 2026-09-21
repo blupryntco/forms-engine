@@ -34,7 +34,7 @@ Most types are **fields** — they produce values. Two are different:
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `id` | `number` | yes | Unique numeric identifier across the entire schema. Must be a positive integer. |
-| `type` | `string` | yes | One of: `"string"`, `"number"`, `"boolean"`, `"date"`, `"select"`, `"multiselect"`, `"array"`, `"file"`, `"static"`, `"section"`. |
+| `type` | `string` | yes | One of: `"string"`, `"number"`, `"boolean"`, `"date"`, `"select"`, `"multiselect"`, `"array"`, `"file"`, `"static"`, `"blockchain"`, `"sustainability"`, `"section"`. |
 | `condition` | `Condition` | no | Visibility condition. When present, the item is only visible (and validated) when the condition evaluates to `true`. See §5. |
 
 ### 2.2 Common Field Properties (all types except `"section"` and `"static"`)
@@ -239,6 +239,61 @@ Relative dates are resolved to absolute ISO 8601 values at evaluation time (vali
 
 The engine does not handle actual file upload — the consumer handles upload and produces the file value object.
 
+### 3.8.1 Blockchain Validation
+
+```json
+{
+  "id": 19,
+  "type": "blockchain",
+  "label": "CAIP-19 asset identifier",
+  "placeholder": "eip155:1/erc20:0x…",
+  "validation": {
+    "required": true
+  }
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `required` | `boolean` | An address must be provided. Default: `false`. |
+
+**Value type:** `string` — a CAIP address, stored verbatim.
+
+The address format is **deliberately not validated**. There is no `pattern` rule and no CAIP-specific
+error code: a `blockchain` field is an opaque string to the engine, so a malformed address is caught by
+the consumer, not here. An empty string counts as absent, exactly as for `string`.
+
+### 3.8.2 Sustainability Validation
+
+```json
+{
+  "id": 20,
+  "type": "sustainability",
+  "label": "Sustainability references",
+  "validation": {
+    "required": true
+  }
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `required` | `boolean` | The value's `address` must be a non-empty string. Default: `false`. |
+
+**Value type:** `object` with properties:
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `address` | `string` | yes | CAIP address of the asset the data describes. Opaque to the engine, like a `blockchain` value. |
+| `ccri` | `string` | no | CCRI (Crypto Carbon Ratings Institute) reference. |
+| `cmc` | `string` | no | CoinMarketCap reference. |
+
+`required` is satisfied by `address` alone: `{ "address": "eip155:1/erc20:0x…", "ccri": "", "cmc": "" }`
+passes, while `{ "address": "", "ccri": "CCRI-1", "cmc": "" }` fails with `REQUIRED`. A missing `address`
+key reads as an empty address rather than a type error, the same tolerance that makes `ccri` and `cmc`
+optional. A value that is not an object, or whose properties are not strings, produces `TYPE`. There is no
+per-property error channel — a sustainability field produces at most one field-level error.
+
 ### 3.5 Select Validation
 
 ```json
@@ -354,7 +409,7 @@ Some field types have configuration properties beyond `validation`.
 |----------|------|----------|-------------|
 | `item` | `object` | yes | Field definition for each array item. Same shape as any field (§2.2), excluding `id`. The types `"array"` (no nested arrays), `"multiselect"` (its value is already an array) and `"static"` (holds no value) are not allowed. |
 
-The `item` object supports all field properties (`type`, `label`, `description`, `placeholder`, `answer_guidelines`, `reference_id`, `validation`, `options` for select) except `id` and `condition`. Its `type` must be one of `"string"`, `"number"`, `"boolean"`, `"date"`, `"select"` or `"file"`.
+The `item` object supports all field properties (`type`, `label`, `description`, `placeholder`, `answer_guidelines`, `reference_id`, `validation`, `options` for select) except `id` and `condition`. Its `type` must be one of `"string"`, `"number"`, `"boolean"`, `"date"`, `"select"`, `"file"`, `"blockchain"` or `"sustainability"`.
 
 **Array of numbers with item validation:**
 
@@ -453,11 +508,17 @@ A leaf condition that evaluates a single field:
 | `gt` | Field value is greater than `value` | yes | number, date |
 | `lte` | Field value is less than or equal to `value` | yes | number, date |
 | `gte` | Field value is greater than or equal to `value` | yes | number, date |
-| `in` | Field value is contained in `value` (array) | yes (array) | string, number, date, select, multiselect |
-| `notin` | Field value is not contained in `value` (array) | yes (array) | string, number, date, select, multiselect |
+| `in` | Field value is contained in `value` (array) | yes (array) | string, number, date, select, multiselect, blockchain |
+| `notin` | Field value is not contained in `value` (array) | yes (array) | string, number, date, select, multiselect, blockchain |
 
 Conditions may only reference items that hold a value. Referencing a `section` produces a
 `CONDITION_REFS_SECTION` error and referencing a `static` block a `CONDITION_REFS_STATIC` error (§8).
+A `blockchain` and a `sustainability` field both hold a value, so both are legal condition targets.
+
+**Object-valued fields** (`file`, `sustainability`) use the scalar rules, which means only `set` and
+`notset` say anything useful: any object present counts as set — including a half-filled
+`{ "address": "", "ccri": "", "cmc": "" }` — and `eq`/`ne`/`in`/`notin` compare by reference, so they
+never match. A `blockchain` field is an ordinary string and keeps full scalar semantics.
 
 **Type coercion:** No implicit coercion. The `value` in the condition must match the referenced field's value type. Date comparisons parse ISO 8601 strings to timestamps before comparing. Condition `value` for date fields can use absolute ISO 8601 or relative date formats (see §3.7).
 
@@ -557,7 +618,9 @@ Form values document links to its form definition via `form` and contains field 
     "4": "2025-03-01T00:00:00.000Z",
     "5": "contract",
     "6": ["TypeScript", "React"],
-    "18": {"name": "document.pdf", "mimeType": "application/pdf", "size": 1048576, "url": "https://storage.example.com/files/abc123/document.pdf"}
+    "18": {"name": "document.pdf", "mimeType": "application/pdf", "size": 1048576, "url": "https://storage.example.com/files/abc123/document.pdf"},
+    "19": "eip155:1/erc20:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+    "20": {"address": "eip155:1/erc20:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", "ccri": "CCRI-ETH-2025-04", "cmc": "3408"}
   },
   "suggestions": {
     "1": {
@@ -583,6 +646,11 @@ Field IDs are globally unique, so `values` is always flat regardless of section 
 Sections and `static` blocks never appear in `values` — neither holds a value. `FormValuesEditor.setFieldValue()` throws when given either id. A stray key left in a stored document is ignored rather than rejected, so documents written against an older schema keep loading.
 
 A `multiselect` value is the array of chosen option values, e.g. `"33": ["aml", "kyc"]`. It is written wholesale: the array-item helpers (`addArrayItem` / `removeArrayItem` / `moveArrayItem`) apply only to `array` fields and throw for a multiselect.
+
+A `blockchain` value is a plain string and behaves exactly like a `string` value in storage. A
+`sustainability` value is an object written wholesale, like a `file` value; `ccri` and `cmc` may be blank
+or absent, and a UI that clears every input should emit `undefined` rather than an all-blank object so
+that `required` behaves the way it does for every other type.
 
 ### 6.1 Suggestions
 
@@ -621,9 +689,11 @@ Two operations are defined on a suggestion:
 | ID uniqueness | Global across entire schema (all fields and sections) |
 | Select / multiselect options minimum | 1 |
 | Select / multiselect option values | Unique within the field's options list |
-| Array item types | `string`, `number`, `boolean`, `date`, `select`, `file` (not `array`, `multiselect` or `static`) |
+| Array item types | `string`, `number`, `boolean`, `date`, `select`, `file`, `blockchain`, `sustainability` (not `array`, `multiselect` or `static`) |
 | Static block required properties | `id`, `type`, `text` (`label` is optional) |
 | Suggestion `confidence` | `0..1` (checked on write only) |
+| Blockchain address format | Not validated — an opaque string |
+| Sustainability required properties | `address` only (`ccri` and `cmc` are optional) |
 
 ---
 

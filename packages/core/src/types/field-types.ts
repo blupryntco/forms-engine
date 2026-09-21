@@ -11,6 +11,10 @@
  * - `array` -- ordered list of values whose item type is any non-array field type
  * - `file` -- file upload (stores name, MIME type, size, URL)
  * - `static` -- display-only text; holds no value and is never validated
+ * - `blockchain` -- a CAIP address identifying an on-chain asset. The value is
+ *   an opaque string: the engine never checks its format
+ * - `sustainability` -- sustainability data for an on-chain asset; the value is
+ *   a {@link SustainabilityValue} object (`address`, `ccri`, `cmc`)
  */
 export type FieldType =
     | 'string'
@@ -22,6 +26,8 @@ export type FieldType =
     | 'array'
     | 'file'
     | 'static'
+    | 'blockchain'
+    | 'sustainability'
 
 /**
  * Discriminator for every content node in a form definition.

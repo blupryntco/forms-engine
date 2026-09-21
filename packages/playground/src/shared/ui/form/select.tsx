@@ -4,6 +4,7 @@ import type { FC } from 'react'
 
 import type { SelectEditProps, SelectViewProps } from '@bluprynt/forms-viewer'
 
+import { AnswerGuidelines } from './answer-guidelines'
 import { FieldLabel } from './field-label'
 import { Suggestion } from './suggestion'
 
@@ -11,15 +12,11 @@ export const SelectView: FC<SelectViewProps> = ({ field, value, options, suggest
     const selected = options.find((o) => o.value === value)
     return (
         <div className="mb-4">
-            <FieldLabel
-                label={field.label}
-                description={field.description}
-                answerGuidelines={field.answer_guidelines}
-                referenceId={field.reference_id}
-            />
+            <FieldLabel label={field.label} description={field.description} referenceId={field.reference_id} />
             <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900">
                 {selected ? selected.label : <span className="text-gray-400 italic">—</span>}
             </div>
+            <AnswerGuidelines text={field.answer_guidelines} />
             <Suggestion suggestion={suggestion} />
         </div>
     )
@@ -38,12 +35,7 @@ export const SelectEdit: FC<SelectEditProps> = ({
     const hasError = errors.length > 0
     return (
         <div className="mb-4">
-            <FieldLabel
-                label={field.label}
-                description={field.description}
-                answerGuidelines={field.answer_guidelines}
-                referenceId={field.reference_id}
-            />
+            <FieldLabel label={field.label} description={field.description} referenceId={field.reference_id} />
             <select
                 value={value !== undefined ? String(value) : ''}
                 onChange={(e) => {
@@ -67,6 +59,7 @@ export const SelectEdit: FC<SelectEditProps> = ({
                     </option>
                 ))}
             </select>
+            <AnswerGuidelines text={field.answer_guidelines} />
             <Suggestion suggestion={suggestion} onAccept={onAcceptSuggestion} onReject={onRejectSuggestion} />
         </div>
     )

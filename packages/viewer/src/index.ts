@@ -19,6 +19,7 @@ export type {
     SectionContentItem,
     SelectOption,
     StaticFieldContentItem,
+    SustainabilityValue,
 } from '@bluprynt/forms-core'
 export { DocumentError, FormValuesEditor } from '@bluprynt/forms-core'
 
@@ -36,6 +37,8 @@ export type {
     ArrayViewProps,
     BaseEditFieldProps,
     BaseViewFieldProps,
+    BlockchainEditProps,
+    BlockchainViewProps,
     BooleanEditProps,
     BooleanViewProps,
     DateEditProps,
@@ -58,6 +61,8 @@ export type {
     StaticViewProps,
     StringEditProps,
     StringViewProps,
+    SustainabilityEditProps,
+    SustainabilityViewProps,
     ViewerComponentMap,
 } from './types'
 export { useFormSections } from './use-form-sections'

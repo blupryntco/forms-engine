@@ -1,6 +1,7 @@
 export type { BaseEditFieldProps, BaseViewFieldProps, ErrorProps } from './base'
 export type {
     ArrayEditProps,
+    BlockchainEditProps,
     BooleanEditProps,
     DateEditProps,
     EditorArrayItemProps,
@@ -13,9 +14,11 @@ export type {
     SelectEditProps,
     StaticEditProps,
     StringEditProps,
+    SustainabilityEditProps,
 } from './editor'
 export type {
     ArrayViewProps,
+    BlockchainViewProps,
     BooleanViewProps,
     DateViewProps,
     FileViewProps,
@@ -25,5 +28,6 @@ export type {
     SelectViewProps,
     StaticViewProps,
     StringViewProps,
+    SustainabilityViewProps,
     ViewerComponentMap,
 } from './viewer'

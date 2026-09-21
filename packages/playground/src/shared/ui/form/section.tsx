@@ -4,6 +4,8 @@ import type { FC } from 'react'
 
 import type { SectionContentItem, SectionEditProps, SectionViewProps } from '@bluprynt/forms-viewer'
 
+import { AnswerGuidelines } from './answer-guidelines'
+
 const SectionHeader: FC<{ section: SectionContentItem }> = ({ section }) => (
     <>
         <div className="flex items-baseline justify-between gap-2">
@@ -16,7 +18,9 @@ const SectionHeader: FC<{ section: SectionContentItem }> = ({ section }) => (
         </div>
         {section.description && <p className="mb-2 text-sm text-gray-500">{section.description}</p>}
         {section.answer_guidelines && (
-            <p className="mb-3 border-l-2 border-amber-300 pl-2 text-xs text-amber-700">{section.answer_guidelines}</p>
+            <div className="mb-3">
+                <AnswerGuidelines text={section.answer_guidelines} />
+            </div>
         )}
     </>
 )

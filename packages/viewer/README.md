@@ -224,11 +224,13 @@ Component map for read-only rendering. Each key maps a field type to a React com
 | `section` | `SectionViewProps` | Section wrapper (receives `children`) |
 | `multiselect?` | `MultiselectViewProps` | Multi-select display. Value is `(string \| number)[]`; receives `options`. |
 | `static?` | `StaticViewProps` | Display-only text block. Receives **only** `field` — no `value`, `errors` or `suggestion`. |
+| `blockchain?` | `BlockchainViewProps` | CAIP address display. Value is a `string`, stored verbatim. |
+| `sustainability?` | `SustainabilityViewProps` | Sustainability references display. Value is `{ address, ccri?, cmc? }`. |
 | `error?` | `ErrorProps` | Optional inline error renderer |
 
 All view field props extend `BaseViewFieldProps` which provides `field: FieldContentItem` and `errors: FieldValidationError[]`. `StaticViewProps` is the exception: it carries only `field: StaticFieldContentItem`, whose `text` is the content and whose `label` is an optional heading.
 
-`multiselect` and `static` are **optional** keys, so existing maps keep compiling. A field whose component is not supplied renders nothing rather than throwing.
+`multiselect`, `static`, `blockchain` and `sustainability` are **optional** keys, so existing maps keep compiling. A field whose component is not supplied renders nothing rather than throwing.
 
 ### EditorComponentMap
 
@@ -246,6 +248,8 @@ Component map for editable rendering. Extends view props with mutation callbacks
 | `section` | `SectionEditProps` | Section wrapper (receives `children`) |
 | `multiselect?` | `MultiselectEditProps` | Checkbox group. `onChange((string \| number)[] \| undefined)` — send the whole array. |
 | `static?` | `StaticEditProps` | Display-only text block. Identical to `StaticViewProps`; there is nothing to edit. |
+| `blockchain?` | `BlockchainEditProps` | Text input with `onChange(value)`. The CAIP format is never checked by the engine. |
+| `sustainability?` | `SustainabilityEditProps` | Object editor with `onChange(value)` — send the whole `{ address, ccri, cmc }`. Emit `undefined` when every part is blank. |
 | `error?` | `ErrorProps` | Optional inline error renderer |
 
 All edit field props extend `BaseEditFieldProps`, which adds `onChange(value)` plus the optional
@@ -285,8 +289,9 @@ suggestion and leaves the value alone. See [CHANGES.md](../../CHANGES.md).
 | `FieldSuggestion` | Type | A machine-proposed answer: `{ value, confidence, source }` |
 | `FormSuggestions` | Type | Sparse map of suggestions keyed by stringified field id |
 | `FormValidationResult` | Type | Validation outcome with document-level and field-level errors |
-| `FieldType` | Type | Union of supported field types (`string`, `number`, `boolean`, `date`, `select`, `multiselect`, `array`, `file`, `static`) |
+| `FieldType` | Type | Union of supported field types (`string`, `number`, `boolean`, `date`, `select`, `multiselect`, `array`, `file`, `static`, `blockchain`, `sustainability`) |
 | `FileValue` | Type | File field value containing name, MIME type, size, and URL |
+| `SustainabilityValue` | Type | Sustainability field value: `{ address, ccri?, cmc? }` |
 
 ## Documentation
 

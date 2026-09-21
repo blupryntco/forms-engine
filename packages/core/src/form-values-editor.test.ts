@@ -2,6 +2,7 @@ import { FormValuesEditor } from './form-values-editor'
 import type { FileValue } from './types/file-value'
 import type { ContentItem, FormDefinition } from './types/form-definition'
 import type { FormDocument, FormValues } from './types/form-values'
+import type { SustainabilityValue } from './types/sustainability-value'
 
 const baseDef = (content: ContentItem[]): FormDefinition => ({
     id: 'test-form',
@@ -846,6 +847,50 @@ describe('FormValuesEditor', () => {
             editor.setSuggestion(2, { value: ['aml', 'kyc'], confidence: 0.9, source: 'Licence register' })
             editor.acceptSuggestion(2)
             expect(editor.getFieldValue(2)).toEqual(['aml', 'kyc'])
+        })
+    })
+
+    describe('blockchain and sustainability fields', () => {
+        const ADDRESS = 'eip155:1/erc20:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'
+        const def = baseDef([
+            { id: 1, type: 'blockchain', label: 'Token', validation: { required: true } },
+            { id: 2, type: 'sustainability', label: 'Footprint', validation: { required: true } },
+            { id: 3, type: 'array', label: 'Assets', item: { type: 'blockchain', label: 'Asset' } },
+        ])
+
+        it('writes and reads a blockchain address', () => {
+            const editor = new FormValuesEditor(def, doc())
+            editor.setFieldValue(1, ADDRESS)
+            expect(editor.getFieldValue(1)).toBe(ADDRESS)
+        })
+
+        it('writes a sustainability object wholesale', () => {
+            const editor = new FormValuesEditor(def, doc())
+            const value: SustainabilityValue = { address: ADDRESS, ccri: 'CCRI-1', cmc: '3408' }
+            editor.setFieldValue(2, value)
+            expect(editor.getFieldValue(2)).toEqual(value)
+        })
+
+        it('reports a sustainability value with a blank address as required', () => {
+            const editor = new FormValuesEditor(def, doc({ '1': ADDRESS }))
+            editor.setFieldValue(2, { address: '', ccri: 'CCRI-1', cmc: '' })
+            expect(editor.validate().fieldErrors.get(2)?.[0]?.rule).toBe('REQUIRED')
+        })
+
+        it('supports array item operations on a blockchain array', () => {
+            const editor = new FormValuesEditor(def, doc())
+            editor.addArrayItem(3, ADDRESS)
+            editor.addArrayItem(3, 'eip155:1/erc20:0xdead')
+            editor.moveArrayItem(3, 0, 1)
+            expect(editor.getFieldValue(3)).toEqual(['eip155:1/erc20:0xdead', ADDRESS])
+        })
+
+        it('accepts a suggestion on a sustainability field as a whole object', () => {
+            const editor = new FormValuesEditor(def, doc())
+            const value: SustainabilityValue = { address: ADDRESS, ccri: 'CCRI-1', cmc: '3408' }
+            editor.setSuggestion(2, { value, confidence: 0.75, source: 'prospectus.pdf, p.12' })
+            editor.acceptSuggestion(2)
+            expect(editor.getFieldValue(2)).toEqual(value)
         })
     })
 })

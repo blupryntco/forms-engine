@@ -7,6 +7,7 @@ import type {
     FormValues,
     SectionContentItem,
     StaticFieldContentItem,
+    SustainabilityValue,
 } from '@bluprynt/forms-core'
 import { render, screen } from '@testing-library/react'
 
@@ -53,6 +54,16 @@ const MockStatic: FC<Record<string, unknown>> = jest.fn((props) => (
     </div>
 ))
 
+const MockBlockchain: FC<Record<string, unknown>> = jest.fn((props) => (
+    <div data-testid={`blockchain-${(props.field as FieldContentItem).id}`}>{String(props.value ?? '')}</div>
+))
+
+const MockSustainability: FC<Record<string, unknown>> = jest.fn((props) => (
+    <div data-testid={`sustainability-${(props.field as FieldContentItem).id}`}>
+        {(props.value as SustainabilityValue | undefined)?.address ?? ''}
+    </div>
+))
+
 const MockSection: FC<Record<string, unknown>> = jest.fn((props) => (
     <div data-testid={`section-${(props.section as SectionContentItem).id}`}>{props.children as ReactNode}</div>
 ))
@@ -75,11 +86,13 @@ const makeComponents = (withError = false): ViewerComponentMap => ({
     ...(withError ? { error: MockError as ViewerComponentMap['error'] } : {}),
 })
 
-/** The same map plus the two optional keys, for the new field types. */
+/** The same map plus every optional key, for the newer field types. */
 const makeComponentsWithNewTypes = (withError = false): ViewerComponentMap => ({
     ...makeComponents(withError),
     multiselect: MockMultiselect as ViewerComponentMap['multiselect'],
     static: MockStatic as ViewerComponentMap['static'],
+    blockchain: MockBlockchain as ViewerComponentMap['blockchain'],
+    sustainability: MockSustainability as ViewerComponentMap['sustainability'],
 })
 
 // ── Helpers ──
@@ -848,6 +861,80 @@ describe('FormItems', () => {
                 ),
             ).not.toThrow()
             expect(screen.queryByTestId('multiselect-1')).toBeNull()
+        })
+    })
+
+    describe('blockchain and sustainability fields', () => {
+        const ADDRESS = 'eip155:1/erc20:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'
+
+        it('renders both through their component map keys', () => {
+            render(
+                <FormItems
+                    items={[
+                        { id: 1, type: 'blockchain', label: 'Token' } as ContentItem,
+                        { id: 2, type: 'sustainability', label: 'Footprint' } as ContentItem,
+                    ]}
+                    visibilityMap={
+                        new Map([
+                            [1, true],
+                            [2, true],
+                        ])
+                    }
+                    values={{ '1': ADDRESS, '2': { address: ADDRESS, ccri: 'CCRI-1', cmc: '3408' } }}
+                    fieldErrors={new Map()}
+                    components={makeComponentsWithNewTypes()}
+                    showInlineValidation={false}
+                />,
+            )
+
+            expect(screen.getByTestId('blockchain-1').textContent).toBe(ADDRESS)
+            expect(screen.getByTestId('sustainability-2').textContent).toBe(ADDRESS)
+        })
+
+        it('passes the value through untouched and injects no options', () => {
+            render(
+                <FormItems
+                    items={[{ id: 1, type: 'sustainability', label: 'Footprint' } as ContentItem]}
+                    visibilityMap={new Map([[1, true]])}
+                    values={{ '1': { address: ADDRESS, ccri: 'CCRI-1', cmc: '3408' } }}
+                    fieldErrors={new Map()}
+                    components={makeComponentsWithNewTypes()}
+                    showInlineValidation={false}
+                />,
+            )
+
+            const props = lastCallProps(MockSustainability as unknown as jest.Mock)
+            expect(props.value).toEqual({ address: ADDRESS, ccri: 'CCRI-1', cmc: '3408' })
+            expect(props.options).toBeUndefined()
+        })
+
+        it('renders nothing instead of crashing when their components are missing', () => {
+            expect(() =>
+                render(
+                    <FormItems
+                        items={[
+                            { id: 1, type: 'blockchain', label: 'Token' } as ContentItem,
+                            { id: 2, type: 'sustainability', label: 'Footprint' } as ContentItem,
+                            { id: 3, type: 'string', label: 'Name' } as ContentItem,
+                        ]}
+                        visibilityMap={
+                            new Map([
+                                [1, true],
+                                [2, true],
+                                [3, true],
+                            ])
+                        }
+                        values={{ '3': 'Acme' }}
+                        fieldErrors={new Map()}
+                        components={makeComponents()}
+                        showInlineValidation={false}
+                    />,
+                ),
+            ).not.toThrow()
+
+            expect(screen.queryByTestId('blockchain-1')).toBeNull()
+            expect(screen.queryByTestId('sustainability-2')).toBeNull()
+            expect(screen.getByTestId('string-3')).toBeTruthy()
         })
     })
 })

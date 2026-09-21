@@ -1,6 +1,12 @@
 import type { ComponentType, ReactNode } from 'react'
 
-import type { ArrayItemDef, FileValue, SectionContentItem, SelectOption } from '@bluprynt/forms-core'
+import type {
+    ArrayItemDef,
+    FileValue,
+    SectionContentItem,
+    SelectOption,
+    SustainabilityValue,
+} from '@bluprynt/forms-core'
 
 import type { BaseEditFieldProps, ErrorProps } from './base'
 import type { StaticViewProps } from './viewer'
@@ -59,6 +65,21 @@ export type FileEditProps = BaseEditFieldProps & {
     onChange: (value: FileValue | undefined) => void
 }
 
+export type BlockchainEditProps = BaseEditFieldProps & {
+    value: string | undefined
+    onChange: (value: string | undefined) => void
+}
+
+/**
+ * Props for a `sustainability` field. The value is written wholesale: emit
+ * `undefined` rather than an all-blank object when the input is cleared, so
+ * `required` behaves the same way it does for every other type.
+ */
+export type SustainabilityEditProps = BaseEditFieldProps & {
+    value: SustainabilityValue | undefined
+    onChange: (value: SustainabilityValue | undefined) => void
+}
+
 export type SectionEditProps = {
     section: SectionContentItem
     children: ReactNode
@@ -77,6 +98,10 @@ export type EditorComponentMap = {
     multiselect?: ComponentType<MultiselectEditProps>
     /** Optional: fields of this type render nothing when no component is supplied. */
     static?: ComponentType<StaticEditProps>
+    /** Optional: fields of this type render nothing when no component is supplied. */
+    blockchain?: ComponentType<BlockchainEditProps>
+    /** Optional: fields of this type render nothing when no component is supplied. */
+    sustainability?: ComponentType<SustainabilityEditProps>
     error?: ComponentType<ErrorProps>
 }
 

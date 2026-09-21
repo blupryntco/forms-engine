@@ -294,6 +294,8 @@ Props for read-only field components used in `ViewerComponentMap`. Each type pro
 | `SelectViewProps` | Read-only select field. Includes the selected value and the list of available options. |
 | `MultiselectViewProps` | Read-only multi-select field. Value is `(string \| number)[]`; includes the list of available options. |
 | `StaticViewProps` | Display-only text block. Carries only `field: StaticFieldContentItem` — no `value`, `errors` or `suggestion`. |
+| `BlockchainViewProps` | Read-only CAIP address field. Value is a `string` the engine never format-checks. |
+| `SustainabilityViewProps` | Read-only sustainability field. Value is `SustainabilityValue` (`{ address, ccri?, cmc? }`). |
 | `ArrayViewProps` | Read-only array field. Includes the array values, the item schema definition, and pre-rendered children for each item. |
 | `FileViewProps` | Read-only file field. Value contains file metadata (name, MIME type, size, URL). |
 | `SectionViewProps` | Read-only section wrapper. Receives the section definition and its children. |
@@ -312,6 +314,8 @@ Props for editable field components used in `EditorComponentMap`. Each type exte
 | `SelectEditProps` | Editable select field with typed `onChange` and available options. |
 | `MultiselectEditProps` | Editable multi-select field. `onChange((string \| number)[] \| undefined)` replaces the whole selection. |
 | `StaticEditProps` | Alias of `StaticViewProps` — a static block has nothing to edit and no `onChange`. |
+| `BlockchainEditProps` | Editable CAIP address field. `onChange(string \| undefined)`. |
+| `SustainabilityEditProps` | Editable sustainability field. `onChange(SustainabilityValue \| undefined)` replaces the whole object. |
 | `ArrayEditProps` | Editable array field with `onChange`, `onAddItem`, `onRemoveItem`, `onMoveItem`, and pre-rendered children. |
 | `FileEditProps` | Editable file field with typed `onChange`. |
 | `SectionEditProps` | Editable section wrapper. Receives the section definition and its children. |
@@ -343,11 +347,12 @@ Props for editable field components used in `EditorComponentMap`. Each type exte
 | `FieldContentItem` | A field node in a form definition tree. |
 | `FieldEntry` | Flattened field registry entry produced by `FormEngine`. |
 | `FieldSuggestion` | A machine-proposed answer: `{ value, confidence (0..1), source }`. |
-| `FieldType` | Union of all supported field type identifiers (`string`, `number`, `boolean`, `date`, `select`, `multiselect`, `array`, `file`, `static`). |
+| `FieldType` | Union of all supported field type identifiers (`string`, `number`, `boolean`, `date`, `select`, `multiselect`, `array`, `file`, `static`, `blockchain`, `sustainability`). |
 | `StaticFieldContentItem` | A display-only block: `{ id, type: 'static', text, label?, … }`. Holds no value. |
 | `AnyFieldContentItem` | `FieldContentItem \| StaticFieldContentItem` — every non-section node. |
 | `FieldValidationError` | A field-level validation error with field ID, rule, message, and optional item index. |
 | `FileValue` | File metadata: name, MIME type, size, and URL. |
+| `SustainabilityValue` | Sustainability references: `{ address, ccri?, cmc? }`. |
 | `FormDefinition` | Top-level form schema describing the entire form structure. |
 | `FormDocument` | A submitted form: references the form schema, contains the user's values, and may carry a `suggestions` block. |
 | `FormSnapshot` | A pair of form definition and document, used for serialization. |

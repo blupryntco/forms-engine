@@ -2199,4 +2199,140 @@ describe('FormEngine', () => {
             expect(new FormEngine(def).validate(doc({ '1': false })).valid).toBe(true)
         })
     })
+
+    describe('blockchain and sustainability fields', () => {
+        const ADDRESS = 'eip155:1/erc20:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'
+
+        it('validates a required blockchain field', () => {
+            const def = baseDef([{ id: 1, type: 'blockchain', label: 'Token', validation: { required: true } }])
+            const engine = new FormEngine(def)
+            expect(engine.validate(doc({})).valid).toBe(false)
+            expect(engine.validate(doc({ '1': ADDRESS })).valid).toBe(true)
+        })
+
+        it('accepts a malformed address -- the CAIP format is never checked', () => {
+            const def = baseDef([{ id: 1, type: 'blockchain', label: 'Token', validation: { required: true } }])
+            expect(new FormEngine(def).validate(doc({ '1': 'whatever' })).valid).toBe(true)
+        })
+
+        it('validates a required sustainability field on its address alone', () => {
+            const def = baseDef([{ id: 1, type: 'sustainability', label: 'Footprint', validation: { required: true } }])
+            const engine = new FormEngine(def)
+            expect(engine.validate(doc({ '1': { address: '', ccri: 'CCRI-1', cmc: '' } })).valid).toBe(false)
+            expect(engine.validate(doc({ '1': { address: ADDRESS } })).valid).toBe(true)
+        })
+
+        it('drives a condition from a blockchain field with scalar semantics', () => {
+            const def = baseDef([
+                { id: 1, type: 'blockchain', label: 'Token' },
+                { id: 2, type: 'string', label: 'Notes', condition: { field: 1, op: 'eq', value: ADDRESS } },
+            ])
+            const engine = new FormEngine(def)
+            expect(engine.isVisible(2, doc({ '1': 'eip155:1/erc20:0xdead' }))).toBe(false)
+            expect(engine.isVisible(2, doc({ '1': ADDRESS }))).toBe(true)
+        })
+
+        it('treats any sustainability object as set, even a blank one', () => {
+            const def = baseDef([
+                { id: 1, type: 'sustainability', label: 'Footprint' },
+                { id: 2, type: 'string', label: 'Notes', condition: { field: 1, op: 'set' } },
+            ])
+            const engine = new FormEngine(def)
+            expect(engine.isVisible(2, doc({}))).toBe(false)
+            expect(engine.isVisible(2, doc({ '1': { address: '', ccri: '', cmc: '' } }))).toBe(true)
+        })
+
+        it('validates both as array item types', () => {
+            const def = baseDef([
+                {
+                    id: 1,
+                    type: 'array',
+                    label: 'Assets',
+                    item: { type: 'blockchain', label: 'Asset', validation: { required: true } },
+                },
+            ])
+            const engine = new FormEngine(def)
+            expect(engine.validate(doc({ '1': [ADDRESS, ''] })).valid).toBe(false)
+            expect(engine.validate(doc({ '1': [ADDRESS] })).valid).toBe(true)
+        })
+
+        it('skips validation for a hidden sustainability field', () => {
+            const def = baseDef([
+                { id: 1, type: 'boolean', label: 'Regulated' },
+                {
+                    id: 2,
+                    type: 'sustainability',
+                    label: 'Footprint',
+                    validation: { required: true },
+                    condition: { field: 1, op: 'eq', value: true },
+                },
+            ])
+            expect(new FormEngine(def).validate(doc({ '1': false })).valid).toBe(true)
+        })
+    })
+
+    describe('backward compatibility', () => {
+        // A definition using every field type that existed before `blockchain`
+        // and `sustainability`, plus a document written against it that predates
+        // the `suggestions` block.
+        const legacyDef = baseDef([
+            { id: 1, type: 'static', text: 'Please read carefully.' },
+            { id: 2, type: 'string', label: 'Name', validation: { required: true, minLength: 2 } },
+            { id: 3, type: 'number', label: 'Age', validation: { min: 18 } },
+            { id: 4, type: 'boolean', label: 'Agreed', validation: { required: true } },
+            { id: 5, type: 'date', label: 'Signed on' },
+            {
+                id: 6,
+                type: 'select',
+                label: 'Kind',
+                options: [
+                    { value: 'a', label: 'A' },
+                    { value: 'b', label: 'B' },
+                ],
+            },
+            {
+                id: 7,
+                type: 'multiselect',
+                label: 'Programmes',
+                options: [
+                    { value: 'aml', label: 'AML' },
+                    { value: 'kyc', label: 'KYC' },
+                ],
+            },
+            { id: 8, type: 'array', label: 'Tags', item: { type: 'string', label: 'Tag' } },
+            { id: 9, type: 'file', label: 'Evidence' },
+            { id: 10, type: 'string', label: 'Why B?', condition: { field: 6, op: 'eq', value: 'b' } },
+        ])
+
+        const legacyDoc: FormDocument = {
+            form: { id: 'test-form', version: '1.0.0', submittedAt: SUBMITTED_AT },
+            values: {
+                '2': 'Acme Ltd',
+                '3': 42,
+                '4': true,
+                '5': '2025-01-01T00:00:00.000Z',
+                '6': 'a',
+                '7': ['aml'],
+                '8': ['one', 'two'],
+                '9': { name: 'd.pdf', mimeType: 'application/pdf', size: 12, url: 'https://example.com/d.pdf' },
+            },
+        }
+
+        it('still validates clean with no version bump', () => {
+            const result = new FormEngine(legacyDef).validate(legacyDoc)
+            expect(result.valid).toBe(true)
+            expect(result.fieldErrors.size).toBe(0)
+        })
+
+        it('still resolves visibility unchanged', () => {
+            const engine = new FormEngine(legacyDef)
+            expect(engine.isVisible(10, legacyDoc)).toBe(false)
+            expect(engine.isVisible(2, legacyDoc)).toBe(true)
+        })
+
+        it('does not introduce a suggestions key', () => {
+            new FormEngine(legacyDef).validate(legacyDoc)
+            expect('suggestions' in legacyDoc).toBe(false)
+        })
+    })
 })

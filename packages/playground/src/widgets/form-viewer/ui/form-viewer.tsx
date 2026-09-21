@@ -18,6 +18,7 @@ import { useAtomValue } from 'jotai'
 import { formDefinitionAtom, formDocumentAtom } from '@/entities/form'
 import {
     ArrayView,
+    BlockchainView,
     BooleanView,
     DateView,
     DocumentErrorItem,
@@ -35,6 +36,7 @@ import {
     SelectView,
     StaticView,
     StringView,
+    SustainabilityView,
 } from '@/shared/ui/form'
 
 export const components: ViewerComponentMap = {
@@ -47,6 +49,8 @@ export const components: ViewerComponentMap = {
     array: ArrayView,
     file: FileView,
     static: StaticView,
+    blockchain: BlockchainView,
+    sustainability: SustainabilityView,
     section: SectionView,
     error: ErrorView,
 }

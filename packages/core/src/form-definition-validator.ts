@@ -31,6 +31,8 @@ const itemRequiredProperties = new Map<string, Set<string>>([
     ['multiselect', new Set(['id', 'type', 'label', 'options'])],
     ['array', new Set(['id', 'type', 'label', 'item'])],
     ['file', new Set(['id', 'type', 'label'])],
+    ['blockchain', new Set(['id', 'type', 'label'])],
+    ['sustainability', new Set(['id', 'type', 'label'])],
     ['static', new Set(['id', 'type', 'text'])],
     ['section', new Set(['id', 'type', 'title', 'content'])],
 ])
@@ -139,6 +141,34 @@ const itemAllowedProperties = new Map<string, Set<string>>([
     ],
     [
         'file',
+        new Set([
+            'id',
+            'type',
+            'label',
+            'description',
+            'placeholder',
+            'answer_guidelines',
+            'reference_id',
+            'condition',
+            'validation',
+        ]),
+    ],
+    [
+        'blockchain',
+        new Set([
+            'id',
+            'type',
+            'label',
+            'description',
+            'placeholder',
+            'answer_guidelines',
+            'reference_id',
+            'condition',
+            'validation',
+        ]),
+    ],
+    [
+        'sustainability',
         new Set([
             'id',
             'type',

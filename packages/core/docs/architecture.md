@@ -17,9 +17,11 @@ packages/core/
 │   │   ├── form-snapshot.ts
 │   │   ├── form-values.ts
 │   │   ├── select-option.ts
+│   │   ├── sustainability-value.ts
 │   │   ├── validation-results.ts
 │   │   └── validation/               # Per-type validation rule types
 │   │       ├── array.ts
+│   │       ├── blockchain.ts
 │   │       ├── boolean.ts
 │   │       ├── date.ts
 │   │       ├── file.ts
@@ -27,6 +29,7 @@ packages/core/
 │   │       ├── number.ts
 │   │       ├── select.ts
 │   │       ├── string.ts
+│   │       ├── sustainability.ts
 │   │       └── type-specific.ts
 │   ├── validators/                    # Per-type field validators
 │   │   ├── type-validator.ts          # TypeValidator interface
@@ -37,7 +40,9 @@ packages/core/
 │   │   ├── select-validator.ts
 │   │   ├── multiselect-validator.ts
 │   │   ├── array-validator.ts
-│   │   └── file-validator.ts
+│   │   ├── file-validator.ts
+│   │   ├── blockchain-validator.ts
+│   │   └── sustainability-validator.ts
 │   ├── form-engine.ts                 # FormEngine — main entry point
 │   ├── form-definition-editor.ts      # FormDefinitionEditor — schema builder
 │   ├── form-values-editor.ts          # FormValuesEditor — values editor
@@ -79,7 +84,9 @@ FormEngine (form-engine.ts)
         ├── SelectValidator
         ├── MultiselectValidator
         ├── ArrayValidator
-        └── FileValidator          (no validator for `static` — it holds no value)
+        ├── FileValidator
+        ├── BlockchainValidator
+        └── SustainabilityValidator (no validator for `static` — it holds no value)
 
 FormDefinitionEditor (form-definition-editor.ts)
 └── types/ (standalone, no engine dependencies)

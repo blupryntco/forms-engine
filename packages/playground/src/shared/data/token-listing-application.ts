@@ -58,6 +58,35 @@ export const TOKEN_LISTING_APPLICATION: SampleForm = {
                         validation: { required: true },
                     },
                     {
+                        id: 36,
+                        type: 'blockchain',
+                        label: 'CAIP-19 asset identifier',
+                        description: 'Chain-agnostic identifier for the asset being listed',
+                        placeholder: 'eip155:1/erc20:0x…',
+                        answer_guidelines:
+                            'Namespace, chain reference and asset reference, e.g. eip155:1/erc20:0x… — the engine stores it verbatim and never checks the format.',
+                        reference_id: 'LIST-1.5',
+                        validation: { required: true },
+                    },
+                    {
+                        id: 37,
+                        type: 'sustainability',
+                        label: 'Sustainability references',
+                        description: 'External energy and emissions references for the asset',
+                        answer_guidelines:
+                            'The address should match the CAIP-19 identifier above. CCRI and CMC are optional — leave them blank if the asset is not covered.',
+                        reference_id: 'LIST-1.6',
+                        validation: { required: true },
+                    },
+                    {
+                        id: 38,
+                        type: 'string',
+                        label: 'Bridged deployments',
+                        description: 'Other chains this asset is canonically bridged to',
+                        placeholder: 'One CAIP-19 identifier per line',
+                        condition: { field: 36, op: 'set' },
+                    },
+                    {
                         id: 6,
                         type: 'select',
                         label: 'Blockchain network',
@@ -308,6 +337,12 @@ export const TOKEN_LISTING_APPLICATION: SampleForm = {
             '3': 'NXP',
             '4': '2024-03-15T00:00:00.000Z',
             '5': '0x1a2b3c4d5e6f7890abcdef1234567890abcdef12',
+            '36': 'eip155:1/erc20:0x1a2b3c4d5e6f7890abcdef1234567890abcdef12',
+            '37': {
+                address: 'eip155:1/erc20:0x1a2b3c4d5e6f7890abcdef1234567890abcdef12',
+                ccri: 'CCRI-ETH-2025-04',
+                cmc: '',
+            },
             '6': 'ethereum',
             '8': 'erc20',
             '10': 'Nexus Labs AG',
@@ -360,6 +395,15 @@ export const TOKEN_LISTING_APPLICATION: SampleForm = {
                 value: ['aml', 'kyc', 'cft', 'sanctions', 'travel-rule'],
                 confidence: 0.55,
                 source: 'The compliance manual lists all five programmes, but the sanctions and CFT sections are marked "draft".',
+            },
+            '37': {
+                value: {
+                    address: 'eip155:1/erc20:0x1a2b3c4d5e6f7890abcdef1234567890abcdef12',
+                    ccri: 'CCRI-ETH-2025-04',
+                    cmc: '28471',
+                },
+                confidence: 0.7,
+                source: 'CCRI reference taken from the sustainability annex, page 3. The CMC id was matched on ticker and contract address, so it is worth confirming.',
             },
             '24': {
                 value: 400000000,
