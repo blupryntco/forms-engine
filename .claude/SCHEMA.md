@@ -22,19 +22,22 @@
 
 ## 2. Content Items
 
-Every item in `content` has a `type`. Types are: `"string"`, `"number"`, `"boolean"`, `"date"`, `"select"`, `"array"`, `"file"`, `"section"`.
+Every item in `content` has a `type`. Types are: `"string"`, `"number"`, `"boolean"`, `"date"`, `"select"`, `"multiselect"`, `"array"`, `"file"`, `"static"`, `"section"`.
 
-Types `"string"` through `"array"` are **fields** — they produce values. Type `"section"` is a **grouping container** — it holds nested content items.
+Most types are **fields** — they produce values. Two are different:
+
+- `"section"` is a **grouping container** — it holds nested content items and has no value of its own.
+- `"static"` is a **display-only block** — it renders text inside the form but produces no value. It never appears in `values`, carries no `validation`, and cannot be referenced by another item's `condition`.
 
 ### 2.1 Common Properties (all types)
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `id` | `number` | yes | Unique numeric identifier across the entire schema. Must be a positive integer. |
-| `type` | `string` | yes | One of: `"string"`, `"number"`, `"boolean"`, `"date"`, `"select"`, `"array"`, `"file"`, `"section"`. |
+| `type` | `string` | yes | One of: `"string"`, `"number"`, `"boolean"`, `"date"`, `"select"`, `"multiselect"`, `"array"`, `"file"`, `"static"`, `"section"`. |
 | `condition` | `Condition` | no | Visibility condition. When present, the item is only visible (and validated) when the condition evaluates to `true`. See §5. |
 
-### 2.2 Common Field Properties (all types except `"section"`)
+### 2.2 Common Field Properties (all types except `"section"` and `"static"`)
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
@@ -48,6 +51,20 @@ Types `"string"` through `"array"` are **fields** — they produce values. Type 
 `placeholder`, `answer_guidelines` and `reference_id` are presentation/authoring metadata: the engine never
 reads them, they do not participate in validation or conditions, and they are all optional, so definitions
 written before they existed remain valid.
+
+### 2.2.1 Static Block Properties (`type: "static"`)
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `text` | `string` | yes | The text displayed inside the form. This is the block's content. |
+| `label` | `string` | no | Optional heading rendered above `text`. Unlike every other field type, `label` is **not** required. |
+| `description` | `string` | no | Optional secondary text. |
+| `placeholder` | `string` | no | Presentation metadata. Opaque to the engine. |
+| `answer_guidelines` | `string` | no | Presentation metadata. Opaque to the engine. |
+| `reference_id` | `string` | no | External reference, e.g. the regulation this notice comes from. |
+
+A static block accepts no `validation` and no `options`. It does accept a `condition`, so a notice can be
+shown only when it applies. It produces no key in `values` and no validation errors.
 
 ### 2.3 Section Properties (`type: "section"`)
 
@@ -248,6 +265,39 @@ The `options` property is defined on the field itself (not inside `validation`).
 
 **Value type:** matches the `value` type of the selected option.
 
+### 3.5.1 Multiselect Validation
+
+```json
+{
+  "id": 20,
+  "type": "multiselect",
+  "label": "Compliance programmes in place",
+  "options": [
+    { "value": "aml", "label": "Anti-Money Laundering" },
+    { "value": "kyc", "label": "Know Your Customer" },
+    { "value": "sanctions", "label": "Sanctions screening" }
+  ],
+  "validation": {
+    "required": true
+  }
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `required` | `boolean` | At least one option must be selected. An absent value **and an empty array** both fail. Default: `false`. |
+
+`options` is defined on the field itself and is required, exactly as for `select` (§4.1). Every selected
+value must appear in `options`; a value that does not produces a single field-level `INVALID_OPTION` error
+for the field, not one error per offending entry.
+
+**Value type:** `Array<string | number>` — the `value`s of the selected options. Order is not significant.
+
+### 3.5.2 Static
+
+A `static` block has no `validation` property; supplying one is a schema error. It never produces
+validation errors.
+
 ### 3.6 Array Validation
 
 ```json
@@ -285,11 +335,11 @@ Array-level `validation` covers the array itself. Item-level validation lives in
 
 Some field types have configuration properties beyond `validation`.
 
-### 4.1 Select — `options`
+### 4.1 Select and Multiselect — `options`
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `options` | `SelectOption[]` | yes | List of selectable options. At least 1 required. |
+| `options` | `SelectOption[]` | yes | List of selectable options. At least 1 required. Required for both `select` and `multiselect`. |
 
 **SelectOption:**
 
@@ -302,9 +352,9 @@ Some field types have configuration properties beyond `validation`.
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `item` | `object` | yes | Field definition for each array item. Same shape as any field (§2.2), excluding `id` and `type: "array"` (no nested arrays). |
+| `item` | `object` | yes | Field definition for each array item. Same shape as any field (§2.2), excluding `id`. The types `"array"` (no nested arrays), `"multiselect"` (its value is already an array) and `"static"` (holds no value) are not allowed. |
 
-The `item` object supports all field properties (`type`, `label`, `description`, `placeholder`, `answer_guidelines`, `reference_id`, `validation`, `options` for select) except `id` and `condition`.
+The `item` object supports all field properties (`type`, `label`, `description`, `placeholder`, `answer_guidelines`, `reference_id`, `validation`, `options` for select) except `id` and `condition`. Its `type` must be one of `"string"`, `"number"`, `"boolean"`, `"date"`, `"select"` or `"file"`.
 
 **Array of numbers with item validation:**
 
@@ -403,10 +453,35 @@ A leaf condition that evaluates a single field:
 | `gt` | Field value is greater than `value` | yes | number, date |
 | `lte` | Field value is less than or equal to `value` | yes | number, date |
 | `gte` | Field value is greater than or equal to `value` | yes | number, date |
-| `in` | Field value is contained in `value` (array) | yes (array) | string, number, date, select |
-| `notin` | Field value is not contained in `value` (array) | yes (array) | string, number, date, select |
+| `in` | Field value is contained in `value` (array) | yes (array) | string, number, date, select, multiselect |
+| `notin` | Field value is not contained in `value` (array) | yes (array) | string, number, date, select, multiselect |
+
+Conditions may only reference items that hold a value. Referencing a `section` produces a
+`CONDITION_REFS_SECTION` error and referencing a `static` block a `CONDITION_REFS_STATIC` error (§8).
 
 **Type coercion:** No implicit coercion. The `value` in the condition must match the referenced field's value type. Date comparisons parse ISO 8601 strings to timestamps before comparing. Condition `value` for date fields can use absolute ISO 8601 or relative date formats (see §3.7).
+
+### 5.2.1 Multiselect Operators
+
+A `multiselect` field's value is a set, so the operators are interpreted as set operations rather than
+scalar comparisons. No other type is affected — in particular an `array` field keeps the original scalar
+behaviour.
+
+| Operator | Meaning against a multiselect |
+|----------|-------------------------------|
+| `set` | At least one option is chosen. An empty array counts as **not** set. |
+| `notset` | Nothing is chosen (absent value or empty array). |
+| `eq` | The selection equals `value` as a set — same members, ignoring order and duplicates. A scalar `value` is read as a one-element set, so `{ "op": "eq", "value": "aml" }` means "`aml` is the *only* option chosen". |
+| `ne` | Negation of `eq`. |
+| `in` | **Any** chosen option appears in `value`. This is the operator for "is `x` selected?": `{ "op": "in", "value": ["x"] }`. |
+| `notin` | No chosen option appears in `value`. |
+| `lt` `gt` `lte` `gte` | Always `false` — ordering has no meaning for a set. |
+
+```json
+{ "field": 33, "op": "in", "value": ["travel-rule"] }
+```
+
+shows the dependent item whenever *Travel Rule* is among the chosen programmes.
 
 ### 5.3 Compound Conditions
 
@@ -505,6 +580,10 @@ Form values document links to its form definition via `form` and contains field 
 
 Field IDs are globally unique, so `values` is always flat regardless of section nesting. Sections affect only presentation/grouping — not the data structure.
 
+Sections and `static` blocks never appear in `values` — neither holds a value. `FormValuesEditor.setFieldValue()` throws when given either id. A stray key left in a stored document is ignored rather than rejected, so documents written against an older schema keep loading.
+
+A `multiselect` value is the array of chosen option values, e.g. `"33": ["aml", "kyc"]`. It is written wholesale: the array-item helpers (`addArrayItem` / `removeArrayItem` / `moveArrayItem`) apply only to `array` fields and throw for a multiselect.
+
 ### 6.1 Suggestions
 
 `suggestions` is optional and sparse: it may be absent entirely (documents written before suggestions
@@ -540,8 +619,10 @@ Two operations are defined on a suggestion:
 | Section nesting depth | 3 levels |
 | ID format | Positive integer |
 | ID uniqueness | Global across entire schema (all fields and sections) |
-| Select options minimum | 1 |
-| Select option values | Unique within the field's options list |
+| Select / multiselect options minimum | 1 |
+| Select / multiselect option values | Unique within the field's options list |
+| Array item types | `string`, `number`, `boolean`, `date`, `select`, `file` (not `array`, `multiselect` or `static`) |
+| Static block required properties | `id`, `type`, `text` (`label` is optional) |
 | Suggestion `confidence` | `0..1` (checked on write only) |
 
 ---
@@ -559,13 +640,17 @@ The engine must validate the schema itself before use. Invalid schemas must be r
 | `max` < `min` | `max must be >= min for field "{id}"` |
 | `maxDate` < `minDate` | `maxDate must be >= minDate for field "{id}"` |
 | `maxItems` < `minItems` | `maxItems must be >= minItems for field "{id}"` |
-| Select field with no options | `Select field "{id}" must have at least one option` |
+| Select or multiselect field with no options | `Select field "{id}" must have at least one option` |
+| Static field with no `text` | Schema error: missing required property `"text"` |
+| Static field with `validation` or `options` | Schema error: unsupported property |
 | Array field with missing `item` | `Array field "{id}" must specify item` |
-| Array item with `type: "array"` | `Array field "{id}" item cannot be of type "array"` |
+| Array item with `type: "array"`, `"multiselect"` or `"static"` | Schema error: the item does not match any allowed array item type |
 | Array item with `id` | `Array field "{id}" item must not have an id` |
 | Invalid field type | `Unknown field type: "{type}" for field "{id}"` |
 | Invalid operator | `Unknown operator: "{op}" in condition for "{id}"` |
 | Condition `value` missing when required | `Condition operator "{op}" requires a value` |
+| Condition references a section | `CONDITION_REFS_SECTION` — sections have no value |
+| Condition references a static field | `CONDITION_REFS_STATIC` — static blocks have no value |
 | Circular condition dependency | `Circular condition dependency detected: {path}` |
 | Empty section (no content) | `Section "{id}" must have at least one content item` |
 | `pattern` is invalid regex | `Invalid regex pattern for field "{id}": {error}` |

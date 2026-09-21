@@ -26,8 +26,10 @@ describe('isSection', () => {
         'boolean',
         'date',
         'select',
+        'multiselect',
         'array',
         'file',
+        'static',
         'add-placeholder',
     ])('returns false for %s type', (type) => {
         expect(isSection(makeItem(type))).toBe(false)
@@ -41,8 +43,10 @@ describe('isField', () => {
         'boolean',
         'date',
         'select',
+        'multiselect',
         'array',
         'file',
+        'static',
     ])('returns true for %s type', (type) => {
         const item = makeItem(type, { id: 1, type, label: 'F' } as FieldContentItem)
         expect(isField(item)).toBe(true)
@@ -70,8 +74,10 @@ describe('isAddPlaceholder', () => {
         'boolean',
         'date',
         'select',
+        'multiselect',
         'array',
         'file',
+        'static',
         'section',
     ])('returns false for %s type', (type) => {
         expect(isAddPlaceholder(makeItem(type))).toBe(false)
@@ -85,8 +91,10 @@ describe('type guards are mutually exclusive', () => {
         'boolean',
         'date',
         'select',
+        'multiselect',
         'array',
         'file',
+        'static',
         'section',
         'add-placeholder',
     ])('exactly one guard matches for %s type', (type) => {

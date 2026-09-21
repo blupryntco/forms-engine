@@ -17,6 +17,13 @@ export const TOKEN_LISTING_APPLICATION: SampleForm = {
                 reference_id: 'LIST-1',
                 content: [
                     {
+                        id: 32,
+                        type: 'static',
+                        label: 'Before you begin',
+                        text: 'Listing review takes 10–15 business days. Answers are checked against the deployed contract and against the commercial register extract you upload later, so take the figures from those sources rather than from marketing material.',
+                        reference_id: 'LIST-1.0',
+                    },
+                    {
                         id: 2,
                         type: 'string',
                         label: 'Token name',
@@ -240,6 +247,37 @@ export const TOKEN_LISTING_APPLICATION: SampleForm = {
                         condition: { field: 27, op: 'in', value: ['audited', 'in-progress'] },
                         validation: { required: true },
                     },
+                    {
+                        id: 33,
+                        type: 'multiselect',
+                        label: 'Compliance programmes in place',
+                        description: 'Select all that apply',
+                        answer_guidelines:
+                            'Only tick a programme that is documented and operating today, not one that is planned.',
+                        reference_id: 'LIST-4.3',
+                        options: [
+                            { value: 'aml', label: 'Anti-Money Laundering (AML)' },
+                            { value: 'kyc', label: 'Know Your Customer (KYC)' },
+                            { value: 'cft', label: 'Counter-Terrorist Financing (CFT)' },
+                            { value: 'sanctions', label: 'Sanctions screening' },
+                            { value: 'travel-rule', label: 'Travel Rule' },
+                        ],
+                        validation: { required: true },
+                    },
+                    {
+                        id: 34,
+                        type: 'string',
+                        label: 'Travel Rule solution provider',
+                        placeholder: 'e.g. Notabene',
+                        condition: { field: 33, op: 'in', value: ['travel-rule'] },
+                        validation: { required: true },
+                    },
+                    {
+                        id: 35,
+                        type: 'static',
+                        text: 'No sanctions screening programme was selected. Listing cannot proceed without one — attach a remediation plan to your submission email.',
+                        condition: { field: 33, op: 'notin', value: ['sanctions'] },
+                    },
                 ],
             },
             {
@@ -287,6 +325,8 @@ export const TOKEN_LISTING_APPLICATION: SampleForm = {
             '26': true,
             '27': 'audited',
             '28': 'Trail of Bits',
+            '33': ['aml', 'kyc', 'travel-rule'],
+            '34': 'Notabene',
             '30': true,
             '31': true,
         },
@@ -315,6 +355,11 @@ export const TOKEN_LISTING_APPLICATION: SampleForm = {
                 value: ['United States', 'European Union', 'Singapore'],
                 confidence: 0.6,
                 source: 'Jurisdictions named in the legal opinion, section 4. Japan and Australia were not mentioned.',
+            },
+            '33': {
+                value: ['aml', 'kyc', 'cft', 'sanctions', 'travel-rule'],
+                confidence: 0.55,
+                source: 'The compliance manual lists all five programmes, but the sanctions and CFT sections are marked "draft".',
             },
             '24': {
                 value: 400000000,

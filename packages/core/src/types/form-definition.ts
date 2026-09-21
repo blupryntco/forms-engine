@@ -25,12 +25,25 @@ export type FormDefinition = {
 }
 
 /**
- * A single node in the form definition tree -- either a field or a section.
+ * A single node in the form definition tree -- a value field, a static block
+ * or a section.
  */
-export type ContentItem = FieldContentItem | SectionContentItem
+export type ContentItem = AnyFieldContentItem | SectionContentItem
 
 /**
- * A field node within the form definition tree.
+ * Any non-section node: either a value-producing field or a static block.
+ *
+ * Narrow with `item.type === 'static'` to reach {@link StaticFieldContentItem}'s
+ * `text`, or with `item.type !== 'static'` to reach the value-field properties
+ * (`label`, `validation`, `options`, `item`).
+ */
+export type AnyFieldContentItem = FieldContentItem | StaticFieldContentItem
+
+/**
+ * A value-producing field node within the form definition tree.
+ *
+ * Excludes `static`, which holds no value and has its own shape --
+ * see {@link StaticFieldContentItem}.
  *
  * @property id - Unique numeric identifier.
  * @property type - The field's data type.
@@ -41,12 +54,12 @@ export type ContentItem = FieldContentItem | SectionContentItem
  * @property reference_id - Optional external reference (e.g. a regulation or questionnaire item id).
  * @property condition - Visibility condition that controls whether this field is shown.
  * @property validation - Type-specific validation rules.
- * @property options - Allowed values (required for `select` fields).
+ * @property options - Allowed values (required for `select` and `multiselect` fields).
  * @property item - Item schema (required for `array` fields).
  */
 export type FieldContentItem = {
     id: number
-    type: FieldType
+    type: Exclude<FieldType, 'static'>
     label: string
     description?: string
     placeholder?: string
@@ -56,6 +69,37 @@ export type FieldContentItem = {
     validation?: TypeSpecificValidation
     options?: SelectOption[]
     item?: ArrayItemDef
+}
+
+/**
+ * A display-only text block within the form definition tree.
+ *
+ * Static blocks render alongside fields and honour their own `condition`, but
+ * they hold no value: they never appear in form values, never carry
+ * validation rules, never produce validation errors, and cannot be referenced
+ * by another item's condition.
+ *
+ * @property id - Unique numeric identifier.
+ * @property type - Always `'static'`.
+ * @property text - The text to display. This is the block's content, and the
+ *   only required property beyond `id` and `type`.
+ * @property label - Optional heading shown above {@link text}.
+ * @property description - Optional secondary text.
+ * @property placeholder - Optional presentation metadata. Opaque to the engine.
+ * @property answer_guidelines - Optional presentation metadata. Opaque to the engine.
+ * @property reference_id - Optional external reference (e.g. a regulation or questionnaire item id).
+ * @property condition - Visibility condition that controls whether this block is shown.
+ */
+export type StaticFieldContentItem = {
+    id: number
+    type: 'static'
+    text: string
+    label?: string
+    description?: string
+    placeholder?: string
+    answer_guidelines?: string
+    reference_id?: string
+    condition?: Condition
 }
 
 /**

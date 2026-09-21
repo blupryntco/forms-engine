@@ -14,7 +14,7 @@ A system for defining custom form schemas (JSON), rendering forms from those sch
 
 The foundation. Compiles a JSON form definition into a runtime engine that handles:
 - Field visibility via conditional logic (simple and compound conditions)
-- Type-aware validation (string, number, boolean, date, select, array, file)
+- Type-aware validation (string, number, boolean, date, select, multiselect, array, file; `static` blocks hold no value)
 - Dependency graph with cycle detection and topological ordering
 - Fluent APIs for building schemas (`FormDefinitionEditor`) and editing values (`FormValuesEditor`)
 
@@ -58,6 +58,11 @@ const components: ViewerComponentMap = {
   section: ({ section, children }) => (
     <fieldset><legend>{section.title}</legend>{children}</fieldset>
   ),
+  // Optional keys — omit them and those fields simply render nothing.
+  multiselect: ({ field, value, options }) => (
+    <p>{field.label}: {(value ?? []).map(v => options.find(o => o.value === v)?.label).join(', ')}</p>
+  ),
+  static:  ({ field }) => <p>{field.text}</p>,
 }
 
 const App: FC = () => (
@@ -89,6 +94,27 @@ const components: EditorComponentMap = {
   section: ({ section, children }) => (
     <fieldset><legend>{section.title}</legend>{children}</fieldset>
   ),
+  // Optional keys. A multiselect is written wholesale; a static block has no onChange.
+  multiselect: ({ value, options, onChange }) => (
+    <>
+      {options.map(o => (
+        <label key={o.value}>
+          <input
+            type="checkbox"
+            checked={(value ?? []).includes(o.value)}
+            onChange={e => {
+              const next = e.target.checked
+                ? [...(value ?? []), o.value]
+                : (value ?? []).filter(v => v !== o.value)
+              onChange(next.length > 0 ? next : undefined)
+            }}
+          />
+          {o.label}
+        </label>
+      ))}
+    </>
+  ),
+  static:  ({ field }) => <p>{field.text}</p>,
 }
 
 const App: FC = () => {

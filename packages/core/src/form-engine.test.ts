@@ -2092,4 +2092,111 @@ describe('FormEngine', () => {
             expect(() => new FormEngine(def)).not.toThrow()
         })
     })
+    describe('static fields', () => {
+        const withStatic = baseDef([
+            { id: 1, type: 'static', text: 'Answer truthfully.', label: 'Before you begin' },
+            { id: 2, type: 'string', label: 'Name', validation: { required: true } },
+        ])
+
+        it('registers a static field without validation or options', () => {
+            const engine = new FormEngine(withStatic)
+            const entry = engine.getFieldDef(1)
+            expect(entry).toMatchObject({ id: 1, type: 'static', label: 'Before you begin' })
+            expect(entry?.validation).toBeUndefined()
+            expect(entry?.options).toBeUndefined()
+        })
+
+        it('never produces validation errors for a static field', () => {
+            const engine = new FormEngine(withStatic)
+            const result = engine.validate(doc({ '2': 'Acme' }))
+            expect(result.valid).toBe(true)
+        })
+
+        it('registers a static field with no label', () => {
+            const engine = new FormEngine(baseDef([{ id: 1, type: 'static', text: 'Just prose.' }]))
+            expect(engine.getFieldDef(1)?.label).toBeUndefined()
+        })
+
+        it('honours a condition on a static field', () => {
+            const def = baseDef([
+                { id: 1, type: 'boolean', label: 'Agree' },
+                { id: 2, type: 'static', text: 'Thanks.', condition: { field: 1, op: 'eq', value: true } },
+            ])
+            const engine = new FormEngine(def)
+            expect(engine.isVisible(2, doc({ '1': true }))).toBe(true)
+            expect(engine.isVisible(2, doc({ '1': false }))).toBe(false)
+        })
+
+        it('rejects a definition whose condition references a static field', () => {
+            const def = baseDef([
+                { id: 1, type: 'static', text: 'Note' },
+                { id: 2, type: 'string', label: 'Name', condition: { field: 1, op: 'set' } },
+            ])
+            expect(() => new FormEngine(def)).toThrow(DocumentError)
+        })
+    })
+
+    describe('multiselect fields', () => {
+        const options = [
+            { value: 'aml', label: 'AML' },
+            { value: 'kyc', label: 'KYC' },
+            { value: 'cft', label: 'CFT' },
+        ]
+        const withMultiselect = baseDef([
+            { id: 1, type: 'multiselect', label: 'Programmes', options, validation: { required: true } },
+        ])
+
+        it('passes options through to the registry', () => {
+            expect(new FormEngine(withMultiselect).getFieldDef(1)?.options).toEqual(options)
+        })
+
+        it('accepts a valid selection', () => {
+            expect(new FormEngine(withMultiselect).validate(doc({ '1': ['aml', 'kyc'] })).valid).toBe(true)
+        })
+
+        it('reports REQUIRED for an empty selection', () => {
+            const result = new FormEngine(withMultiselect).validate(doc({ '1': [] }))
+            expect(result.fieldErrors.get(1)?.[0]?.rule).toBe('REQUIRED')
+        })
+
+        it('reports INVALID_OPTION for a value outside the options list', () => {
+            const result = new FormEngine(withMultiselect).validate(doc({ '1': ['aml', 'nope'] }))
+            expect(result.fieldErrors.get(1)?.[0]?.rule).toBe('INVALID_OPTION')
+        })
+
+        it('drives conditions with set semantics', () => {
+            const def = baseDef([
+                { id: 1, type: 'multiselect', label: 'Programmes', options },
+                { id: 2, type: 'string', label: 'Details', condition: { field: 1, op: 'in', value: ['cft'] } },
+            ])
+            const engine = new FormEngine(def)
+            expect(engine.isVisible(2, doc({ '1': ['aml'] }))).toBe(false)
+            expect(engine.isVisible(2, doc({ '1': ['aml', 'cft'] }))).toBe(true)
+        })
+
+        it('treats an empty selection as not set in conditions', () => {
+            const def = baseDef([
+                { id: 1, type: 'multiselect', label: 'Programmes', options },
+                { id: 2, type: 'string', label: 'Details', condition: { field: 1, op: 'set' } },
+            ])
+            const engine = new FormEngine(def)
+            expect(engine.isVisible(2, doc({ '1': [] }))).toBe(false)
+            expect(engine.isVisible(2, doc({ '1': ['aml'] }))).toBe(true)
+        })
+
+        it('skips validation for a hidden multiselect', () => {
+            const def = baseDef([
+                { id: 1, type: 'boolean', label: 'Regulated' },
+                {
+                    id: 2,
+                    type: 'multiselect',
+                    label: 'Programmes',
+                    options,
+                    validation: { required: true },
+                    condition: { field: 1, op: 'eq', value: true },
+                },
+            ])
+            expect(new FormEngine(def).validate(doc({ '1': false })).valid).toBe(true)
+        })
+    })
 })

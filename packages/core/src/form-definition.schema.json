@@ -123,6 +123,13 @@
             },
             "additionalProperties": false
         },
+        "multiselectValidation": {
+            "type": "object",
+            "properties": {
+                "required": { "type": "boolean" }
+            },
+            "additionalProperties": false
+        },
         "arrayValidation": {
             "type": "object",
             "properties": {
@@ -326,6 +333,39 @@
             },
             "additionalProperties": false
         },
+        "multiselectField": {
+            "type": "object",
+            "required": ["id", "type", "label", "options"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "multiselect" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
+                "condition": { "$ref": "#/$defs/condition" },
+                "options": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/selectOption" } },
+                "validation": { "$ref": "#/$defs/multiselectValidation" }
+            },
+            "additionalProperties": false
+        },
+        "staticField": {
+            "type": "object",
+            "required": ["id", "type", "text"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "static" },
+                "text": { "type": "string" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
+                "condition": { "$ref": "#/$defs/condition" }
+            },
+            "additionalProperties": false
+        },
         "arrayField": {
             "type": "object",
             "required": ["id", "type", "label", "item"],
@@ -366,8 +406,10 @@
                 { "$ref": "#/$defs/booleanField" },
                 { "$ref": "#/$defs/dateField" },
                 { "$ref": "#/$defs/selectField" },
+                { "$ref": "#/$defs/multiselectField" },
                 { "$ref": "#/$defs/arrayField" },
-                { "$ref": "#/$defs/fileField" }
+                { "$ref": "#/$defs/fileField" },
+                { "$ref": "#/$defs/staticField" }
             ]
         },
 

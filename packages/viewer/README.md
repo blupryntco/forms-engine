@@ -222,9 +222,13 @@ Component map for read-only rendering. Each key maps a field type to a React com
 | `array` | `ArrayViewProps` | Array field display (receives `children` for items, `itemDef`) |
 | `file` | `FileViewProps` | File field display |
 | `section` | `SectionViewProps` | Section wrapper (receives `children`) |
+| `multiselect?` | `MultiselectViewProps` | Multi-select display. Value is `(string \| number)[]`; receives `options`. |
+| `static?` | `StaticViewProps` | Display-only text block. Receives **only** `field` — no `value`, `errors` or `suggestion`. |
 | `error?` | `ErrorProps` | Optional inline error renderer |
 
-All view field props extend `BaseViewFieldProps` which provides `field: FieldContentItem` and `errors: FieldValidationError[]`.
+All view field props extend `BaseViewFieldProps` which provides `field: FieldContentItem` and `errors: FieldValidationError[]`. `StaticViewProps` is the exception: it carries only `field: StaticFieldContentItem`, whose `text` is the content and whose `label` is an optional heading.
+
+`multiselect` and `static` are **optional** keys, so existing maps keep compiling. A field whose component is not supplied renders nothing rather than throwing.
 
 ### EditorComponentMap
 
@@ -240,10 +244,13 @@ Component map for editable rendering. Extends view props with mutation callbacks
 | `array` | `ArrayEditProps` | Array editor with `onAddItem`, `onRemoveItem(index)`, `onMoveItem(from, to)` |
 | `file` | `FileEditProps` | File input with `onChange(value)` |
 | `section` | `SectionEditProps` | Section wrapper (receives `children`) |
+| `multiselect?` | `MultiselectEditProps` | Checkbox group. `onChange((string \| number)[] \| undefined)` — send the whole array. |
+| `static?` | `StaticEditProps` | Display-only text block. Identical to `StaticViewProps`; there is nothing to edit. |
 | `error?` | `ErrorProps` | Optional inline error renderer |
 
 All edit field props extend `BaseEditFieldProps`, which adds `onChange(value)` plus the optional
-`onAcceptSuggestion()` / `onRejectSuggestion()` handlers to the base view props.
+`onAcceptSuggestion()` / `onRejectSuggestion()` handlers to the base view props. `StaticEditProps` does
+not — a static block has no `onChange`, so the same component serves both maps.
 
 Every field component — read-only and editable — also receives the field's authoring metadata on
 `field` (`description`, `placeholder`, `answer_guidelines`, `reference_id`) and an optional
@@ -278,7 +285,7 @@ suggestion and leaves the value alone. See [CHANGES.md](../../CHANGES.md).
 | `FieldSuggestion` | Type | A machine-proposed answer: `{ value, confidence, source }` |
 | `FormSuggestions` | Type | Sparse map of suggestions keyed by stringified field id |
 | `FormValidationResult` | Type | Validation outcome with document-level and field-level errors |
-| `FieldType` | Type | Union of supported field types (`string`, `number`, `boolean`, `date`, `select`, `array`, `file`) |
+| `FieldType` | Type | Union of supported field types (`string`, `number`, `boolean`, `date`, `select`, `multiselect`, `array`, `file`, `static`) |
 | `FileValue` | Type | File field value containing name, MIME type, size, and URL |
 
 ## Documentation

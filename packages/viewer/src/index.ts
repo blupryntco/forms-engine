@@ -1,4 +1,5 @@
 export type {
+    AnyFieldContentItem,
     ArrayItemDef,
     ContentItem,
     DocumentValidationError,
@@ -17,6 +18,7 @@ export type {
     FormValues,
     SectionContentItem,
     SelectOption,
+    StaticFieldContentItem,
 } from '@bluprynt/forms-core'
 export { DocumentError, FormValuesEditor } from '@bluprynt/forms-core'
 
@@ -44,12 +46,16 @@ export type {
     ErrorProps,
     FileEditProps,
     FileViewProps,
+    MultiselectEditProps,
+    MultiselectViewProps,
     NumberEditProps,
     NumberViewProps,
     SectionEditProps,
     SectionViewProps,
     SelectEditProps,
     SelectViewProps,
+    StaticEditProps,
+    StaticViewProps,
     StringEditProps,
     StringViewProps,
     ViewerComponentMap,

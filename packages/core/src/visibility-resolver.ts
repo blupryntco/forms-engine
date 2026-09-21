@@ -1,5 +1,6 @@
 import { ConditionEvaluator } from './condition-evaluator'
 import type { FieldEntry } from './types/field-entry'
+import type { ContentItemType } from './types/field-types'
 import type { FormValues } from './types/form-values'
 
 /**
@@ -16,6 +17,7 @@ export class VisibilityResolver {
     private readonly registry: Map<number, FieldEntry>
     private readonly conditionEvaluator: ConditionEvaluator
     private readonly topologicalOrder: number[]
+    private readonly fieldTypes: Map<number, ContentItemType>
 
     /**
      * @param registry - The engine's field registry.
@@ -26,6 +28,7 @@ export class VisibilityResolver {
         this.registry = registry
         this.conditionEvaluator = conditionEvaluator
         this.topologicalOrder = topologicalOrder
+        this.fieldTypes = new Map([...registry].map(([id, entry]) => [id, entry.type]))
     }
 
     /**
@@ -53,7 +56,11 @@ export class VisibilityResolver {
 
         // Check own condition
         if (entry.condition) {
-            const result = this.conditionEvaluator.evalCondition(entry.condition, { values, now })
+            const result = this.conditionEvaluator.evalCondition(entry.condition, {
+                values,
+                now,
+                fieldTypes: this.fieldTypes,
+            })
             if (!result) return false
         }
 
@@ -103,6 +110,7 @@ export class VisibilityResolver {
                     values,
                     visibilityMap: result,
                     now,
+                    fieldTypes: this.fieldTypes,
                 })
                 result.set(id, visible)
             } else {

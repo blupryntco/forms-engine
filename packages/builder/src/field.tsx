@@ -1,6 +1,6 @@
 import type { FC } from 'react'
 
-import type { ContentItem, FieldContentItem, FieldType } from '@bluprynt/forms-core'
+import type { AnyFieldContentItem, ContentItem, FieldType } from '@bluprynt/forms-core'
 import { useSortable } from '@dnd-kit/react/sortable'
 
 import { SORTABLE_CONFIG } from './core/constants'
@@ -14,7 +14,7 @@ export type FieldRenderProps = {
     index: number
     parentId: number | null
     type: FieldType
-    item: FieldContentItem
+    item: AnyFieldContentItem
     isDragging: boolean
     isSelected: boolean
     onAdd: (item: NewContentItem) => number
@@ -28,7 +28,7 @@ type FieldProps = {
     index: number
     parentId: number | null
     type: FieldType
-    item: FieldContentItem
+    item: AnyFieldContentItem
     isSelected: boolean
     component: FC<FieldRenderProps>
     onAdd: (item: NewContentItem) => number

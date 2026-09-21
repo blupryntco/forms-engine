@@ -6,6 +6,8 @@ export type EditorFormValues = {
     // field-specific
     type: FieldType
     label: string
+    /** Static blocks only: the displayed text. */
+    text: string
     options: SelectOption[]
     item: ArrayItemDef | undefined
     validation: TypeSpecificValidation | undefined

@@ -83,6 +83,19 @@ Date boundaries support relative expressions (see [Relative Dates](#relative-dat
 | `required` | Value is `undefined` or `null` | `REQUIRED` |
 | invalid option | Value does not match any `options[].value` | `INVALID_OPTION` |
 
+#### Multiselect
+
+| Rule | Condition | Error rule name |
+|------|-----------|-----------------|
+| `required` | Value is `undefined`, `null` or an empty array | `REQUIRED` |
+| type check | Value is present but not an array | `TYPE` (`params.expectedType: 'multiselect'`) |
+| invalid option | Any selected value matches no `options[].value` | `INVALID_OPTION` (one field-level error, never per-entry) |
+
+#### Static
+
+Static blocks hold no value and have no validation rules. No validator is registered for them, so they
+never appear in `fieldErrors`.
+
 #### Array
 
 | Rule | Condition | Error rule name |
@@ -141,6 +154,19 @@ A simple condition evaluates a single field:
 | `gte` | Greater than or equal | Yes |
 | `in` | Value is in array | Yes (array) |
 | `notin` | Value is not in array | Yes (array) |
+
+**Multiselect fields** are compared as sets rather than scalars — see the table below. Every other type,
+including `array`, keeps the scalar behaviour described here.
+
+| Operator | Meaning against a `multiselect` |
+|----------|--------------------------------|
+| `set` / `notset` | At least one option chosen / nothing chosen. An empty array is **not** set. |
+| `eq` / `ne` | Set equality against `value`, ignoring order and duplicates. A scalar `value` is read as a one-element set. |
+| `in` / `notin` | Any chosen option appears in `value` / none does. Use `in` for "is `x` selected?". |
+| `lt` `gt` `lte` `gte` | Always `false`. |
+
+A condition may not reference a `section` (`CONDITION_REFS_SECTION`) or a `static` block
+(`CONDITION_REFS_STATIC`); neither holds a value.
 
 **Comparison behavior:**
 - Numbers are compared as numbers.

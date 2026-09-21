@@ -1,6 +1,6 @@
 import type { FC } from 'react'
 
-import type { AddPlaceholderRenderProps } from '@bluprynt/forms-builder'
+import type { AddPlaceholderRenderProps, NewContentItem } from '@bluprynt/forms-builder'
 import { useSetAtom } from 'jotai'
 
 import { editorModeAtom, selectedItemIdAtom } from '@/features/field-editor'
@@ -23,20 +23,25 @@ const FIELD_TYPES = [
     { type: 'boolean', label: 'Boolean' },
     { type: 'date', label: 'Date' },
     { type: 'select', label: 'Select' },
+    { type: 'multiselect', label: 'Multi-select' },
     { type: 'array', label: 'Array' },
     { type: 'file', label: 'File' },
+    { type: 'static', label: 'Static text' },
 ] as const
+
+/** A static block carries `text` instead of a required `label`. */
+const newItemOfType = (type: string): NewContentItem => {
+    if (type === 'section') return { type: 'section', title: '', content: [] }
+    if (type === 'static') return { type: 'static', text: '' }
+    return { type: type as Exclude<(typeof FIELD_TYPES)[number]['type'], 'static'>, label: '' }
+}
 
 export const BuilderAddPlaceholder: FC<AddPlaceholderRenderProps> = ({ depth, onAdd }) => {
     const setSelectedItemId = useSetAtom(selectedItemIdAtom)
     const setEditorMode = useSetAtom(editorModeAtom)
 
     const handleAdd = (type: string) => {
-        const id = onAdd(
-            type === 'section'
-                ? { type: 'section', title: '', content: [] }
-                : { type: type as (typeof FIELD_TYPES)[number]['type'], label: '' },
-        )
+        const id = onAdd(newItemOfType(type))
         setEditorMode('add')
         setSelectedItemId(id)
     }

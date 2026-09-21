@@ -23,6 +23,7 @@ packages/core/
 │   │       ├── boolean.ts
 │   │       ├── date.ts
 │   │       ├── file.ts
+│   │       ├── multiselect.ts
 │   │       ├── number.ts
 │   │       ├── select.ts
 │   │       ├── string.ts
@@ -34,6 +35,7 @@ packages/core/
 │   │   ├── boolean-validator.ts
 │   │   ├── date-validator.ts
 │   │   ├── select-validator.ts
+│   │   ├── multiselect-validator.ts
 │   │   ├── array-validator.ts
 │   │   └── file-validator.ts
 │   ├── form-engine.ts                 # FormEngine — main entry point
@@ -66,7 +68,7 @@ FormEngine (form-engine.ts)
 ├── ConditionEvaluator (condition-evaluator.ts)
 │   └── date-utils.ts
 ├── VisibilityResolver (visibility-resolver.ts)
-│   ├── ConditionEvaluator
+│   ├── ConditionEvaluator          (fed a field-type map, for multiselect set semantics)
 │   └── topologicalOrder (from DependencyGraph)
 └── FieldValidator (field-validator.ts)
     └── validators/
@@ -75,8 +77,9 @@ FormEngine (form-engine.ts)
         ├── BooleanValidator
         ├── DateValidator
         ├── SelectValidator
+        ├── MultiselectValidator
         ├── ArrayValidator
-        └── FileValidator
+        └── FileValidator          (no validator for `static` — it holds no value)
 
 FormDefinitionEditor (form-definition-editor.ts)
 └── types/ (standalone, no engine dependencies)

@@ -2,7 +2,6 @@ import type {
     ArrayItemDef,
     ContentItem,
     FieldContentItem,
-    FieldType,
     FieldValidationError,
     SectionContentItem,
 } from '@bluprynt/forms-core'
@@ -67,7 +66,7 @@ export const getArrayField = (arrayField: FieldContentItem, _index: number): Fie
     const itemDef = arrayField.item as ArrayItemDef
     return {
         id: arrayField.id,
-        type: itemDef.type as FieldType,
+        type: itemDef.type,
         label: itemDef.label,
         description: itemDef.description,
         placeholder: itemDef.placeholder,

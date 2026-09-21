@@ -112,7 +112,7 @@ const [selectedId, setSelectedId] = useState<number | null>(null)
 | `index` | `number` | Position index in the flat list |
 | `parentId` | `number \| null` | Parent section ID, or `null` for root-level |
 | `type` | `FieldType` | Field type (`'string'`, `'number'`, etc.) |
-| `item` | `FieldContentItem` | Full field content item from the definition |
+| `item` | `AnyFieldContentItem` | Full field content item from the definition. This is `FieldContentItem \| StaticFieldContentItem`, so `item.label` is `string \| undefined` — narrow with `item.type === 'static'` to reach `item.text`. |
 | `isDragging` | `boolean` | `true` when this item is being dragged |
 | `isSelected` | `boolean` | `true` when this item's ID matches `selectedId` |
 | `onAdd` | `(item: NewContentItem) => number` | Add a new item to this field's parent section; returns the new ID |

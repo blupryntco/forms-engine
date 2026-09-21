@@ -1,5 +1,6 @@
 import { ConditionEvaluator } from './condition-evaluator'
 import type { Condition } from './types/conditions'
+import type { ContentItemType } from './types/field-types'
 
 const evaluator = new ConditionEvaluator()
 const now = new Date('2024-06-15T00:00:00Z')
@@ -2305,6 +2306,112 @@ describe('ConditionEvaluator', () => {
                     { now, values: { '1': ['a', 'b'] } },
                 ),
             ).toBe(true)
+        })
+    })
+    describe('multiselect semantics (fieldTypes supplied)', () => {
+        const multiselect = new Map<number, ContentItemType>([[1, 'multiselect']])
+        const evalMs = (cond: Condition, value: unknown) =>
+            evaluator.evalCondition(cond, { now, values: { '1': value }, fieldTypes: multiselect })
+
+        describe('set / notset', () => {
+            it('an empty selection is not set', () => {
+                expect(evalMs({ field: 1, op: 'set' }, [])).toBe(false)
+                expect(evalMs({ field: 1, op: 'notset' }, [])).toBe(true)
+            })
+
+            it('a missing value is not set', () => {
+                expect(evalMs({ field: 1, op: 'set' }, undefined)).toBe(false)
+                expect(evalMs({ field: 1, op: 'notset' }, undefined)).toBe(true)
+            })
+
+            it('a non-empty selection is set', () => {
+                expect(evalMs({ field: 1, op: 'set' }, ['a'])).toBe(true)
+                expect(evalMs({ field: 1, op: 'notset' }, ['a'])).toBe(false)
+            })
+        })
+
+        describe('eq / ne', () => {
+            it('compares as a set, ignoring order', () => {
+                expect(evalMs({ field: 1, op: 'eq', value: ['b', 'a'] }, ['a', 'b'])).toBe(true)
+                expect(evalMs({ field: 1, op: 'ne', value: ['b', 'a'] }, ['a', 'b'])).toBe(false)
+            })
+
+            it('ignores duplicates', () => {
+                expect(evalMs({ field: 1, op: 'eq', value: ['a'] }, ['a', 'a'])).toBe(true)
+            })
+
+            it('is false when the selection has extra members', () => {
+                expect(evalMs({ field: 1, op: 'eq', value: ['a'] }, ['a', 'b'])).toBe(false)
+                expect(evalMs({ field: 1, op: 'ne', value: ['a'] }, ['a', 'b'])).toBe(true)
+            })
+
+            it('is false when the selection is missing members', () => {
+                expect(evalMs({ field: 1, op: 'eq', value: ['a', 'b'] }, ['a'])).toBe(false)
+            })
+
+            it('reads a scalar condition value as a one-element set', () => {
+                expect(evalMs({ field: 1, op: 'eq', value: 'a' }, ['a'])).toBe(true)
+                expect(evalMs({ field: 1, op: 'eq', value: 'a' }, ['a', 'b'])).toBe(false)
+            })
+
+            it('matches an empty selection against an empty condition list', () => {
+                expect(evalMs({ field: 1, op: 'eq', value: [] }, [])).toBe(true)
+            })
+        })
+
+        describe('in / notin', () => {
+            it('in is true when any chosen option appears in the list', () => {
+                expect(evalMs({ field: 1, op: 'in', value: ['b', 'c'] }, ['a', 'b'])).toBe(true)
+            })
+
+            it('in is false when no chosen option appears in the list', () => {
+                expect(evalMs({ field: 1, op: 'in', value: ['c', 'd'] }, ['a', 'b'])).toBe(false)
+            })
+
+            it('in is false for an empty selection', () => {
+                expect(evalMs({ field: 1, op: 'in', value: ['a'] }, [])).toBe(false)
+            })
+
+            it('notin is the negation of in', () => {
+                expect(evalMs({ field: 1, op: 'notin', value: ['c', 'd'] }, ['a', 'b'])).toBe(true)
+                expect(evalMs({ field: 1, op: 'notin', value: ['b'] }, ['a', 'b'])).toBe(false)
+            })
+
+            it('both are false when the condition value is not an array', () => {
+                expect(evalMs({ field: 1, op: 'in', value: 'a' }, ['a'])).toBe(false)
+                expect(evalMs({ field: 1, op: 'notin', value: 'a' }, ['a'])).toBe(false)
+            })
+        })
+
+        describe('ordering operators', () => {
+            it.each(['lt', 'gt', 'lte', 'gte'] as const)('%s is always false', (op) => {
+                expect(evalMs({ field: 1, op, value: 1 }, ['a', 'b'])).toBe(false)
+            })
+        })
+
+        it('still honours the hidden-field rule', () => {
+            const ctx = {
+                now,
+                values: { '1': ['a'] },
+                visibilityMap: new Map([[1, false]]),
+                fieldTypes: multiselect,
+            }
+            expect(evaluator.evalCondition({ field: 1, op: 'set' }, ctx)).toBe(false)
+            expect(evaluator.evalCondition({ field: 1, op: 'notset' }, ctx)).toBe(true)
+            expect(evaluator.evalCondition({ field: 1, op: 'in', value: ['a'] }, ctx)).toBe(false)
+        })
+
+        it('leaves array fields on the original scalar semantics', () => {
+            const arrayTypes = new Map<number, ContentItemType>([[1, 'array']])
+            const ctx = { now, values: { '1': [] }, fieldTypes: arrayTypes }
+            expect(evaluator.evalCondition({ field: 1, op: 'set' }, ctx)).toBe(true)
+            expect(
+                evaluator.evalCondition({ field: 1, op: 'in', value: ['a'] }, { ...ctx, values: { '1': ['a'] } }),
+            ).toBe(false)
+        })
+
+        it('leaves every field scalar when fieldTypes is omitted', () => {
+            expect(evaluator.evalCondition({ field: 1, op: 'set' }, { now, values: { '1': [] } })).toBe(true)
         })
     })
 })

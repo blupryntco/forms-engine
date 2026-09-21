@@ -71,7 +71,7 @@ describe('useFormBuilder', () => {
             })
 
             const newItem: NewContentItem = { type: 'string', label: 'New Field' }
-            let id: number
+            let id = 0
             act(() => {
                 id = result.current.handleItemAdd(null, newItem)
             })

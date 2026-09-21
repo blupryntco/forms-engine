@@ -1,6 +1,12 @@
 import type { ComponentType, ReactNode } from 'react'
 
-import type { ArrayItemDef, FileValue, SectionContentItem, SelectOption } from '@bluprynt/forms-core'
+import type {
+    ArrayItemDef,
+    FileValue,
+    SectionContentItem,
+    SelectOption,
+    StaticFieldContentItem,
+} from '@bluprynt/forms-core'
 
 import type { BaseViewFieldProps, ErrorProps } from './base'
 
@@ -23,6 +29,20 @@ export type DateViewProps = BaseViewFieldProps & {
 export type SelectViewProps = BaseViewFieldProps & {
     value: string | number | undefined
     options: SelectOption[]
+}
+
+export type MultiselectViewProps = BaseViewFieldProps & {
+    value: (string | number)[] | undefined
+    options: SelectOption[]
+}
+
+/**
+ * Props for a `static` block. Static blocks hold no value, so they receive
+ * neither `value`, `errors` nor `suggestion` -- only the field itself, whose
+ * `text` is the content to render and whose `label` is an optional heading.
+ */
+export type StaticViewProps = {
+    field: StaticFieldContentItem
 }
 
 export type ArrayViewProps = BaseViewFieldProps & {
@@ -49,5 +69,9 @@ export type ViewerComponentMap = {
     array: ComponentType<ArrayViewProps>
     file: ComponentType<FileViewProps>
     section: ComponentType<SectionViewProps>
+    /** Optional: fields of this type render nothing when no component is supplied. */
+    multiselect?: ComponentType<MultiselectViewProps>
+    /** Optional: fields of this type render nothing when no component is supplied. */
+    static?: ComponentType<StaticViewProps>
     error?: ComponentType<ErrorProps>
 }

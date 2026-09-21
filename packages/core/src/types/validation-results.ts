@@ -60,6 +60,7 @@ export type FieldValidationError = {
  * | `NESTING_DEPTH` | A section is nested deeper than the allowed 3 levels. |
  * | `UNKNOWN_FIELD_REF` | A condition references a field id that does not exist in the form. |
  * | `CONDITION_REFS_SECTION` | A condition references a section id; sections have no value to compare. |
+ * | `CONDITION_REFS_STATIC` | A condition references a static field id; static blocks have no value to compare. |
  * | `INVALID_MIN_MAX` | A field's minimum constraint exceeds its maximum constraint. |
  * | `INVALID_REGEX` | String field `pattern` is not a valid regular expression. |
  * | `CIRCULAR_DEPENDENCY` | Condition dependencies form a cycle (A depends on B depends on A). |
@@ -74,6 +75,7 @@ export type DocumentValidationErrorCode =
     | 'NESTING_DEPTH'
     | 'UNKNOWN_FIELD_REF'
     | 'CONDITION_REFS_SECTION'
+    | 'CONDITION_REFS_STATIC'
     | 'INVALID_MIN_MAX'
     | 'INVALID_REGEX'
     | 'CIRCULAR_DEPENDENCY'

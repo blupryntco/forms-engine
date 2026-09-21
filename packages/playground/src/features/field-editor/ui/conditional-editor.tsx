@@ -18,12 +18,17 @@ export type FieldInfo = {
     options?: SelectOption[]
 }
 
+/**
+ * Collects the fields a condition may reference. Static blocks are skipped:
+ * they hold no value, and the engine rejects a definition whose condition
+ * points at one (`CONDITION_REFS_STATIC`).
+ */
 export const collectFields = (content: ContentItem[], excludeId?: number): FieldInfo[] => {
     const result: FieldInfo[] = []
     for (const item of content) {
         if (item.type === 'section') {
             result.push(...collectFields((item as SectionContentItem).content, excludeId))
-        } else if (item.id !== excludeId) {
+        } else if (item.type !== 'static' && item.id !== excludeId) {
             const f = item as FieldContentItem
             result.push({ id: f.id, label: f.label, type: f.type, options: f.options })
         }
@@ -70,6 +75,26 @@ const ValueInput: FC<{
 }> = ({ field, op, value, onChange }) => {
     if (!opNeedsValue(op)) return null
 
+    if ((op === 'in' || op === 'notin') && field?.type === 'multiselect' && field.options?.length) {
+        const chosen = Array.isArray(value) ? value : []
+        return (
+            <div className="flex flex-wrap items-center gap-2">
+                {field.options.map((o) => (
+                    <label key={String(o.value)} className="flex items-center gap-1 text-sm text-gray-700">
+                        <input
+                            type="checkbox"
+                            checked={chosen.includes(o.value)}
+                            onChange={(e) =>
+                                onChange(e.target.checked ? [...chosen, o.value] : chosen.filter((v) => v !== o.value))
+                            }
+                        />
+                        {o.label}
+                    </label>
+                ))}
+            </div>
+        )
+    }
+
     if (op === 'in' || op === 'notin') {
         return (
             <input
@@ -99,6 +124,27 @@ const ValueInput: FC<{
                 <option value="true">True</option>
                 <option value="false">False</option>
             </select>
+        )
+    }
+
+    if (field?.type === 'multiselect' && field.options?.length) {
+        const chosen = Array.isArray(value) ? value : []
+        return (
+            <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-gray-400">exactly:</span>
+                {field.options.map((o) => (
+                    <label key={String(o.value)} className="flex items-center gap-1 text-sm text-gray-700">
+                        <input
+                            type="checkbox"
+                            checked={chosen.includes(o.value)}
+                            onChange={(e) =>
+                                onChange(e.target.checked ? [...chosen, o.value] : chosen.filter((v) => v !== o.value))
+                            }
+                        />
+                        {o.label}
+                    </label>
+                ))}
+            </div>
         )
     }
 

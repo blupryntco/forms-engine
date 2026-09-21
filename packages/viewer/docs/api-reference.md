@@ -292,10 +292,12 @@ Props for read-only field components used in `ViewerComponentMap`. Each type pro
 | `BooleanViewProps` | Read-only boolean field. Value is the toggle state. |
 | `DateViewProps` | Read-only date field. Value is an ISO 8601 date string. |
 | `SelectViewProps` | Read-only select field. Includes the selected value and the list of available options. |
+| `MultiselectViewProps` | Read-only multi-select field. Value is `(string \| number)[]`; includes the list of available options. |
+| `StaticViewProps` | Display-only text block. Carries only `field: StaticFieldContentItem` — no `value`, `errors` or `suggestion`. |
 | `ArrayViewProps` | Read-only array field. Includes the array values, the item schema definition, and pre-rendered children for each item. |
 | `FileViewProps` | Read-only file field. Value contains file metadata (name, MIME type, size, URL). |
 | `SectionViewProps` | Read-only section wrapper. Receives the section definition and its children. |
-| `ViewerComponentMap` | A mapping from each field type to its read-only component. Passed to `FormViewer`. Optional `error` component for inline validation. |
+| `ViewerComponentMap` | A mapping from each field type to its read-only component. Passed to `FormViewer`. The `multiselect`, `static` and `error` keys are optional; a field with no component renders nothing. |
 
 ### Editor Types
 
@@ -308,10 +310,12 @@ Props for editable field components used in `EditorComponentMap`. Each type exte
 | `BooleanEditProps` | Editable boolean field with typed `onChange`. |
 | `DateEditProps` | Editable date field with typed `onChange`. |
 | `SelectEditProps` | Editable select field with typed `onChange` and available options. |
+| `MultiselectEditProps` | Editable multi-select field. `onChange((string \| number)[] \| undefined)` replaces the whole selection. |
+| `StaticEditProps` | Alias of `StaticViewProps` — a static block has nothing to edit and no `onChange`. |
 | `ArrayEditProps` | Editable array field with `onChange`, `onAddItem`, `onRemoveItem`, `onMoveItem`, and pre-rendered children. |
 | `FileEditProps` | Editable file field with typed `onChange`. |
 | `SectionEditProps` | Editable section wrapper. Receives the section definition and its children. |
-| `EditorComponentMap` | A mapping from each field type to its editable component. Passed to `FormEditor`. Optional `error` component for inline validation. |
+| `EditorComponentMap` | A mapping from each field type to its editable component. Passed to `FormEditor`. The `multiselect`, `static` and `error` keys are optional; a field with no component renders nothing. |
 | `EditorFieldProps` | Change handlers provided to each field by the editor: `onChange`, `onAcceptSuggestion`, `onRejectSuggestion`, plus optional array manipulation handlers. |
 | `EditorArrayItemProps` | Change handler provided for a single array item. |
 
@@ -339,7 +343,9 @@ Props for editable field components used in `EditorComponentMap`. Each type exte
 | `FieldContentItem` | A field node in a form definition tree. |
 | `FieldEntry` | Flattened field registry entry produced by `FormEngine`. |
 | `FieldSuggestion` | A machine-proposed answer: `{ value, confidence (0..1), source }`. |
-| `FieldType` | Union of all supported field type identifiers. |
+| `FieldType` | Union of all supported field type identifiers (`string`, `number`, `boolean`, `date`, `select`, `multiselect`, `array`, `file`, `static`). |
+| `StaticFieldContentItem` | A display-only block: `{ id, type: 'static', text, label?, … }`. Holds no value. |
+| `AnyFieldContentItem` | `FieldContentItem \| StaticFieldContentItem` — every non-section node. |
 | `FieldValidationError` | A field-level validation error with field ID, rule, message, and optional item index. |
 | `FileValue` | File metadata: name, MIME type, size, and URL. |
 | `FormDefinition` | Top-level form schema describing the entire form structure. |

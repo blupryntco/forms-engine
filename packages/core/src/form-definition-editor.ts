@@ -1,14 +1,27 @@
 import type { ArrayItemDef } from './types/array-item-def'
 import type { Condition } from './types/conditions'
-import type { ContentItem, FieldContentItem, FormDefinition, SectionContentItem } from './types/form-definition'
+import type {
+    AnyFieldContentItem,
+    ContentItem,
+    FieldContentItem,
+    FormDefinition,
+    SectionContentItem,
+    StaticFieldContentItem,
+} from './types/form-definition'
 import type { SelectOption } from './types/select-option'
 import type { TypeSpecificValidation } from './types/validation/type-specific'
 
 /**
  * Descriptor for a field to be added via the editor.
  * `id` is optional -- when omitted the editor auto-assigns the next available id.
+ *
+ * Written as an explicit union rather than `Omit<AnyFieldContentItem, 'id'>`
+ * because `Omit` does not distribute over a union -- it would collapse to the
+ * properties the two members share, dropping `label` and `text`.
  */
-export type FieldDescriptor = Omit<FieldContentItem, 'id'> & { id?: number }
+export type FieldDescriptor =
+    | (Omit<FieldContentItem, 'id'> & { id?: number })
+    | (Omit<StaticFieldContentItem, 'id'> & { id?: number })
 
 /**
  * Descriptor for a section to be added via the editor.
@@ -104,7 +117,7 @@ export class FormDefinitionEditor {
     addField(descriptor: FieldDescriptor, parentId?: number, index?: number): this {
         const id = descriptor.id ?? this.nextId()
         this.assertIdAvailable(id)
-        const field: FieldContentItem = { ...descriptor, id }
+        const field: AnyFieldContentItem = { ...descriptor, id }
         this.insertItem(field, parentId, index)
         return this
     }
@@ -136,7 +149,7 @@ export class FormDefinitionEditor {
      * Cannot change `id` or `type`. Use {@link removeItem} + {@link addField}
      * to change the type.
      */
-    updateField(id: number, updates: Partial<Omit<FieldContentItem, 'id' | 'type'>>): this {
+    updateField(id: number, updates: Partial<Omit<FieldContentItem, 'id' | 'type'> & { text: string }>): this {
         const item = this.findItem(id)
         if (!item) throw new Error(`Item with id ${id} not found`)
         if (item.type === 'section') throw new Error(`Item ${id} is a section, not a field`)
@@ -242,6 +255,7 @@ export class FormDefinitionEditor {
         if (!item) throw new Error(`Item with id ${id} not found`)
 
         if (item.type === 'section') throw new Error('Sections do not have validation')
+        if (item.type === 'static') throw new Error('Static fields do not have validation')
 
         const field = item as FieldContentItem
 
@@ -265,13 +279,14 @@ export class FormDefinitionEditor {
     }
 
     /**
-     * Sets the select options for a `select` field.
+     * Sets the options for a `select` or `multiselect` field.
      */
     setOptions(id: number, options: SelectOption[]): this {
         const item = this.findItem(id)
         if (!item) throw new Error(`Item with id ${id} not found`)
 
-        if (item.type !== 'select') throw new Error(`Field ${id} is not a select field`)
+        if (item.type !== 'select' && item.type !== 'multiselect')
+            throw new Error(`Field ${id} is not a select or multiselect field`)
 
         const field = item as FieldContentItem
         field.options = options
@@ -303,8 +318,24 @@ export class FormDefinitionEditor {
 
         if (item.type === 'section') throw new Error('Sections use title, not label')
 
-        const field = item as FieldContentItem
+        const field = item as AnyFieldContentItem
         field.label = label
+
+        return this
+    }
+
+    /**
+     * Sets the displayed text of a `static` field.
+     *
+     * @throws If the id is not found or does not refer to a static field.
+     */
+    setText(id: number, text: string): this {
+        const item = this.findItem(id)
+        if (!item) throw new Error(`Item with id ${id} not found`)
+
+        if (item.type !== 'static') throw new Error(`Field ${id} is not a static field`)
+
+        item.text = text
 
         return this
     }

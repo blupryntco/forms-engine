@@ -28,6 +28,7 @@ Checks logical correctness that JSON Schema alone cannot express.
 | `NESTING_DEPTH` | 2 | Section nested deeper than 3 levels |
 | `UNKNOWN_FIELD_REF` | 2 | Condition references a field ID not in the schema |
 | `CONDITION_REFS_SECTION` | 2 | Condition references a section (sections have no values) |
+| `CONDITION_REFS_STATIC` | 2 | Condition references a static block (static blocks have no values) |
 | `INVALID_MIN_MAX` | 2 | A field's minimum constraint exceeds its maximum constraint |
 | `INVALID_REGEX` | 2 | String: `pattern` is not a valid regex |
 | `CIRCULAR_DEPENDENCY` | 2 | Condition dependencies form a cycle |

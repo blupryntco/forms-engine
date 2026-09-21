@@ -215,9 +215,10 @@ editor.moveItem(5, undefined, 0) // move field 5 to top-level, first position
 ```ts
 editor.setValidation(3, { required: true, minLength: 2 })
 editor.setCondition(5, { field: 3, op: 'set' })
-editor.setOptions(7, [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }])
+editor.setOptions(7, [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }])   // select or multiselect
 editor.setArrayItem(8, { type: 'string', label: 'Item' })
 editor.setLabel(3, 'New Label')
+editor.setText(9, 'Answers are checked against your filings.')   // static blocks only
 editor.setFieldDescription(3, 'Help text')
 editor.setPlaceholder(3, 'e.g. Acme Ltd')
 editor.setAnswerGuidelines(3, 'Use the name as registered')
@@ -552,10 +553,12 @@ None of these validate that `fieldId` refers to an existing, non-section field �
 | Type | Description |
 |------|-------------|
 | `FormDefinition` | Top-level schema: `{ id, version, title, description?, content[] }` |
-| `ContentItem` | Union: `FieldContentItem \| SectionContentItem` |
-| `FieldContentItem` | Field node: `{ id, type, label, description?, placeholder?, answer_guidelines?, reference_id?, condition?, validation?, options?, item? }` |
+| `ContentItem` | Union: `AnyFieldContentItem \| SectionContentItem` |
+| `AnyFieldContentItem` | Union: `FieldContentItem \| StaticFieldContentItem` — every non-section node |
+| `FieldContentItem` | Value-producing field node: `{ id, type, label, description?, placeholder?, answer_guidelines?, reference_id?, condition?, validation?, options?, item? }`. `type` excludes `'static'`. |
+| `StaticFieldContentItem` | Display-only block: `{ id, type: 'static', text, label?, description?, placeholder?, answer_guidelines?, reference_id?, condition? }` — no value, no validation, no options |
 | `SectionContentItem` | Section node: `{ id, type: 'section', title, description?, placeholder?, answer_guidelines?, reference_id?, condition?, content[] }` |
-| `FieldType` | `'string' \| 'number' \| 'boolean' \| 'date' \| 'select' \| 'array' \| 'file'` |
+| `FieldType` | `'string' \| 'number' \| 'boolean' \| 'date' \| 'select' \| 'multiselect' \| 'array' \| 'file' \| 'static'` |
 | `ContentItemType` | `FieldType \| 'section'` |
 | `FormValues` | `Record<string, unknown>` — flat map keyed by stringified field ID |
 | `FormDocument` | `{ form: { id, version, submittedAt }, values: FormValues, suggestions?: FormSuggestions }` |
@@ -577,16 +580,17 @@ None of these validate that `fieldId` refers to an existing, non-section field �
 |------|-------------|
 | `FormValidationResult` | `{ valid: boolean, fieldErrors: Map<number, FieldValidationError[]>, documentErrors?: DocumentValidationError[] }` |
 | `FieldValidationError` | `{ fieldId, rule, message, params?, itemIndex? }` |
-| `DocumentValidationErrorCode` | `'SCHEMA_INVALID' \| 'DUPLICATE_ID' \| 'NESTING_DEPTH' \| 'UNKNOWN_FIELD_REF' \| 'CONDITION_REFS_SECTION' \| 'INVALID_MIN_MAX' \| 'INVALID_REGEX' \| 'CIRCULAR_DEPENDENCY' \| 'FORM_ID_MISMATCH' \| 'FORM_VERSION_MISMATCH' \| 'FORM_SUBMITTED_AT_MISSING' \| 'FORM_SUBMITTED_AT_INVALID'` |
+| `DocumentValidationErrorCode` | `'SCHEMA_INVALID' \| 'DUPLICATE_ID' \| 'NESTING_DEPTH' \| 'UNKNOWN_FIELD_REF' \| 'CONDITION_REFS_SECTION' \| 'CONDITION_REFS_STATIC' \| 'INVALID_MIN_MAX' \| 'INVALID_REGEX' \| 'CIRCULAR_DEPENDENCY' \| 'FORM_ID_MISMATCH' \| 'FORM_VERSION_MISMATCH' \| 'FORM_SUBMITTED_AT_MISSING' \| 'FORM_SUBMITTED_AT_INVALID'` |
 | `DocumentValidationError` | `{ code: DocumentValidationErrorCode, message: string, params?: Record<string, unknown>, itemId?: number }` |
 | `StringValidation` | `{ required?, minLength?, maxLength?, pattern?, patternMessage? }` |
 | `NumberValidation` | `{ required?, min?, max? }` |
 | `BooleanValidation` | `{ required? }` |
 | `DateValidation` | `{ required?, minDate?, maxDate? }` |
 | `SelectValidation` | `{ required? }` |
+| `MultiselectValidation` | `{ required? }` — an absent value and an empty array both fail `required` |
 | `ArrayValidation` | `{ minItems?, maxItems? }` |
 | `FileValidation` | `{ required? }` |
-| `TypeSpecificValidation` | Union of all type-specific validation shapes: `StringValidation \| NumberValidation \| BooleanValidation \| DateValidation \| SelectValidation \| ArrayValidation \| FileValidation` |
+| `TypeSpecificValidation` | Union of all type-specific validation shapes: `StringValidation \| NumberValidation \| BooleanValidation \| DateValidation \| SelectValidation \| MultiselectValidation \| ArrayValidation \| FileValidation` |
 | `FieldValidationRule` | `'REQUIRED' \| 'TYPE' \| 'MIN_LENGTH' \| 'MAX_LENGTH' \| 'PATTERN' \| 'MIN' \| 'MAX' \| 'MIN_DATE' \| 'MAX_DATE' \| 'INVALID_DATE' \| 'INVALID_OPTION' \| 'MIN_ITEMS' \| 'MAX_ITEMS'` |
 
 ### Other
@@ -595,7 +599,7 @@ None of these validate that `fieldId` refers to an existing, non-section field �
 |------|-------------|
 | `FieldEntry` | Flattened registry entry: `{ id, type, condition, validation, parentId, options, item, label, title }` |
 | `SelectOption` | `{ value: string \| number, label: string }` |
-| `ArrayItemDef` | `{ type, label, description?, placeholder?, answer_guidelines?, reference_id?, validation?, options? }` — no `id`, no nested arrays |
+| `ArrayItemDef` | `{ type, label, description?, placeholder?, answer_guidelines?, reference_id?, validation?, options? }` — no `id`; `type` excludes `'array'`, `'multiselect'` and `'static'` |
 | `FileValue` | `{ name, mimeType, size, url }` |
 | `DocumentError` | Error class with `.errors: DocumentValidationError[]` — thrown on definition validation failure or by `loadDocument()` on id/version mismatch |
 | `EvaluationContext` | `{ values, visibilityMap?, now }` |

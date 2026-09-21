@@ -117,6 +117,12 @@ export const FormItems: FC<FormItemsProps> = ({
             if (ErrorComponent && errors.length > 0) {
                 elements.push(<ErrorComponent key={`${item.id}-error`} errors={errors} field={item} />)
             }
+        } else if (item.type === 'static') {
+            // Static blocks hold no value: no errors, no suggestion, nothing to change.
+            const StaticComponent = components.static as React.ComponentType<Record<string, unknown>> | undefined
+            if (!StaticComponent) continue
+
+            elements.push(<StaticComponent key={item.id} field={item} />)
         } else {
             const errors = getFieldErrors(fieldErrors, item.id)
             const modeProps = renderFieldProps?.(item) ?? {}
@@ -131,10 +137,14 @@ export const FormItems: FC<FormItemsProps> = ({
             const suggestion = suggestions?.[String(item.id)]
             if (suggestion) fieldProps.suggestion = suggestion
 
-            if (item.type === 'select') fieldProps.options = (item as FieldContentItem).options ?? []
+            if (item.type === 'select' || item.type === 'multiselect')
+                fieldProps.options = (item as FieldContentItem).options ?? []
 
             const fieldType = item.type as keyof Omit<ViewerComponentMap, 'array' | 'section' | 'error'>
-            const FieldComponent = components[fieldType] as React.ComponentType<Record<string, unknown>>
+            const FieldComponent = components[fieldType] as React.ComponentType<Record<string, unknown>> | undefined
+
+            // Optional map keys (e.g. `multiselect`) may be absent; skip rather than crash.
+            if (!FieldComponent) continue
 
             elements.push(<FieldComponent key={item.id} {...fieldProps} />)
 

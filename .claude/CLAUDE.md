@@ -27,6 +27,8 @@ A form document may also carry an optional `suggestions` block alongside `values
 
 Every field and section also accepts four optional authoring-metadata properties: `description`, `placeholder`, `answer_guidelines` and `reference_id` (all strings). They are presentation metadata — the engine never reads them.
 
+A `static` block is the one field type whose `label` is optional; it carries a required `text` property instead, and accepts no `validation` or `options`. Neither `static` nor `multiselect` may be used as an `array` item type.
+
 Each field in a form has a type. The following types must be supported:
 
 | Type | Description |
@@ -36,8 +38,10 @@ Each field in a form has a type. The following types must be supported:
 | **boolean** | True/false toggle |
 | **date** | Date picker |
 | **select** | Single selection from a predefined list of options |
+| **multiselect** | Any number of selections from a predefined list; the value is an array of the chosen options' values |
 | **array** | A list of values (any of existing field types described above) |
 | **file** | File upload (stores name, MIME type, size, URL) |
+| **static** | Display-only text (`text` property). Holds no value, is never validated, and cannot be referenced by a condition. |
 
 Future consideration: custom field types with type-specific properties.
 
@@ -52,8 +56,10 @@ Each field may have validation rules depending on its type:
 | **boolean** | required |
 | **date** | required, min date, max date |
 | **select** | required |
+| **multiselect** | required (an absent value and an empty array both fail) |
 | **array** | min items, max items |
 | **file** | required |
+| **static** | *(none — static blocks hold no value)* |
 
 ## 5. Sections
 
@@ -82,11 +88,12 @@ Conditionals control the visibility of individual fields or entire sections base
 
 ### 6.2 Conditional Behavior
 
-- A conditional references another field in the form by its identifier.
+- A conditional references another field in the form by its identifier. Sections and `static` blocks hold no value and cannot be referenced.
 - When a conditional evaluates to false, the associated field or section must be hidden.
 - When a conditional evaluates to true, the associated field or section must be shown.
 - Conditionals must be evaluated dynamically as form values change.
 - When a conditional field is hidden we do not consider it in form validation at all.
+- Against a `multiselect` field the operators are set-oriented: `set` means at least one option is chosen, `eq`/`ne` compare the whole selection as a set (order- and duplicate-insensitive), `in`/`notin` test whether *any* chosen option appears in the given list, and the ordering operators are always false. Every other type — including `array` — keeps scalar semantics.
 
 ## 7. Workflows
 

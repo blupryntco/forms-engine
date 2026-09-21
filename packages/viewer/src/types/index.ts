@@ -7,9 +7,11 @@ export type {
     EditorComponentMap,
     EditorFieldProps,
     FileEditProps,
+    MultiselectEditProps,
     NumberEditProps,
     SectionEditProps,
     SelectEditProps,
+    StaticEditProps,
     StringEditProps,
 } from './editor'
 export type {
@@ -17,9 +19,11 @@ export type {
     BooleanViewProps,
     DateViewProps,
     FileViewProps,
+    MultiselectViewProps,
     NumberViewProps,
     SectionViewProps,
     SelectViewProps,
+    StaticViewProps,
     StringViewProps,
     ViewerComponentMap,
 } from './viewer'

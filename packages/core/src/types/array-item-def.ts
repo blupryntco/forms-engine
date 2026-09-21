@@ -4,7 +4,8 @@ import type { SelectOption } from './select-option'
 /**
  * Schema for individual items inside an `array` field.
  *
- * Nested arrays are not allowed, so `type` excludes `'array'`.
+ * Nested arrays are not allowed, so `type` excludes `'array'`. `static`
+ * (no value) and `multiselect` (an array value of its own) are excluded too.
  * Items do not have their own id or condition -- they inherit the parent
  * array field's identity and visibility.
  *
@@ -19,7 +20,7 @@ import type { SelectOption } from './select-option'
  *   allowed values.
  */
 export type ArrayItemDef = {
-    type: Exclude<FieldType, 'array'>
+    type: Exclude<FieldType, 'array' | 'static' | 'multiselect'>
     label: string
     description?: string
     placeholder?: string

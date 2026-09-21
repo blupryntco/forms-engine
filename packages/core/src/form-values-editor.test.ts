@@ -788,4 +788,64 @@ describe('FormValuesEditor', () => {
             expect(new FormValuesEditor(simpleDef, existing).getSuggestion(1)).toEqual(suggestion('Acme Ltd'))
         })
     })
+    describe('static and multiselect fields', () => {
+        const def = baseDef([
+            { id: 1, type: 'static', text: 'Read this.' },
+            {
+                id: 2,
+                type: 'multiselect',
+                label: 'Programmes',
+                options: [
+                    { value: 'aml', label: 'AML' },
+                    { value: 'kyc', label: 'KYC' },
+                ],
+                validation: { required: true },
+            },
+        ])
+
+        it('setFieldValue throws for a static field', () => {
+            const editor = new FormValuesEditor(def, doc())
+            expect(() => editor.setFieldValue(1, 'anything')).toThrow('Item 1 is a static field and holds no value')
+        })
+
+        it('setSuggestion throws for a static field', () => {
+            const editor = new FormValuesEditor(def, doc())
+            expect(() => editor.setSuggestion(1, { value: 'x', confidence: 0.5, source: 'doc' })).toThrow(
+                'Item 1 is a static field and holds no value',
+            )
+        })
+
+        it('writes a multiselect value wholesale', () => {
+            const editor = new FormValuesEditor(def, doc())
+            editor.setFieldValue(2, ['aml', 'kyc'])
+            expect(editor.getFieldValue(2)).toEqual(['aml', 'kyc'])
+            expect(editor.validate().valid).toBe(true)
+        })
+
+        it('reports an empty multiselect as required', () => {
+            const editor = new FormValuesEditor(def, doc())
+            editor.setFieldValue(2, [])
+            expect(editor.validate().fieldErrors.get(2)?.[0]?.rule).toBe('REQUIRED')
+        })
+
+        it('rejects array item operations on a multiselect field', () => {
+            const editor = new FormValuesEditor(def, doc({ '2': ['aml'] }))
+            expect(() => editor.addArrayItem(2, 'kyc')).toThrow()
+            expect(() => editor.removeArrayItem(2, 0)).toThrow()
+            expect(() => editor.moveArrayItem(2, 0, 1)).toThrow()
+        })
+
+        it('never writes a key for a static field', () => {
+            const editor = new FormValuesEditor(def, doc())
+            editor.setFieldValue(2, ['aml'])
+            expect(Object.keys(editor.toJSON().values)).toEqual(['2'])
+        })
+
+        it('accepts a suggestion on a multiselect field as a whole array', () => {
+            const editor = new FormValuesEditor(def, doc())
+            editor.setSuggestion(2, { value: ['aml', 'kyc'], confidence: 0.9, source: 'Licence register' })
+            editor.acceptSuggestion(2)
+            expect(editor.getFieldValue(2)).toEqual(['aml', 'kyc'])
+        })
+    })
 })

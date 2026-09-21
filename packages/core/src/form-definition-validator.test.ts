@@ -975,13 +975,15 @@ describe('FormDefinitionValidator.validateSchema', () => {
         }
 
         const fieldOfType = (type: string): Record<string, unknown> => {
+            if (type === 'static') return { id: 1, type, text: 'Read this first.' }
+
             const base: Record<string, unknown> = { id: 1, type, label: 'Field' }
-            if (type === 'select') base.options = [{ value: 'a', label: 'A' }]
+            if (type === 'select' || type === 'multiselect') base.options = [{ value: 'a', label: 'A' }]
             if (type === 'array') base.item = { type: 'string', label: 'Item' }
             return base
         }
 
-        const FIELD_TYPES = ['string', 'number', 'boolean', 'date', 'select', 'array', 'file']
+        const FIELD_TYPES = ['string', 'number', 'boolean', 'date', 'select', 'multiselect', 'array', 'file', 'static']
 
         it.each(FIELD_TYPES)('accepts the metadata on a %s field', (type) => {
             expect(schemaValid({ ...minimal, content: [{ ...fieldOfType(type), ...METADATA }] })).toBe(true)
@@ -1036,6 +1038,162 @@ describe('FormDefinitionValidator.validateSchema', () => {
             for (const key of ['placeholder', 'answer_guidelines', 'reference_id']) {
                 expect(issues.some((i) => i.message.includes(`"${key}"`))).toBe(false)
             }
+        })
+    })
+    describe('static fields', () => {
+        it('accepts a static field with only id, type and text', () => {
+            expect(schemaValid({ ...minimal, content: [{ id: 1, type: 'static', text: 'Read this first.' }] })).toBe(
+                true,
+            )
+        })
+
+        it('accepts a static field with an optional label', () => {
+            const content = [{ id: 1, type: 'static', text: 'Read this first.', label: 'Before you begin' }]
+            expect(schemaValid({ ...minimal, content })).toBe(true)
+        })
+
+        it('accepts a static field with a condition', () => {
+            const content = [
+                { id: 1, type: 'boolean', label: 'Agree' },
+                { id: 2, type: 'static', text: 'Thanks.', condition: { field: 1, op: 'eq', value: true } },
+            ]
+            expect(schemaValid({ ...minimal, content })).toBe(true)
+        })
+
+        it('rejects a static field without text', () => {
+            const issues = schemaIssues({ ...minimal, content: [{ id: 1, type: 'static', label: 'Note' }] })
+            expect(issues.some((i) => i.code === 'SCHEMA_INVALID' && i.message.includes('"text"'))).toBe(true)
+        })
+
+        it('rejects validation on a static field', () => {
+            const content = [{ id: 1, type: 'static', text: 'Note', validation: { required: true } }]
+            const issues = schemaIssues({ ...minimal, content })
+            expect(issues.some((i) => i.code === 'SCHEMA_INVALID' && i.message.includes('"validation"'))).toBe(true)
+        })
+
+        it('rejects options on a static field', () => {
+            const content = [{ id: 1, type: 'static', text: 'Note', options: [{ value: 'a', label: 'A' }] }]
+            const issues = schemaIssues({ ...minimal, content })
+            expect(issues.some((i) => i.code === 'SCHEMA_INVALID' && i.message.includes('"options"'))).toBe(true)
+        })
+
+        it('rejects a static field as an array item', () => {
+            const content = [{ id: 1, type: 'array', label: 'Notes', item: { type: 'static', text: 'Note' } }]
+            expect(schemaValid({ ...minimal, content })).toBe(false)
+        })
+
+        it('reports CONDITION_REFS_STATIC when a condition references a static field', () => {
+            const registry = new Map<number, FieldEntry>([
+                [1, makeEntry(1, { type: 'static' })],
+                [2, makeEntry(2, { condition: { field: 1, op: 'set' } })],
+            ])
+            const issues = validator.validate(minimalDef([]), registry)
+            expect(issues.some((i) => i.code === 'CONDITION_REFS_STATIC' && i.itemId === 2)).toBe(true)
+        })
+
+        it('still reports CONDITION_REFS_SECTION for a section reference', () => {
+            const registry = new Map<number, FieldEntry>([
+                [1, makeEntry(1, { type: 'section' })],
+                [2, makeEntry(2, { condition: { field: 1, op: 'set' } })],
+            ])
+            const issues = validator.validate(minimalDef([]), registry)
+            expect(issues.some((i) => i.code === 'CONDITION_REFS_SECTION' && i.itemId === 2)).toBe(true)
+            expect(issues.some((i) => i.code === 'CONDITION_REFS_STATIC')).toBe(false)
+        })
+
+        it('accepts a condition on a static field that references a real field', () => {
+            const registry = new Map<number, FieldEntry>([
+                [1, makeEntry(1, { type: 'boolean' })],
+                [2, makeEntry(2, { type: 'static', condition: { field: 1, op: 'eq', value: true } })],
+            ])
+            expect(validator.validate(minimalDef([]), registry)).toEqual([])
+        })
+    })
+
+    describe('multiselect fields', () => {
+        const multiselect = (extra: Record<string, unknown> = {}) => ({
+            id: 1,
+            type: 'multiselect',
+            label: 'Licences held',
+            options: [
+                { value: 'a', label: 'A' },
+                { value: 'b', label: 'B' },
+            ],
+            ...extra,
+        })
+
+        it('accepts a multiselect field with options', () => {
+            expect(schemaValid({ ...minimal, content: [multiselect()] })).toBe(true)
+        })
+
+        it('accepts required validation', () => {
+            expect(schemaValid({ ...minimal, content: [multiselect({ validation: { required: true } })] })).toBe(true)
+        })
+
+        it('rejects a multiselect field without options', () => {
+            const issues = schemaIssues({ ...minimal, content: [{ id: 1, type: 'multiselect', label: 'L' }] })
+            expect(issues.some((i) => i.code === 'SCHEMA_INVALID' && i.message.includes('"options"'))).toBe(true)
+        })
+
+        it('rejects an empty options list', () => {
+            expect(schemaValid({ ...minimal, content: [multiselect({ options: [] })] })).toBe(false)
+        })
+
+        it('rejects unsupported validation rules', () => {
+            expect(schemaValid({ ...minimal, content: [multiselect({ validation: { minItems: 1 } })] })).toBe(false)
+        })
+
+        it('rejects a multiselect field as an array item', () => {
+            const item = { type: 'multiselect', label: 'Item', options: [{ value: 'a', label: 'A' }] }
+            expect(schemaValid({ ...minimal, content: [{ id: 1, type: 'array', label: 'Rows', item }] })).toBe(false)
+        })
+    })
+
+    describe('backward compatibility', () => {
+        it('accepts a definition written before static and multiselect existed', () => {
+            const legacy = {
+                id: 'employee-onboarding',
+                version: '1.0.0',
+                title: 'Employee Onboarding',
+                content: [
+                    {
+                        id: 1,
+                        type: 'section',
+                        title: 'Personal Information',
+                        content: [
+                            { id: 2, type: 'string', label: 'Full Name', validation: { required: true, minLength: 2 } },
+                            { id: 3, type: 'date', label: 'Date of Birth' },
+                            {
+                                id: 4,
+                                type: 'select',
+                                label: 'Employment Type',
+                                options: [
+                                    { value: 'full-time', label: 'Full-time' },
+                                    { value: 'contract', label: 'Contract' },
+                                ],
+                                validation: { required: true },
+                            },
+                            {
+                                id: 5,
+                                type: 'date',
+                                label: 'Contract End Date',
+                                condition: { field: 4, op: 'eq', value: 'contract' },
+                            },
+                            {
+                                id: 6,
+                                type: 'array',
+                                label: 'Certifications',
+                                item: { type: 'string', label: 'Certification' },
+                                validation: { minItems: 1, maxItems: 10 },
+                            },
+                            { id: 7, type: 'file', label: 'Resume' },
+                            { id: 8, type: 'boolean', label: 'I agree', validation: { required: true } },
+                            { id: 9, type: 'number', label: 'Weekly Hours', validation: { min: 1, max: 40 } },
+                        ],
+                    },
+                ],
+            }
+            expect(schemaIssues(legacy)).toEqual([])
         })
     })
 })

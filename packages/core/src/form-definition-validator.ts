@@ -28,8 +28,10 @@ const itemRequiredProperties = new Map<string, Set<string>>([
     ['boolean', new Set(['id', 'type', 'label'])],
     ['date', new Set(['id', 'type', 'label'])],
     ['select', new Set(['id', 'type', 'label', 'options'])],
+    ['multiselect', new Set(['id', 'type', 'label', 'options'])],
     ['array', new Set(['id', 'type', 'label', 'item'])],
     ['file', new Set(['id', 'type', 'label'])],
+    ['static', new Set(['id', 'type', 'text'])],
     ['section', new Set(['id', 'type', 'title', 'content'])],
 ])
 
@@ -106,6 +108,21 @@ const itemAllowedProperties = new Map<string, Set<string>>([
         ]),
     ],
     [
+        'multiselect',
+        new Set([
+            'id',
+            'type',
+            'label',
+            'description',
+            'placeholder',
+            'answer_guidelines',
+            'reference_id',
+            'condition',
+            'options',
+            'validation',
+        ]),
+    ],
+    [
         'array',
         new Set([
             'id',
@@ -132,6 +149,20 @@ const itemAllowedProperties = new Map<string, Set<string>>([
             'reference_id',
             'condition',
             'validation',
+        ]),
+    ],
+    [
+        'static',
+        new Set([
+            'id',
+            'type',
+            'text',
+            'label',
+            'description',
+            'placeholder',
+            'answer_guidelines',
+            'reference_id',
+            'condition',
         ]),
     ],
     [
@@ -167,8 +198,9 @@ const itemAllowedProperties = new Map<string, Set<string>>([
  *    than 3 levels deep.
  * 3. **Unknown field references** (`UNKNOWN_FIELD_REF`) -- conditions must
  *    only reference field ids that exist in the registry.
- * 4. **Condition references section** (`CONDITION_REFS_SECTION`) -- conditions
- *    must not reference section ids, because sections have no values.
+ * 4. **Condition references a valueless item** (`CONDITION_REFS_SECTION`,
+ *    `CONDITION_REFS_STATIC`) -- conditions must not reference section or
+ *    static ids, because neither holds a value.
  * 5. **Constraint contradictions** (`INVALID_MIN_MAX`) -- e.g. `minLength > maxLength`,
  *    `min > max`, `minDate > maxDate` (absolute dates only), `minItems > maxItems`.
  * 6. **Invalid regex** (`INVALID_REGEX`) -- string field `pattern` values must
@@ -429,7 +461,7 @@ export class FormDefinitionValidator {
         this.checkDuplicateIds(definition.content, issues)
         this.checkNestingDepth(definition.content, 0, issues)
         this.checkConditionRefs(registry, issues)
-        this.checkConditionRefsSection(registry, issues)
+        this.checkConditionRefsValueless(registry, issues)
         this.checkConstraintContradictions(registry, issues)
         this.checkInvalidRegex(registry, issues)
 
@@ -479,16 +511,26 @@ export class FormDefinitionValidator {
         }
     }
 
-    private checkConditionRefsSection(registry: Map<number, FieldEntry>, issues: DocumentValidationError[]): void {
+    private checkConditionRefsValueless(registry: Map<number, FieldEntry>, issues: DocumentValidationError[]): void {
         for (const [id, entry] of registry) {
             if (!entry.condition) continue
             const refs = DependencyGraph.extractFieldRefs(entry.condition)
             for (const ref of refs) {
                 const refEntry = registry.get(ref)
-                if (refEntry && refEntry.type === 'section') {
+                if (!refEntry) continue
+
+                if (refEntry.type === 'section') {
                     issues.push({
                         code: 'CONDITION_REFS_SECTION',
                         message: `Condition references section ${ref}, which has no value (in item ${id})`,
+                        itemId: id,
+                    })
+                }
+
+                if (refEntry.type === 'static') {
+                    issues.push({
+                        code: 'CONDITION_REFS_STATIC',
+                        message: `Condition references static field ${ref}, which has no value (in item ${id})`,
                         itemId: id,
                     })
                 }

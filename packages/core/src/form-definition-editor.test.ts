@@ -1072,11 +1072,15 @@ describe('FormDefinitionEditor', () => {
 
         it('sets validation on a date field', () => {
             const editor = new FormDefinitionEditor(defWith([{ id: 1, type: 'date', label: 'DOB' }]))
-            editor.setValidation(1, { required: true, min: '2000-01-01', max: '2025-12-31' })
+            editor.setValidation(1, {
+                required: true,
+                minDate: '2000-01-01T00:00:00.000Z',
+                maxDate: '2025-12-31T00:00:00.000Z',
+            })
             expect((editor.toJSON().content[0] as FieldContentItem).validation).toEqual({
                 required: true,
-                min: '2000-01-01',
-                max: '2025-12-31',
+                minDate: '2000-01-01T00:00:00.000Z',
+                maxDate: '2025-12-31T00:00:00.000Z',
             })
         })
 
@@ -1152,6 +1156,102 @@ describe('FormDefinitionEditor', () => {
             expect(field.placeholder).toBe('hint')
             expect(field.answer_guidelines).toBe('guide')
             expect(field.reference_id).toBe('REF-1')
+        })
+    })
+    describe('static fields', () => {
+        const defWithStatic = () => defWith([{ id: 1, type: 'static', text: 'Read this.' }])
+
+        it('adds a static field without a label', () => {
+            const editor = new FormDefinitionEditor(emptyDef())
+            editor.addField({ type: 'static', text: 'Read this.' })
+            expect(editor.toJSON().content[0]).toEqual({ id: 1, type: 'static', text: 'Read this.' })
+        })
+
+        it('adds a static field with an optional label', () => {
+            const editor = new FormDefinitionEditor(emptyDef())
+            editor.addField({ type: 'static', text: 'Read this.', label: 'Notice' })
+            expect(editor.toJSON().content[0]).toMatchObject({ type: 'static', label: 'Notice' })
+        })
+
+        it('setText updates the text', () => {
+            const editor = new FormDefinitionEditor(defWithStatic())
+            editor.setText(1, 'Updated.')
+            expect((editor.toJSON().content[0] as { text: string }).text).toBe('Updated.')
+        })
+
+        it('setText returns this for chaining', () => {
+            const editor = new FormDefinitionEditor(defWithStatic())
+            expect(editor.setText(1, 'x')).toBe(editor)
+        })
+
+        it('setText throws for an unknown id', () => {
+            expect(() => new FormDefinitionEditor(defWithStatic()).setText(99, 'x')).toThrow(
+                'Item with id 99 not found',
+            )
+        })
+
+        it('setText throws for a non-static field', () => {
+            const editor = new FormDefinitionEditor(defWith([{ id: 1, type: 'string', label: 'Name' }]))
+            expect(() => editor.setText(1, 'x')).toThrow('Field 1 is not a static field')
+        })
+
+        it('setValidation throws for a static field', () => {
+            const editor = new FormDefinitionEditor(defWithStatic())
+            expect(() => editor.setValidation(1, { required: true })).toThrow('Static fields do not have validation')
+        })
+
+        it('updateField can change the text', () => {
+            const editor = new FormDefinitionEditor(defWithStatic())
+            editor.updateField(1, { text: 'Updated.' })
+            expect((editor.toJSON().content[0] as { text: string }).text).toBe('Updated.')
+        })
+
+        it('setCondition works on a static field', () => {
+            const editor = new FormDefinitionEditor(defWithStatic())
+            editor.setCondition(1, { field: 2, op: 'set' })
+            expect(editor.toJSON().content[0]?.condition).toEqual({ field: 2, op: 'set' })
+        })
+
+        it('listFields includes static fields', () => {
+            const editor = new FormDefinitionEditor(
+                defWith([
+                    { id: 1, type: 'static', text: 'Note' },
+                    { id: 2, type: 'string', label: 'Name' },
+                ]),
+            )
+            expect(editor.listFields().map((f) => f.id)).toEqual([1, 2])
+        })
+    })
+
+    describe('multiselect fields', () => {
+        const options = [
+            { value: 'a', label: 'A' },
+            { value: 'b', label: 'B' },
+        ]
+        const defWithMultiselect = () => defWith([{ id: 1, type: 'multiselect', label: 'Tags', options }])
+
+        it('setOptions works on a multiselect field', () => {
+            const editor = new FormDefinitionEditor(defWithMultiselect())
+            const next = [{ value: 'c', label: 'C' }]
+            editor.setOptions(1, next)
+            expect((editor.toJSON().content[0] as FieldContentItem).options).toEqual(next)
+        })
+
+        it('setOptions still works on a select field', () => {
+            const editor = new FormDefinitionEditor(defWith([{ id: 1, type: 'select', label: 'Colour', options }]))
+            editor.setOptions(1, [{ value: 'c', label: 'C' }])
+            expect((editor.toJSON().content[0] as FieldContentItem).options).toHaveLength(1)
+        })
+
+        it('setOptions throws for any other field type', () => {
+            const editor = new FormDefinitionEditor(defWith([{ id: 1, type: 'string', label: 'Name' }]))
+            expect(() => editor.setOptions(1, options)).toThrow('Field 1 is not a select or multiselect field')
+        })
+
+        it('setValidation accepts required on a multiselect field', () => {
+            const editor = new FormDefinitionEditor(defWithMultiselect())
+            editor.setValidation(1, { required: true })
+            expect((editor.toJSON().content[0] as FieldContentItem).validation).toEqual({ required: true })
         })
     })
 })

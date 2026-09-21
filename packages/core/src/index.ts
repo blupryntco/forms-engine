@@ -20,7 +20,14 @@ export { DocumentError } from './types/errors'
 export type { FieldEntry } from './types/field-entry'
 export type { ContentItemType, FieldType } from './types/field-types'
 export type { FileValue } from './types/file-value'
-export type { ContentItem, FieldContentItem, FormDefinition, SectionContentItem } from './types/form-definition'
+export type {
+    AnyFieldContentItem,
+    ContentItem,
+    FieldContentItem,
+    FormDefinition,
+    SectionContentItem,
+    StaticFieldContentItem,
+} from './types/form-definition'
 export type { FormSnapshot } from './types/form-snapshot'
 export type { FormDocument, FormValues } from './types/form-values'
 export type { SelectOption } from './types/select-option'
@@ -29,6 +36,7 @@ export type { ArrayValidation } from './types/validation/array'
 export type { BooleanValidation } from './types/validation/boolean'
 export type { DateValidation } from './types/validation/date'
 export type { FileValidation } from './types/validation/file'
+export type { MultiselectValidation } from './types/validation/multiselect'
 export type { NumberValidation } from './types/validation/number'
 export type { SelectValidation } from './types/validation/select'
 export type { StringValidation } from './types/validation/string'

@@ -286,6 +286,7 @@ export class FormValuesEditor {
 
         if (!entry) throw new Error(`Field with id ${fieldId} not found`)
         if (entry.type === 'section') throw new Error(`Item ${fieldId} is a section, not a field`)
+        if (entry.type === 'static') throw new Error(`Item ${fieldId} is a static field and holds no value`)
     }
 
     /**

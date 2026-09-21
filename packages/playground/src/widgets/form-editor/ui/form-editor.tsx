@@ -26,11 +26,13 @@ import {
     FieldErrorItem,
     FieldErrorsContainer,
     FileEdit,
+    MultiselectEdit,
     NumberEdit,
     SectionEdit,
     SectionTabItem,
     SectionTabsContainer,
     SelectEdit,
+    StaticEdit,
     StringEdit,
 } from '@/shared/ui/form'
 
@@ -40,8 +42,10 @@ export const components: EditorComponentMap = {
     boolean: BooleanEdit,
     date: DateEdit,
     select: SelectEdit,
+    multiselect: MultiselectEdit,
     array: ArrayEdit,
     file: FileEdit,
+    static: StaticEdit,
     section: SectionEdit,
     error: ErrorView,
 }

@@ -3,6 +3,7 @@ import type { ComponentType, ReactNode } from 'react'
 import type { ArrayItemDef, FileValue, SectionContentItem, SelectOption } from '@bluprynt/forms-core'
 
 import type { BaseEditFieldProps, ErrorProps } from './base'
+import type { StaticViewProps } from './viewer'
 
 export type StringEditProps = BaseEditFieldProps & {
     value: string | undefined
@@ -29,6 +30,20 @@ export type SelectEditProps = BaseEditFieldProps & {
     options: SelectOption[]
     onChange: (value: string | number | undefined) => void
 }
+
+export type MultiselectEditProps = BaseEditFieldProps & {
+    value: (string | number)[] | undefined
+    options: SelectOption[]
+    onChange: (value: (string | number)[] | undefined) => void
+}
+
+/**
+ * Props for a `static` block in an editable form. Identical to
+ * {@link StaticViewProps}: there is nothing to edit, so the same component can
+ * serve both maps. It deliberately does not extend {@link BaseEditFieldProps},
+ * which requires an `onChange` a static block has no use for.
+ */
+export type StaticEditProps = StaticViewProps
 
 export type ArrayEditProps = BaseEditFieldProps & {
     value: unknown[] | undefined
@@ -58,6 +73,10 @@ export type EditorComponentMap = {
     array: ComponentType<ArrayEditProps>
     file: ComponentType<FileEditProps>
     section: ComponentType<SectionEditProps>
+    /** Optional: fields of this type render nothing when no component is supplied. */
+    multiselect?: ComponentType<MultiselectEditProps>
+    /** Optional: fields of this type render nothing when no component is supplied. */
+    static?: ComponentType<StaticEditProps>
     error?: ComponentType<ErrorProps>
 }
 

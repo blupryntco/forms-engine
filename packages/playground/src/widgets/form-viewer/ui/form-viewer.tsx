@@ -27,11 +27,13 @@ import {
     FieldErrorItem,
     FieldErrorsContainer,
     FileView,
+    MultiselectView,
     NumberView,
     SectionTabItem,
     SectionTabsContainer,
     SectionView,
     SelectView,
+    StaticView,
     StringView,
 } from '@/shared/ui/form'
 
@@ -41,8 +43,10 @@ export const components: ViewerComponentMap = {
     boolean: BooleanView,
     date: DateView,
     select: SelectView,
+    multiselect: MultiselectView,
     array: ArrayView,
     file: FileView,
+    static: StaticView,
     section: SectionView,
     error: ErrorView,
 }

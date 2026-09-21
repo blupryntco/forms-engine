@@ -6,6 +6,7 @@ import type {
     FieldValidationError,
     FormValues,
     SectionContentItem,
+    StaticFieldContentItem,
 } from '@bluprynt/forms-core'
 import { render, screen } from '@testing-library/react'
 
@@ -40,6 +41,18 @@ const MockFile: FC<Record<string, unknown>> = jest.fn((props) => (
     <div data-testid={`file-${(props.field as FieldContentItem).id}`}>{String(props.value ?? '')}</div>
 ))
 
+const MockMultiselect: FC<Record<string, unknown>> = jest.fn((props) => (
+    <div data-testid={`multiselect-${(props.field as FieldContentItem).id}`}>
+        {((props.value as (string | number)[] | undefined) ?? []).join(',')}
+    </div>
+))
+
+const MockStatic: FC<Record<string, unknown>> = jest.fn((props) => (
+    <div data-testid={`static-${(props.field as StaticFieldContentItem).id}`}>
+        {(props.field as StaticFieldContentItem).text}
+    </div>
+))
+
 const MockSection: FC<Record<string, unknown>> = jest.fn((props) => (
     <div data-testid={`section-${(props.section as SectionContentItem).id}`}>{props.children as ReactNode}</div>
 ))
@@ -60,6 +73,13 @@ const makeComponents = (withError = false): ViewerComponentMap => ({
     file: MockFile as ViewerComponentMap['file'],
     section: MockSection as ViewerComponentMap['section'],
     ...(withError ? { error: MockError as ViewerComponentMap['error'] } : {}),
+})
+
+/** The same map plus the two optional keys, for the new field types. */
+const makeComponentsWithNewTypes = (withError = false): ViewerComponentMap => ({
+    ...makeComponents(withError),
+    multiselect: MockMultiselect as ViewerComponentMap['multiselect'],
+    static: MockStatic as ViewerComponentMap['static'],
 })
 
 // ── Helpers ──
@@ -645,6 +665,189 @@ describe('FormItems', () => {
             )
 
             expect(MockString).toHaveBeenCalledWith(expect.objectContaining({ errors: [] }), undefined)
+        })
+    })
+    describe('static fields', () => {
+        const staticItem = (overrides: Record<string, unknown> = {}): ContentItem =>
+            ({ id: 1, type: 'static', text: 'Read this first.', ...overrides }) as ContentItem
+
+        it('renders the static component with only the field prop', () => {
+            render(
+                <FormItems
+                    items={[staticItem()]}
+                    visibilityMap={new Map([[1, true]])}
+                    values={{}}
+                    fieldErrors={new Map()}
+                    components={makeComponentsWithNewTypes()}
+                    showInlineValidation={false}
+                />,
+            )
+
+            expect(screen.getByTestId('static-1').textContent).toBe('Read this first.')
+
+            const props = lastCallProps(MockStatic as unknown as jest.Mock)
+            expect(Object.keys(props)).toEqual(['field'])
+            expect(props.value).toBeUndefined()
+            expect(props.errors).toBeUndefined()
+            expect(props.onChange).toBeUndefined()
+        })
+
+        it('passes no suggestion even when the document has one for that id', () => {
+            render(
+                <FormItems
+                    items={[staticItem()]}
+                    visibilityMap={new Map([[1, true]])}
+                    values={{}}
+                    suggestions={{ '1': { value: 'x', confidence: 0.5, source: 'doc' } }}
+                    fieldErrors={new Map()}
+                    components={makeComponentsWithNewTypes()}
+                    showInlineValidation={false}
+                />,
+            )
+            expect(lastCallProps(MockStatic as unknown as jest.Mock).suggestion).toBeUndefined()
+        })
+
+        it('renders no inline error component for a static field', () => {
+            render(
+                <FormItems
+                    items={[staticItem()]}
+                    visibilityMap={new Map([[1, true]])}
+                    values={{}}
+                    fieldErrors={new Map([[1, [{ fieldId: 1, rule: 'REQUIRED', message: 'nope' }]]])}
+                    components={makeComponentsWithNewTypes(true)}
+                    showInlineValidation
+                />,
+            )
+            expect(screen.queryByTestId('error-1')).toBeNull()
+        })
+
+        it('honours visibility', () => {
+            render(
+                <FormItems
+                    items={[staticItem()]}
+                    visibilityMap={new Map([[1, false]])}
+                    values={{}}
+                    fieldErrors={new Map()}
+                    components={makeComponentsWithNewTypes()}
+                    showInlineValidation={false}
+                />,
+            )
+            expect(screen.queryByTestId('static-1')).toBeNull()
+        })
+    })
+
+    describe('multiselect fields', () => {
+        const options = [
+            { value: 'a', label: 'A' },
+            { value: 'b', label: 'B' },
+        ]
+        const multiselectItem = { id: 1, type: 'multiselect', label: 'Tags', options } as ContentItem
+
+        it('renders the multiselect component with value and options', () => {
+            render(
+                <FormItems
+                    items={[multiselectItem]}
+                    visibilityMap={new Map([[1, true]])}
+                    values={{ '1': ['a', 'b'] }}
+                    fieldErrors={new Map()}
+                    components={makeComponentsWithNewTypes()}
+                    showInlineValidation={false}
+                />,
+            )
+
+            expect(screen.getByTestId('multiselect-1').textContent).toBe('a,b')
+
+            const props = lastCallProps(MockMultiselect as unknown as jest.Mock)
+            expect(props.options).toEqual(options)
+            expect(props.value).toEqual(['a', 'b'])
+        })
+
+        it('defaults options to an empty array when the field has none', () => {
+            render(
+                <FormItems
+                    items={[{ id: 1, type: 'multiselect', label: 'Tags' } as ContentItem]}
+                    visibilityMap={new Map([[1, true]])}
+                    values={{}}
+                    fieldErrors={new Map()}
+                    components={makeComponentsWithNewTypes()}
+                    showInlineValidation={false}
+                />,
+            )
+            expect(lastCallProps(MockMultiselect as unknown as jest.Mock).options).toEqual([])
+        })
+
+        it('receives onChange in editor mode', () => {
+            const renderFieldProps = (): EditorFieldProps => ({ onChange: jest.fn() })
+            render(
+                <FormItems
+                    items={[multiselectItem]}
+                    visibilityMap={new Map([[1, true]])}
+                    values={{ '1': ['a'] }}
+                    fieldErrors={new Map()}
+                    components={makeComponentsWithNewTypes()}
+                    showInlineValidation={false}
+                    renderFieldProps={renderFieldProps}
+                />,
+            )
+            expect(typeof lastCallProps(MockMultiselect as unknown as jest.Mock).onChange).toBe('function')
+        })
+
+        it('renders inline errors like any other field', () => {
+            render(
+                <FormItems
+                    items={[multiselectItem]}
+                    visibilityMap={new Map([[1, true]])}
+                    values={{ '1': [] }}
+                    fieldErrors={new Map([[1, [{ fieldId: 1, rule: 'REQUIRED', message: 'Value is required' }]]])}
+                    components={makeComponentsWithNewTypes(true)}
+                    showInlineValidation
+                />,
+            )
+            expect(screen.getByTestId('error-1').textContent).toBe('Value is required')
+        })
+    })
+
+    describe('optional component map keys', () => {
+        it('renders nothing instead of crashing when the static component is missing', () => {
+            expect(() =>
+                render(
+                    <FormItems
+                        items={[
+                            { id: 1, type: 'static', text: 'Note' } as ContentItem,
+                            { id: 2, type: 'string', label: 'Name' } as ContentItem,
+                        ]}
+                        visibilityMap={
+                            new Map([
+                                [1, true],
+                                [2, true],
+                            ])
+                        }
+                        values={{ '2': 'Acme' }}
+                        fieldErrors={new Map()}
+                        components={makeComponents()}
+                        showInlineValidation={false}
+                    />,
+                ),
+            ).not.toThrow()
+
+            expect(screen.queryByTestId('static-1')).toBeNull()
+            expect(screen.getByTestId('string-2')).toBeTruthy()
+        })
+
+        it('renders nothing instead of crashing when the multiselect component is missing', () => {
+            expect(() =>
+                render(
+                    <FormItems
+                        items={[{ id: 1, type: 'multiselect', label: 'Tags', options: [] } as ContentItem]}
+                        visibilityMap={new Map([[1, true]])}
+                        values={{}}
+                        fieldErrors={new Map()}
+                        components={makeComponents()}
+                        showInlineValidation={false}
+                    />,
+                ),
+            ).not.toThrow()
+            expect(screen.queryByTestId('multiselect-1')).toBeNull()
         })
     })
 })

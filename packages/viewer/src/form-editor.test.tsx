@@ -8,6 +8,7 @@ import type {
     FormValidationResult,
     FormValues,
     SectionContentItem,
+    StaticFieldContentItem,
 } from '@bluprynt/forms-core'
 import { render, screen } from '@testing-library/react'
 
@@ -46,6 +47,18 @@ const MockFile: FC<Record<string, unknown>> = jest.fn((props) => (
     </div>
 ))
 
+const MockMultiselect: FC<Record<string, unknown>> = jest.fn((props) => (
+    <div data-testid={`multiselect-${(props.field as FieldContentItem).id}`}>
+        {((props.value as (string | number)[] | undefined) ?? []).join(',')}
+    </div>
+))
+
+const MockStatic: FC<Record<string, unknown>> = jest.fn((props) => (
+    <div data-testid={`static-${(props.field as StaticFieldContentItem).id}`}>
+        {(props.field as StaticFieldContentItem).text}
+    </div>
+))
+
 const MockSection: FC<Record<string, unknown>> = jest.fn((props) => (
     <div data-testid={`section-${(props.section as SectionContentItem).id}`}>{props.children as ReactNode}</div>
 ))
@@ -66,6 +79,13 @@ const makeComponents = (withError = false): EditorComponentMap => ({
     file: MockFile as EditorComponentMap['file'],
     section: MockSection as EditorComponentMap['section'],
     ...(withError ? { error: MockError as EditorComponentMap['error'] } : {}),
+})
+
+/** The same map plus the two optional keys, for the new field types. */
+const makeComponentsWithNewTypes = (withError = false): EditorComponentMap => ({
+    ...makeComponents(withError),
+    multiselect: MockMultiselect as EditorComponentMap['multiselect'],
+    static: MockStatic as EditorComponentMap['static'],
 })
 
 const baseDef = (content: FormDefinition['content']): FormDefinition => ({
@@ -814,6 +834,107 @@ describe('FormEditor', () => {
                 }),
                 undefined,
             )
+        })
+    })
+    describe('static and multiselect fields', () => {
+        const options = [
+            { value: 'a', label: 'A' },
+            { value: 'b', label: 'B' },
+        ]
+
+        const def = baseDef([
+            { id: 1, type: 'static', text: 'Read this first.' },
+            { id: 2, type: 'multiselect', label: 'Tags', options, validation: { required: true } },
+        ])
+
+        it('renders a static block without value or change handlers', () => {
+            render(
+                <Form definition={def} data={doc({ '2': ['a'] })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={noop} />
+                </Form>,
+            )
+
+            expect(screen.getByTestId('static-1').textContent).toBe('Read this first.')
+            expect(Object.keys(lastCallProps(MockStatic as unknown as jest.Mock))).toEqual(['field'])
+        })
+
+        it('writes a whole array through the multiselect onChange', () => {
+            const onChange = jest.fn()
+            render(
+                <Form definition={def} data={doc({ '2': ['a'] })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={onChange} />
+                </Form>,
+            )
+
+            const props = lastCallProps(MockMultiselect as unknown as jest.Mock)
+            ;(props.onChange as (value: unknown) => void)(['a', 'b'])
+
+            const [document, validation] = onChange.mock.calls[0] as [FormDocument, FormValidationResult]
+            expect(document.values['2']).toEqual(['a', 'b'])
+            expect(validation.valid).toBe(true)
+        })
+
+        it('reports a required error when the selection is cleared to undefined', () => {
+            const onChange = jest.fn()
+            render(
+                <Form definition={def} data={doc({ '2': ['a'] })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={onChange} />
+                </Form>,
+            )
+
+            const props = lastCallProps(MockMultiselect as unknown as jest.Mock)
+            ;(props.onChange as (value: unknown) => void)(undefined)
+
+            const [, validation] = onChange.mock.calls[0] as [FormDocument, FormValidationResult]
+            expect(validation.fieldErrors.get(2)?.[0]?.rule).toBe('REQUIRED')
+        })
+
+        it('reports a required error for an empty array too', () => {
+            const onChange = jest.fn()
+            render(
+                <Form definition={def} data={doc({ '2': ['a'] })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={onChange} />
+                </Form>,
+            )
+
+            const props = lastCallProps(MockMultiselect as unknown as jest.Mock)
+            ;(props.onChange as (value: unknown) => void)([])
+
+            const [, validation] = onChange.mock.calls[0] as [FormDocument, FormValidationResult]
+            expect(validation.fieldErrors.get(2)?.[0]?.rule).toBe('REQUIRED')
+        })
+
+        it('hides a field whose condition no longer matches the selection', () => {
+            const conditional = baseDef([
+                { id: 1, type: 'multiselect', label: 'Tags', options },
+                { id: 2, type: 'string', label: 'Details', condition: { field: 1, op: 'in', value: ['b'] } },
+            ])
+
+            const { rerender } = render(
+                <Form definition={conditional} data={doc({ '1': ['a', 'b'] })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={noop} />
+                </Form>,
+            )
+            expect(screen.getByTestId('string-2')).toBeTruthy()
+
+            rerender(
+                <Form definition={conditional} data={doc({ '1': ['a'] })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={noop} />
+                </Form>,
+            )
+            expect(screen.queryByTestId('string-2')).toBeNull()
+        })
+
+        it('keeps working when the optional components are not supplied', () => {
+            expect(() =>
+                render(
+                    <Form definition={def} data={doc({ '2': ['a'] })}>
+                        <FormEditor components={makeComponents()} onChange={noop} />
+                    </Form>,
+                ),
+            ).not.toThrow()
+            expect(screen.queryByTestId('static-1')).toBeNull()
+            expect(screen.queryByTestId('multiselect-2')).toBeNull()
         })
     })
 })

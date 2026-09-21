@@ -6,6 +6,7 @@ import { ArrayValidator } from './validators/array-validator'
 import { BooleanValidator } from './validators/boolean-validator'
 import { DateValidator } from './validators/date-validator'
 import { FileValidator } from './validators/file-validator'
+import { MultiselectValidator } from './validators/multiselect-validator'
 import { NumberValidator } from './validators/number-validator'
 import { SelectValidator } from './validators/select-validator'
 import { StringValidator } from './validators/string-validator'
@@ -26,6 +27,9 @@ import type { TypeValidator } from './validators/type-validator'
  * - `date` -- `required`, `minDate`, `maxDate`. Relative date boundaries
  *   are resolved against `now`.
  * - `select` -- `required`, plus the value must be one of the defined options.
+ * - `multiselect` -- `required` (an absent value and an empty array both fail),
+ *   plus every selected value must be one of the defined options.
+ * - `static` -- never validated; static blocks hold no value.
  * - `array` -- `minItems`, `maxItems`, plus each item is validated
  *   individually according to the array's {@link ArrayItemDef}. Item-level
  *   errors carry an `itemIndex`.
@@ -49,6 +53,7 @@ export class FieldValidator {
             boolean: new BooleanValidator(),
             date: new DateValidator(),
             select: new SelectValidator(),
+            multiselect: new MultiselectValidator(),
             array: new ArrayValidator(),
             file: new FileValidator(),
         }

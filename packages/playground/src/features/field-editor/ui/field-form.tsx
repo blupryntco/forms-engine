@@ -16,8 +16,10 @@ const FIELD_TYPES: { value: FieldType; label: string }[] = [
     { value: 'boolean', label: 'Boolean' },
     { value: 'date', label: 'Date' },
     { value: 'select', label: 'Select' },
+    { value: 'multiselect', label: 'Multi-select' },
     { value: 'array', label: 'Array' },
     { value: 'file', label: 'File' },
+    { value: 'static', label: 'Static text' },
 ]
 
 export const FieldForm: FC<{
@@ -39,10 +41,13 @@ export const FieldForm: FC<{
 
     const handleTypeChange = (newType: FieldType) => {
         formik.setFieldValue('type', newType)
-        if (newType !== 'select') formik.setFieldValue('options', [])
+        if (newType !== 'select' && newType !== 'multiselect') formik.setFieldValue('options', [])
         if (newType !== 'array') formik.setFieldValue('item', undefined)
+        if (newType !== 'static') formik.setFieldValue('text', '')
         formik.setFieldValue('validation', undefined)
     }
+
+    const isStatic = formik.values.type === 'static'
 
     return (
         <div className="flex flex-col gap-4">
@@ -61,12 +66,27 @@ export const FieldForm: FC<{
                 </select>
             </div>
 
+            {isStatic && (
+                <div>
+                    <Label>Text</Label>
+                    <div className="mt-1">
+                        <textarea
+                            value={formik.values.text}
+                            placeholder="Text shown inside the form"
+                            onChange={(e) => formik.setFieldValue('text', e.target.value)}
+                            rows={4}
+                            className="w-full rounded border border-gray-200 px-2 py-1.5 text-sm outline-none focus:border-blue-400"
+                        />
+                    </div>
+                </div>
+            )}
+
             <div>
-                <Label>Label</Label>
+                <Label>{isStatic ? 'Heading (optional)' : 'Label'}</Label>
                 <div className="mt-1">
                     <TextInput
                         value={formik.values.label}
-                        placeholder="Field label"
+                        placeholder={isStatic ? 'Optional heading' : 'Field label'}
                         onChange={(v) => formik.setFieldValue('label', v)}
                     />
                 </div>
@@ -85,7 +105,7 @@ export const FieldForm: FC<{
 
             <MetadataFields formik={formik} />
 
-            {formik.values.type === 'select' && (
+            {(formik.values.type === 'select' || formik.values.type === 'multiselect') && (
                 <div>
                     <Label>Options</Label>
                     <div className="mt-1">
@@ -109,16 +129,18 @@ export const FieldForm: FC<{
                 </div>
             )}
 
-            <div>
-                <Label>Validation</Label>
-                <div className="mt-1">
-                    <ValidationEditor
-                        type={formik.values.type}
-                        validation={formik.values.validation}
-                        onChange={(v) => formik.setFieldValue('validation', v)}
-                    />
+            {!isStatic && (
+                <div>
+                    <Label>Validation</Label>
+                    <div className="mt-1">
+                        <ValidationEditor
+                            type={formik.values.type}
+                            validation={formik.values.validation}
+                            onChange={(v) => formik.setFieldValue('validation', v)}
+                        />
+                    </div>
                 </div>
-            </div>
+            )}
 
             <div>
                 <Label>Condition</Label>
