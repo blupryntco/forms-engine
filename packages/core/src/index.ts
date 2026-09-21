@@ -7,6 +7,13 @@ export { FormDefinitionEditor } from './form-definition-editor'
 export { FormDefinitionValidator } from './form-definition-validator'
 export { FormEngine } from './form-engine'
 export { FormValuesEditor } from './form-values-editor'
+export {
+    applySuggestion,
+    getSuggestion,
+    getSuggestions,
+    removeSuggestion,
+    setSuggestion,
+} from './suggestions'
 export type { ArrayItemDef } from './types/array-item-def'
 export type { CompoundCondition, Condition, SimpleCondition } from './types/conditions'
 export { DocumentError } from './types/errors'
@@ -17,6 +24,7 @@ export type { ContentItem, FieldContentItem, FormDefinition, SectionContentItem 
 export type { FormSnapshot } from './types/form-snapshot'
 export type { FormDocument, FormValues } from './types/form-values'
 export type { SelectOption } from './types/select-option'
+export type { FieldSuggestion, FormSuggestions } from './types/suggestion'
 export type { ArrayValidation } from './types/validation/array'
 export type { BooleanValidation } from './types/validation/boolean'
 export type { DateValidation } from './types/validation/date'

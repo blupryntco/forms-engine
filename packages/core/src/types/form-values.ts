@@ -1,3 +1,5 @@
+import type { FormSuggestions } from './suggestion'
+
 /**
  * A flat key-value map of user-submitted form data.
  *
@@ -17,6 +19,9 @@ export type FormValues = Record<string, unknown>
  * @property form.id - The form schema's unique identifier (from {@link FormDefinition.id}).
  * @property form.version - The form schema's version (from {@link FormDefinition.version}).
  * @property values - Flat key-value map of user-submitted data.
+ * @property suggestions - Optional sparse map of machine-proposed answers, keyed
+ *   like {@link values}. Omitted entirely on documents that have none, so
+ *   documents produced before suggestions existed remain valid unchanged.
  */
 export type FormDocument = {
     form: {
@@ -25,4 +30,5 @@ export type FormDocument = {
         submittedAt: string
     }
     values: FormValues
+    suggestions?: FormSuggestions
 }

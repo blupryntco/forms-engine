@@ -703,4 +703,117 @@ describe('FormEditor', () => {
 
         expect(container.innerHTML).toBe('')
     })
+
+    describe('suggestions', () => {
+        const suggestion = { value: 'Acme Ltd', confidence: 0.9, source: 'certificate of incorporation, p.1' }
+        const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
+
+        const lastCall = (mock: jest.Mock) => mock.mock.calls.at(-1)?.[0] as Record<string, unknown>
+
+        const withSuggestion = (values: FormValues = {}): FormDocument => ({
+            ...doc(values),
+            suggestions: { '1': suggestion },
+        })
+
+        it('passes accept and reject handlers to every field', () => {
+            renderEditor({ definition, data: doc() }, { components: makeComponents(), onChange: noop })
+
+            expect(MockString).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    onAcceptSuggestion: expect.any(Function),
+                    onRejectSuggestion: expect.any(Function),
+                }),
+                undefined,
+            )
+        })
+
+        it('accept copies the suggested value into values and keeps the suggestion', () => {
+            const onChange = jest.fn()
+            renderEditor({ definition, data: withSuggestion() }, { components: makeComponents(), onChange })
+            ;(lastCall(MockString as jest.Mock).onAcceptSuggestion as () => void)()
+
+            expect(onChange).toHaveBeenCalledTimes(1)
+            const [document, validation] = onChange.mock.calls[0] as [FormDocument, FormValidationResult]
+            expect(document.values['1']).toBe('Acme Ltd')
+            expect(document.suggestions).toEqual({ '1': suggestion })
+            expect(validation.valid).toBe(true)
+        })
+
+        it('accept overwrites an existing value', () => {
+            const onChange = jest.fn()
+            renderEditor(
+                { definition, data: withSuggestion({ '1': 'typed' }) },
+                { components: makeComponents(), onChange },
+            )
+            ;(lastCall(MockString as jest.Mock).onAcceptSuggestion as () => void)()
+
+            expect((onChange.mock.calls[0]?.[0] as FormDocument).values['1']).toBe('Acme Ltd')
+        })
+
+        it('reject removes the suggestion and leaves the value alone', () => {
+            const onChange = jest.fn()
+            renderEditor(
+                { definition, data: withSuggestion({ '1': 'typed' }) },
+                { components: makeComponents(), onChange },
+            )
+            ;(lastCall(MockString as jest.Mock).onRejectSuggestion as () => void)()
+
+            const document = onChange.mock.calls[0]?.[0] as FormDocument
+            expect(document.values['1']).toBe('typed')
+            expect('suggestions' in document).toBe(false)
+        })
+
+        it('does not fire onChange when the field has no suggestion', () => {
+            const onChange = jest.fn()
+            renderEditor({ definition, data: doc() }, { components: makeComponents(), onChange })
+            ;(lastCall(MockString as jest.Mock).onAcceptSuggestion as () => void)()
+            ;(lastCall(MockString as jest.Mock).onRejectSuggestion as () => void)()
+
+            expect(onChange).not.toHaveBeenCalled()
+        })
+
+        it('does not mutate the document it was given', () => {
+            const data = withSuggestion({ '1': 'typed' })
+            renderEditor({ definition, data }, { components: makeComponents(), onChange: noop })
+            ;(lastCall(MockString as jest.Mock).onAcceptSuggestion as () => void)()
+
+            expect(data.values['1']).toBe('typed')
+        })
+
+        it('keeps handlers referentially stable across re-renders', () => {
+            const { rerender } = render(
+                <Form definition={definition} data={withSuggestion()}>
+                    <FormEditor components={makeComponents()} onChange={noop} />
+                </Form>,
+            )
+            const first = lastCall(MockString as jest.Mock)
+
+            rerender(
+                <Form definition={definition} data={withSuggestion({ '1': 'typed' })}>
+                    <FormEditor components={makeComponents()} onChange={noop} />
+                </Form>,
+            )
+            const second = lastCall(MockString as jest.Mock)
+
+            expect(second.onAcceptSuggestion).toBe(first.onAcceptSuggestion)
+            expect(second.onRejectSuggestion).toBe(first.onRejectSuggestion)
+        })
+
+        it('supplies accept and reject to array fields alongside the array handlers', () => {
+            const arrayDef = baseDef([{ id: 1, type: 'array', label: 'Tags', item: { type: 'string', label: 'Tag' } }])
+            renderEditor(
+                { definition: arrayDef, data: doc({ '1': [] }) },
+                { components: makeComponents(), onChange: noop },
+            )
+
+            expect(MockArray).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    onAddItem: expect.any(Function),
+                    onAcceptSuggestion: expect.any(Function),
+                    onRejectSuggestion: expect.any(Function),
+                }),
+                undefined,
+            )
+        })
+    })
 })

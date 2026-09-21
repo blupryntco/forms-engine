@@ -5,10 +5,16 @@ import type { FC } from 'react'
 import type { ArrayEditProps, ArrayViewProps } from '@bluprynt/forms-viewer'
 
 import { FieldLabel } from './field-label'
+import { Suggestion } from './suggestion'
 
-export const ArrayView: FC<ArrayViewProps> = ({ field, value, children }) => (
+export const ArrayView: FC<ArrayViewProps> = ({ field, value, children, suggestion }) => (
     <div className="mb-4">
-        <FieldLabel label={field.label} description={field.description} />
+        <FieldLabel
+            label={field.label}
+            description={field.description}
+            answerGuidelines={field.answer_guidelines}
+            referenceId={field.reference_id}
+        />
         {value && value.length > 0 ? (
             <div className="space-y-2 rounded-md border border-gray-200 bg-gray-50 p-3">{children}</div>
         ) : (
@@ -16,15 +22,31 @@ export const ArrayView: FC<ArrayViewProps> = ({ field, value, children }) => (
                 No items
             </div>
         )}
+        <Suggestion suggestion={suggestion} />
     </div>
 )
 
-export const ArrayEdit: FC<ArrayEditProps> = ({ field, value, children, errors, onAddItem, onRemoveItem }) => {
+export const ArrayEdit: FC<ArrayEditProps> = ({
+    field,
+    value,
+    children,
+    errors,
+    onAddItem,
+    onRemoveItem,
+    suggestion,
+    onAcceptSuggestion,
+    onRejectSuggestion,
+}) => {
     const hasError = errors.length > 0
     const items = value ?? []
     return (
         <div className="mb-4">
-            <FieldLabel label={field.label} description={field.description} />
+            <FieldLabel
+                label={field.label}
+                description={field.description}
+                answerGuidelines={field.answer_guidelines}
+                referenceId={field.reference_id}
+            />
             <div className={`rounded-md border p-3 ${hasError ? 'border-red-400' : 'border-gray-300'}`}>
                 {items.length > 0 ? (
                     <div className="space-y-2">
@@ -50,6 +72,7 @@ export const ArrayEdit: FC<ArrayEditProps> = ({ field, value, children, errors, 
                     + Add item
                 </button>
             </div>
+            <Suggestion suggestion={suggestion} onAccept={onAcceptSuggestion} onReject={onRejectSuggestion} />
         </div>
     )
 }

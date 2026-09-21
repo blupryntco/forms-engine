@@ -11,6 +11,9 @@ import type { SelectOption } from './select-option'
  * @property type - The scalar field type for each item in the array.
  * @property label - Display label for the item.
  * @property description - Optional description shown to the user.
+ * @property placeholder - Optional placeholder text for the item's input control.
+ * @property answer_guidelines - Optional guidance describing how the item should be answered.
+ * @property reference_id - Optional external reference (e.g. a regulation or questionnaire item id).
  * @property validation - Validation rules applied to each individual item.
  * @property options - Required when {@link type} is `'select'`; the list of
  *   allowed values.
@@ -19,6 +22,9 @@ export type ArrayItemDef = {
     type: Exclude<FieldType, 'array'>
     label: string
     description?: string
+    placeholder?: string
+    answer_guidelines?: string
+    reference_id?: string
     validation?: Record<string, unknown>
     options?: SelectOption[]
 }

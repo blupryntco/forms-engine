@@ -86,3 +86,48 @@ describe('getArrayField', () => {
         })
     })
 })
+
+describe('getArrayField — authoring metadata', () => {
+    it('projects placeholder, answer_guidelines and reference_id from the item definition', () => {
+        const arrayField: FieldContentItem = {
+            id: 10,
+            type: 'array',
+            label: 'Tags',
+            placeholder: 'array-level placeholder',
+            item: {
+                type: 'string',
+                label: 'Tag',
+                description: 'A single tag',
+                placeholder: 'e.g. custody',
+                answer_guidelines: 'One tag per entry',
+                reference_id: 'KYI-7.2',
+            },
+        }
+
+        expect(getArrayField(arrayField, 0)).toEqual(
+            expect.objectContaining({
+                id: 10,
+                type: 'string',
+                label: 'Tag',
+                description: 'A single tag',
+                placeholder: 'e.g. custody',
+                answer_guidelines: 'One tag per entry',
+                reference_id: 'KYI-7.2',
+            }),
+        )
+    })
+
+    it('leaves the metadata undefined when the item definition has none', () => {
+        const arrayField: FieldContentItem = {
+            id: 10,
+            type: 'array',
+            label: 'Tags',
+            item: { type: 'string', label: 'Tag' },
+        }
+        const result = getArrayField(arrayField, 0)
+
+        expect(result.placeholder).toBeUndefined()
+        expect(result.answer_guidelines).toBeUndefined()
+        expect(result.reference_id).toBeUndefined()
+    })
+})

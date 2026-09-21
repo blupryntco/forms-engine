@@ -5,6 +5,7 @@ import type {
     ContentItem,
     FieldContentItem,
     FieldValidationError,
+    FormSuggestions,
     FormValues,
 } from '@bluprynt/forms-core'
 
@@ -15,6 +16,7 @@ type FormItemsProps = {
     items: ContentItem[]
     visibilityMap: Map<number, boolean>
     values: FormValues
+    suggestions?: FormSuggestions
     fieldErrors: Map<number, FieldValidationError[]>
     components: ViewerComponentMap | EditorComponentMap
     showInlineValidation: boolean
@@ -26,6 +28,7 @@ export const FormItems: FC<FormItemsProps> = ({
     items,
     visibilityMap,
     values,
+    suggestions,
     fieldErrors,
     components,
     showInlineValidation,
@@ -47,6 +50,7 @@ export const FormItems: FC<FormItemsProps> = ({
                         items={item.content}
                         visibilityMap={visibilityMap}
                         values={values}
+                        suggestions={suggestions}
                         fieldErrors={fieldErrors}
                         components={components}
                         showInlineValidation={showInlineValidation}
@@ -66,14 +70,19 @@ export const FormItems: FC<FormItemsProps> = ({
                 itemDef.type as keyof Omit<ViewerComponentMap, 'array' | 'section' | 'error'>
             ] as React.ComponentType<Record<string, unknown>> | undefined
 
+            const arrayProps: Record<string, unknown> = {
+                field: item,
+                value: values[String(item.id)],
+                itemDef: item.item,
+                errors,
+                ...modeProps,
+            }
+
+            const arraySuggestion = suggestions?.[String(item.id)]
+            if (arraySuggestion) arrayProps.suggestion = arraySuggestion
+
             elements.push(
-                <ArrayComponent
-                    key={item.id}
-                    field={item}
-                    value={values[String(item.id)]}
-                    itemDef={item.item}
-                    errors={errors}
-                    {...modeProps}>
+                <ArrayComponent key={item.id} {...arrayProps}>
                     {ItemComponent
                         ? arrayValue.map((itemValue, index) => {
                               const itemErrors = getFieldErrors(fieldErrors, item.id, index)
@@ -118,6 +127,9 @@ export const FormItems: FC<FormItemsProps> = ({
                 errors,
                 ...modeProps,
             }
+
+            const suggestion = suggestions?.[String(item.id)]
+            if (suggestion) fieldProps.suggestion = suggestion
 
             if (item.type === 'select') fieldProps.options = (item as FieldContentItem).options ?? []
 

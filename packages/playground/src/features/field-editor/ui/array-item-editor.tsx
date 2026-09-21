@@ -61,6 +61,36 @@ export const ArrayItemEditor: FC<{
                     />
                 </div>
             </div>
+            <div>
+                <Label>Item placeholder</Label>
+                <div className="mt-1">
+                    <TextInput
+                        value={def.placeholder ?? ''}
+                        placeholder="Optional"
+                        onChange={(v) => update({ placeholder: v || undefined })}
+                    />
+                </div>
+            </div>
+            <div>
+                <Label>Item answer guidelines</Label>
+                <div className="mt-1">
+                    <TextInput
+                        value={def.answer_guidelines ?? ''}
+                        placeholder="Optional"
+                        onChange={(v) => update({ answer_guidelines: v || undefined })}
+                    />
+                </div>
+            </div>
+            <div>
+                <Label>Item reference id</Label>
+                <div className="mt-1">
+                    <TextInput
+                        value={def.reference_id ?? ''}
+                        placeholder="Optional"
+                        onChange={(v) => update({ reference_id: v || undefined })}
+                    />
+                </div>
+            </div>
             {def.type === 'select' && (
                 <div>
                     <Label>Item options</Label>

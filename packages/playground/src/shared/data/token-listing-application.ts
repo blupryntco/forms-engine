@@ -12,17 +12,27 @@ export const TOKEN_LISTING_APPLICATION: SampleForm = {
                 id: 1,
                 type: 'section',
                 title: 'Token Information',
+                description: 'Identity of the asset being submitted for listing',
+                answer_guidelines: 'Every value here must match the deployed contract exactly.',
+                reference_id: 'LIST-1',
                 content: [
                     {
                         id: 2,
                         type: 'string',
                         label: 'Token name',
+                        description: 'Full public name of the token',
+                        placeholder: 'e.g. Nexus Protocol',
+                        answer_guidelines: 'Use the name as it appears in the token contract metadata.',
+                        reference_id: 'LIST-1.1',
                         validation: { required: true },
                     },
                     {
                         id: 3,
                         type: 'string',
                         label: 'Token ticker symbol',
+                        placeholder: 'e.g. NXP',
+                        answer_guidelines: 'Uppercase, no more than 10 characters.',
+                        reference_id: 'LIST-1.2',
                         validation: { required: true, maxLength: 10 },
                     },
                     {
@@ -35,12 +45,17 @@ export const TOKEN_LISTING_APPLICATION: SampleForm = {
                         id: 5,
                         type: 'string',
                         label: 'Contract address',
+                        placeholder: '0x…',
+                        answer_guidelines: 'Address of the mainnet contract, not a testnet deployment.',
+                        reference_id: 'LIST-1.4',
                         validation: { required: true },
                     },
                     {
                         id: 6,
                         type: 'select',
                         label: 'Blockchain network',
+                        placeholder: '— Choose a network —',
+                        reference_id: 'LIST-1.5',
                         options: [
                             { value: 'ethereum', label: 'Ethereum' },
                             { value: 'polygon', label: 'Polygon' },
@@ -82,6 +97,9 @@ export const TOKEN_LISTING_APPLICATION: SampleForm = {
                         id: 10,
                         type: 'string',
                         label: 'Legal entity name',
+                        placeholder: 'e.g. Nexus Labs AG',
+                        answer_guidelines: 'Use the name exactly as registered, including the legal form suffix.',
+                        reference_id: 'KYI-3.1.a',
                         validation: { required: true },
                     },
                     {
@@ -94,6 +112,8 @@ export const TOKEN_LISTING_APPLICATION: SampleForm = {
                         id: 12,
                         type: 'string',
                         label: 'Contact email',
+                        placeholder: 'compliance@example.com',
+                        reference_id: 'KYI-3.1.c',
                         validation: {
                             required: true,
                             pattern: '^[^@]+@[^@]+\\.[^@]+$',
@@ -179,6 +199,9 @@ export const TOKEN_LISTING_APPLICATION: SampleForm = {
                     {
                         id: 23,
                         type: 'number',
+                        placeholder: 'Total supply',
+                        answer_guidelines: 'Whole tokens, not base units.',
+                        reference_id: 'LIST-4.1',
                         label: 'Total supply',
                         validation: { required: true, min: 0 },
                     },
@@ -266,6 +289,38 @@ export const TOKEN_LISTING_APPLICATION: SampleForm = {
             '28': 'Trail of Bits',
             '30': true,
             '31': true,
+        },
+        suggestions: {
+            '3': {
+                value: 'NEXUS',
+                confidence: 0.45,
+                source: 'Derived from the token name; the whitepaper cover page uses "NEXUS" while the contract reports "NXP".',
+            },
+            '7': {
+                value: 'Base',
+                confidence: 0.3,
+                source: 'The deployment transaction was broadcast to a Base RPC endpoint, which conflicts with the selected network.',
+            },
+            '11': {
+                value: 'Switzerland',
+                confidence: 1,
+                source: 'Commercial register extract, page 1: registered office in Zug, Switzerland.',
+            },
+            '14': {
+                value: 'CHE-123.456.789',
+                confidence: 0.92,
+                source: 'Swiss UID printed on the commercial register extract, page 1.',
+            },
+            '21': {
+                value: ['United States', 'European Union', 'Singapore'],
+                confidence: 0.6,
+                source: 'Jurisdictions named in the legal opinion, section 4. Japan and Australia were not mentioned.',
+            },
+            '24': {
+                value: 400000000,
+                confidence: 0.35,
+                source: 'Circulating supply reported by the block explorer on 2025-12-14, which differs from the stated figure.',
+            },
         },
     },
 }

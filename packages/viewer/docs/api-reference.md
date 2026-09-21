@@ -260,9 +260,26 @@ const { definition, data, fieldErrors, visibilityMap } = useFormContext()
 
 | Type | Description |
 |------|-------------|
-| `BaseViewFieldProps` | Common props shared by all read-only field components: the field definition and its validation errors. |
-| `BaseEditFieldProps` | Extends `BaseViewFieldProps` with an `onChange` handler for editable fields. |
+| `BaseViewFieldProps` | Common props shared by all read-only field components: the field definition, its validation errors, and an optional `suggestion`. |
+| `BaseEditFieldProps` | Extends `BaseViewFieldProps` with an `onChange` handler plus optional `onAcceptSuggestion` / `onRejectSuggestion`. |
 | `ErrorProps` | Props for rendering validation errors associated with a specific field. |
+
+#### Authoring metadata
+
+`field` is the raw `FieldContentItem` from the definition, so `description`, `placeholder`,
+`answer_guidelines` and `reference_id` are readable directly off it in both modes — no extra prop. Array
+**item** components receive a synthetic field carrying the same four properties from the array's `item`
+definition.
+
+#### Suggestions
+
+`suggestion` is present only when the document has one for that field, so a component should treat it as
+optional. For an `array` field the suggestion is the whole array; individual array items never receive one.
+
+In edit mode, `onAcceptSuggestion()` copies the suggested value into the field's value and keeps the
+suggestion, while `onRejectSuggestion()` removes the suggestion and leaves the value alone. Both are
+supplied for every field and both no-op when the field has no suggestion, so a component can render its
+buttons based on `suggestion` alone. Each emits the editor's normal `onChange(document, validation)`.
 
 ### Viewer Types
 
@@ -295,7 +312,7 @@ Props for editable field components used in `EditorComponentMap`. Each type exte
 | `FileEditProps` | Editable file field with typed `onChange`. |
 | `SectionEditProps` | Editable section wrapper. Receives the section definition and its children. |
 | `EditorComponentMap` | A mapping from each field type to its editable component. Passed to `FormEditor`. Optional `error` component for inline validation. |
-| `EditorFieldProps` | Change handlers provided to each field by the editor: `onChange` plus optional array manipulation handlers. |
+| `EditorFieldProps` | Change handlers provided to each field by the editor: `onChange`, `onAcceptSuggestion`, `onRejectSuggestion`, plus optional array manipulation handlers. |
 | `EditorArrayItemProps` | Change handler provided for a single array item. |
 
 ### Section Types
@@ -321,12 +338,14 @@ Props for editable field components used in `EditorComponentMap`. Each type exte
 | `DocumentValidationErrorCode` | Union of all possible document error codes. |
 | `FieldContentItem` | A field node in a form definition tree. |
 | `FieldEntry` | Flattened field registry entry produced by `FormEngine`. |
+| `FieldSuggestion` | A machine-proposed answer: `{ value, confidence (0..1), source }`. |
 | `FieldType` | Union of all supported field type identifiers. |
 | `FieldValidationError` | A field-level validation error with field ID, rule, message, and optional item index. |
 | `FileValue` | File metadata: name, MIME type, size, and URL. |
 | `FormDefinition` | Top-level form schema describing the entire form structure. |
-| `FormDocument` | A submitted form: references the form schema and contains the user's values. |
+| `FormDocument` | A submitted form: references the form schema, contains the user's values, and may carry a `suggestions` block. |
 | `FormSnapshot` | A pair of form definition and document, used for serialization. |
+| `FormSuggestions` | Sparse map of suggestions keyed by stringified field id. |
 | `FormValidationResult` | Complete validation result: overall validity, field errors, and optional document errors. |
 | `FormValues` | A record mapping field names to their values. |
 | `SectionContentItem` | A section node in a form definition tree. |

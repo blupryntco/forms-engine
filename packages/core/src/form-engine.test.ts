@@ -2038,4 +2038,58 @@ describe('FormEngine', () => {
             expect(resultOk.valid).toBe(true)
         })
     })
+
+    describe('suggestions on the document', () => {
+        const def = baseDef([{ id: 1, type: 'string', label: 'Name', validation: { required: true } }])
+
+        it('validates a document carrying suggestions identically to one without', () => {
+            const plain = doc({ '1': 'Alice' })
+            const withSuggestions: FormDocument = {
+                ...plain,
+                suggestions: { '1': { value: 'Acme Ltd', confidence: 0.9, source: 'page 1' } },
+            }
+            const engine = new FormEngine(def)
+
+            expect(engine.validate(withSuggestions).valid).toBe(engine.validate(plain).valid)
+            expect(engine.validate(withSuggestions).fieldErrors.size).toBe(0)
+        })
+
+        it('does not let a suggestion satisfy a required field', () => {
+            const withSuggestions: FormDocument = {
+                ...doc(),
+                suggestions: { '1': { value: 'Acme Ltd', confidence: 0.9, source: 'page 1' } },
+            }
+            expect(new FormEngine(def).validate(withSuggestions).valid).toBe(false)
+        })
+
+        it('creates documents without a suggestions key', () => {
+            expect('suggestions' in new FormEngine(def).createFormDocument()).toBe(false)
+        })
+    })
+
+    describe('authoring metadata', () => {
+        it('compiles a definition carrying placeholder, answer_guidelines and reference_id', () => {
+            const def = baseDef([
+                {
+                    id: 1,
+                    type: 'section',
+                    title: 'Issuer',
+                    placeholder: 'n/a',
+                    answer_guidelines: 'Complete every field',
+                    reference_id: 'KYI-3',
+                    content: [
+                        {
+                            id: 2,
+                            type: 'string',
+                            label: 'Name',
+                            placeholder: 'Acme Ltd',
+                            answer_guidelines: 'Use the registered name',
+                            reference_id: 'KYI-3.1.a',
+                        },
+                    ],
+                },
+            ])
+            expect(() => new FormEngine(def)).not.toThrow()
+        })
+    })
 })

@@ -1,6 +1,8 @@
 import { FormEngine } from './form-engine'
+import { applySuggestion, getSuggestion, getSuggestions, removeSuggestion, setSuggestion } from './suggestions'
 import type { FormDefinition } from './types/form-definition'
 import type { FormDocument } from './types/form-values'
+import type { FieldSuggestion, FormSuggestions } from './types/suggestion'
 import type { FormValidationResult } from './types/validation-results'
 
 /**
@@ -143,6 +145,82 @@ export class FormValuesEditor {
             throw new Error(`Index ${index} is out of bounds for array field ${fieldId} (length ${arr.length})`)
         }
         arr[index] = value
+        return this
+    }
+
+    /**
+     * Returns the suggestion recorded for a field.
+     *
+     * @param fieldId - Numeric id of the field.
+     * @returns The suggestion, or `undefined` if the field has none.
+     */
+    getSuggestion(fieldId: number): FieldSuggestion | undefined {
+        return getSuggestion(this.doc, fieldId)
+    }
+
+    /**
+     * Returns every suggestion on the document, keyed by stringified field id.
+     *
+     * @returns A copy of the suggestions map. Empty when there are none.
+     */
+    getSuggestions(): FormSuggestions {
+        return getSuggestions(this.doc)
+    }
+
+    /**
+     * Records a suggestion for a field, replacing any existing one. The field's
+     * value is left untouched.
+     *
+     * @param fieldId - Numeric id of the field.
+     * @param suggestion - The suggestion to store.
+     * @returns `this` for chaining.
+     * @throws If `fieldId` is unknown, references a section, or `confidence`
+     *   falls outside `0..1`.
+     */
+    setSuggestion(fieldId: number, suggestion: FieldSuggestion): this {
+        this.assertField(fieldId)
+        this.doc = setSuggestion(this.doc, fieldId, suggestion)
+        return this
+    }
+
+    /**
+     * Removes the suggestion recorded for a field, leaving its value untouched.
+     *
+     * @param fieldId - Numeric id of the field.
+     * @returns `this` for chaining.
+     */
+    clearSuggestion(fieldId: number): this {
+        this.doc = removeSuggestion(this.doc, fieldId)
+        return this
+    }
+
+    /**
+     * Accepts a field's suggestion: copies the suggested value into the field's
+     * value and **keeps** the suggestion, so its source stays visible.
+     *
+     * No-op when the field has no suggestion.
+     *
+     * @param fieldId - Numeric id of the field.
+     * @returns `this` for chaining.
+     * @throws If `fieldId` is unknown or references a section.
+     */
+    acceptSuggestion(fieldId: number): this {
+        this.assertField(fieldId)
+        this.doc = applySuggestion(this.doc, fieldId)
+        return this
+    }
+
+    /**
+     * Rejects a field's suggestion: removes it entirely, leaving the field's
+     * value untouched.
+     *
+     * No-op when the field has no suggestion.
+     *
+     * @param fieldId - Numeric id of the field.
+     * @returns `this` for chaining.
+     */
+    rejectSuggestion(fieldId: number): this {
+        this.doc = removeSuggestion(this.doc, fieldId)
         return this
     }
 

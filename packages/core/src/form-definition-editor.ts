@@ -323,6 +323,51 @@ export class FormDefinitionEditor {
     }
 
     /**
+     * Sets the placeholder for a field or section.
+     *
+     * Passing `undefined` removes the property. Unlike {@link updateField},
+     * which merges and therefore cannot clear, this genuinely deletes the key.
+     */
+    setPlaceholder(id: number, placeholder: string | undefined): this {
+        return this.setMetadata(id, 'placeholder', placeholder)
+    }
+
+    /**
+     * Sets the answer guidelines for a field or section.
+     *
+     * Passing `undefined` removes the property.
+     */
+    setAnswerGuidelines(id: number, answerGuidelines: string | undefined): this {
+        return this.setMetadata(id, 'answer_guidelines', answerGuidelines)
+    }
+
+    /**
+     * Sets the external reference id for a field or section.
+     *
+     * Passing `undefined` removes the property.
+     */
+    setReferenceId(id: number, referenceId: string | undefined): this {
+        return this.setMetadata(id, 'reference_id', referenceId)
+    }
+
+    /**
+     * Assigns or deletes one optional string property on a field or section.
+     */
+    private setMetadata(
+        id: number,
+        property: 'placeholder' | 'answer_guidelines' | 'reference_id',
+        value: string | undefined,
+    ): this {
+        const item = this.findItem(id)
+        if (!item) throw new Error(`Item with id ${id} not found`)
+
+        if (value === undefined) delete item[property]
+        else item[property] = value
+
+        return this
+    }
+
+    /**
      * Returns a deep clone of the current form definition.
      */
     toJSON(): FormDefinition {

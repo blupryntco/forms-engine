@@ -5,10 +5,16 @@ import type { FC } from 'react'
 import type { FileEditProps, FileViewProps } from '@bluprynt/forms-viewer'
 
 import { FieldLabel } from './field-label'
+import { Suggestion } from './suggestion'
 
-export const FileView: FC<FileViewProps> = ({ field, value }) => (
+export const FileView: FC<FileViewProps> = ({ field, value, suggestion }) => (
     <div className="mb-4">
-        <FieldLabel label={field.label} description={field.description} />
+        <FieldLabel
+            label={field.label}
+            description={field.description}
+            answerGuidelines={field.answer_guidelines}
+            referenceId={field.reference_id}
+        />
         <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900">
             {value ? (
                 <div>
@@ -27,14 +33,28 @@ export const FileView: FC<FileViewProps> = ({ field, value }) => (
                 <span className="text-gray-400 italic">—</span>
             )}
         </div>
+        <Suggestion suggestion={suggestion} />
     </div>
 )
 
-export const FileEdit: FC<FileEditProps> = ({ field, value, errors, onChange }) => {
+export const FileEdit: FC<FileEditProps> = ({
+    field,
+    value,
+    errors,
+    onChange,
+    suggestion,
+    onAcceptSuggestion,
+    onRejectSuggestion,
+}) => {
     const hasError = errors.length > 0
     return (
         <div className="mb-4">
-            <FieldLabel label={field.label} description={field.description} />
+            <FieldLabel
+                label={field.label}
+                description={field.description}
+                answerGuidelines={field.answer_guidelines}
+                referenceId={field.reference_id}
+            />
             {value ? (
                 <div
                     className={`flex items-center justify-between rounded-md border px-3 py-2 text-sm ${
@@ -53,7 +73,7 @@ export const FileEdit: FC<FileEditProps> = ({ field, value, errors, onChange }) 
                     className={`flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed px-3 py-4 text-sm transition-colors ${
                         hasError ? 'border-red-400 hover:border-red-500' : 'border-gray-300 hover:border-blue-400'
                     }`}>
-                    <span className="text-gray-500">Click to select a file</span>
+                    <span className="text-gray-500">{field.placeholder ?? 'Click to select a file'}</span>
                     <input
                         type="file"
                         className="hidden"
@@ -70,6 +90,7 @@ export const FileEdit: FC<FileEditProps> = ({ field, value, errors, onChange }) 
                     />
                 </label>
             )}
+            <Suggestion suggestion={suggestion} onAccept={onAcceptSuggestion} onReject={onRejectSuggestion} />
         </div>
     )
 }

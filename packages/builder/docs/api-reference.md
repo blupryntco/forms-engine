@@ -137,6 +137,26 @@ Props passed to the consumer's field render component.
 | `onRemove` | `() => void` | Remove this field from the definition. |
 | `onChange` | `(item: ContentItem) => void` | Update this field in the definition. |
 
+##### Editing authoring metadata
+
+`item` is the raw `FieldContentItem`, so `description`, `placeholder`, `answer_guidelines` and
+`reference_id` are read and written through the same whole-item `onChange` as `label`:
+
+```tsx
+onChange({ ...item, placeholder: 'e.g. Acme Ltd', reference_id: 'KYI-3.1.a' })
+```
+
+**Omitting a property does not clear it.** The builder forwards the item to
+`FormDefinitionEditor.updateField`, which merges with `Object.assign`. To remove a property, pass it
+explicitly as `undefined` — serialization then strips the key:
+
+```tsx
+onChange({ ...item, placeholder: undefined })
+```
+
+For real clearing semantics outside the render contract, use `FormDefinitionEditor.setPlaceholder`,
+`setAnswerGuidelines` or `setReferenceId`, which `delete` the key.
+
 #### SectionRenderProps
 
 Props passed to the consumer's section render component.
@@ -154,7 +174,7 @@ Props passed to the consumer's section render component.
 | `isSelected` | `boolean` | `true` when this item's ID matches `selectedId`. |
 | `onAdd` | `(item: NewContentItem) => number` | Add a new item inside this section. Returns the new item's ID. |
 | `onRemove` | `() => void` | Remove this section and all its descendants. |
-| `onChange` | `(item: ContentItem) => void` | Update this section in the definition. |
+| `onChange` | `(item: ContentItem) => void` | Update this section in the definition. Carries `description`, `placeholder`, `answer_guidelines` and `reference_id` the same way as a field — see above. |
 
 #### AddPlaceholderRenderProps
 

@@ -5,6 +5,7 @@ import type { Condition, FieldType, FormDefinition } from '@bluprynt/forms-core'
 import type { EditorFormik } from '../model/editor-form'
 import { ArrayItemEditor } from './array-item-editor'
 import { ConditionalEditor, collectFields } from './conditional-editor'
+import { MetadataFields } from './metadata-fields'
 import { OptionsEditor } from './options-editor'
 import { Label, TextInput } from './primitives'
 import { ValidationEditor } from './validation-editor'
@@ -81,6 +82,8 @@ export const FieldForm: FC<{
                     />
                 </div>
             </div>
+
+            <MetadataFields formik={formik} />
 
             {formik.values.type === 'select' && (
                 <div>

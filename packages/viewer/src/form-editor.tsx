@@ -1,6 +1,13 @@
 import { type FC, useCallback, useRef } from 'react'
 
-import { FieldContentItem, FormDocument, FormEngine, FormValidationResult } from '@bluprynt/forms-core'
+import {
+    applySuggestion,
+    FieldContentItem,
+    FormDocument,
+    FormEngine,
+    FormValidationResult,
+    removeSuggestion,
+} from '@bluprynt/forms-core'
 
 import { FormContent } from './form'
 import { useFormContext } from './form-context'
@@ -25,6 +32,7 @@ export const FormEditor: FC<FormEditorProps> = ({ components, onChange }) => {
             items={definition.content}
             visibilityMap={visibilityMap}
             values={data.values}
+            suggestions={data.suggestions}
             fieldErrors={fieldErrors}
             components={components}
             section={section}
@@ -118,6 +126,37 @@ export const useEditorHandlers = (
         return handlers
     }, [])
 
+    // Suggestion accept/reject handlers
+
+    const suggestionHandlersMap = useRef(
+        new Map<string, { onAcceptSuggestion: () => void; onRejectSuggestion: () => void }>(),
+    )
+    const getSuggestionHandlers = useCallback((fieldId: number) => {
+        const key = String(fieldId)
+
+        let handlers = suggestionHandlersMap.current.get(key)
+        if (!handlers) {
+            // Both helpers return the same document when the field has no
+            // suggestion, which makes each handler a no-op in that case.
+            const fire = (next: (document: FormDocument) => FormDocument) => {
+                const { data, onChange, engine } = stateRef.current
+                if (!data || !engine) return
+
+                const document = next(data)
+                if (document === data) return
+
+                onChange(document, engine.validate(document))
+            }
+
+            handlers = {
+                onAcceptSuggestion: () => fire((document) => applySuggestion(document, fieldId)),
+                onRejectSuggestion: () => fire((document) => removeSuggestion(document, fieldId)),
+            }
+            suggestionHandlersMap.current.set(key, handlers)
+        }
+        return handlers
+    }, [])
+
     // Array item onChange handler
 
     const arrayItemOnChangeMap = useRef(new Map<string, (value: unknown) => void>())
@@ -149,9 +188,10 @@ export const useEditorHandlers = (
                 return {
                     onChange: getFieldOnChange(field.id),
                     ...getArrayHandlers(field.id),
+                    ...getSuggestionHandlers(field.id),
                 }
             }
-            return { onChange: getFieldOnChange(field.id) }
+            return { onChange: getFieldOnChange(field.id), ...getSuggestionHandlers(field.id) }
         },
         renderArrayItemProps: (field: FieldContentItem, index: number): EditorArrayItemProps => ({
             onChange: getArrayItemOnChange(field.id, index),

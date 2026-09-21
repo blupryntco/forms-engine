@@ -966,4 +966,76 @@ describe('FormDefinitionValidator.validateSchema', () => {
             expect(schemaIssues(minimal)).toEqual([])
         })
     })
+
+    describe('authoring metadata (placeholder / answer_guidelines / reference_id)', () => {
+        const METADATA = {
+            placeholder: 'Acme Ltd',
+            answer_guidelines: 'Use the registered name',
+            reference_id: 'KYI-3.1.a',
+        }
+
+        const fieldOfType = (type: string): Record<string, unknown> => {
+            const base: Record<string, unknown> = { id: 1, type, label: 'Field' }
+            if (type === 'select') base.options = [{ value: 'a', label: 'A' }]
+            if (type === 'array') base.item = { type: 'string', label: 'Item' }
+            return base
+        }
+
+        const FIELD_TYPES = ['string', 'number', 'boolean', 'date', 'select', 'array', 'file']
+
+        it.each(FIELD_TYPES)('accepts the metadata on a %s field', (type) => {
+            expect(schemaValid({ ...minimal, content: [{ ...fieldOfType(type), ...METADATA }] })).toBe(true)
+        })
+
+        it.each(FIELD_TYPES)('still accepts a %s field without any of the metadata', (type) => {
+            expect(schemaValid({ ...minimal, content: [fieldOfType(type)] })).toBe(true)
+        })
+
+        it('accepts the metadata on a section', () => {
+            const content = [
+                {
+                    id: 1,
+                    type: 'section',
+                    title: 'Details',
+                    ...METADATA,
+                    content: [{ id: 2, type: 'string', label: 'Name' }],
+                },
+            ]
+            expect(schemaValid({ ...minimal, content })).toBe(true)
+        })
+
+        it.each([
+            'string',
+            'number',
+            'boolean',
+            'date',
+            'select',
+            'file',
+        ])('accepts the metadata on a %s array item', (type) => {
+            const item: Record<string, unknown> = { type, label: 'Item', ...METADATA }
+            if (type === 'select') item.options = [{ value: 'a', label: 'A' }]
+            expect(schemaValid({ ...minimal, content: [{ id: 1, type: 'array', label: 'Tags', item }] })).toBe(true)
+        })
+
+        it('still rejects an unknown property on a field', () => {
+            const issues = schemaIssues({ ...minimal, content: [{ id: 1, type: 'string', label: 'Name', nope: 'x' }] })
+            expect(issues.some((i) => i.code === 'SCHEMA_INVALID' && i.message.includes('"nope"'))).toBe(true)
+        })
+
+        it('still rejects an unknown property on a section', () => {
+            const content = [
+                { id: 1, type: 'section', title: 'S', nope: 'x', content: [{ id: 2, type: 'string', label: 'N' }] },
+            ]
+            const issues = schemaIssues({ ...minimal, content })
+            expect(issues.some((i) => i.code === 'SCHEMA_INVALID' && i.message.includes('"nope"'))).toBe(true)
+        })
+
+        it('does not report the metadata as unsupported alongside an unrelated error', () => {
+            const issues = schemaIssues({ ...minimal, content: [{ id: 1, type: 'string', ...METADATA }] })
+            expect(issues.length).toBeGreaterThan(0)
+            for (const key of ['placeholder', 'answer_guidelines', 'reference_id']) {
+                expect(issues.some((i) => i.message.includes(`"${key}"`))).toBe(false)
+            }
+        })
+    })
 })

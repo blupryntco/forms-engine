@@ -45,7 +45,7 @@ export const getFieldErrors = (
  * Array fields store their per-item schema in `arrayField.item` ({@link ArrayItemDef}).
  * Components that render individual array items need a standard `FieldContentItem` shape,
  * so this helper projects the item definition into one, preserving the parent field's `id`
- * while adopting the item's `type`, `label`, `description`, `validation`, and `options`.
+ * while adopting the item's `type`, `label`, authoring metadata, `validation`, and `options`.
  *
  * @param arrayField - The array field definition whose `.item` property describes the item schema.
  * @param _index - The zero-based position of the item in the array (reserved for future use,
@@ -70,6 +70,9 @@ export const getArrayField = (arrayField: FieldContentItem, _index: number): Fie
         type: itemDef.type as FieldType,
         label: itemDef.label,
         description: itemDef.description,
+        placeholder: itemDef.placeholder,
+        answer_guidelines: itemDef.answer_guidelines,
+        reference_id: itemDef.reference_id,
         validation: itemDef.validation as FieldContentItem['validation'],
         options: itemDef.options,
     }

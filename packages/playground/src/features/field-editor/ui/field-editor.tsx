@@ -56,6 +56,9 @@ const buildInitialValues = (item: ContentItem): EditorFormValues => {
             validation: undefined,
             title: section.title,
             description: section.description ?? '',
+            placeholder: section.placeholder ?? '',
+            answerGuidelines: section.answer_guidelines ?? '',
+            referenceId: section.reference_id ?? '',
             conditionText: section.condition ? JSON.stringify(section.condition, null, 2) : '',
         }
     }
@@ -69,8 +72,22 @@ const buildInitialValues = (item: ContentItem): EditorFormValues => {
         validation: field.validation,
         title: '',
         description: field.description ?? '',
+        placeholder: field.placeholder ?? '',
+        answerGuidelines: field.answer_guidelines ?? '',
+        referenceId: field.reference_id ?? '',
         conditionText: field.condition ? JSON.stringify(field.condition, null, 2) : '',
     }
+}
+
+/**
+ * Writes the three optional metadata properties, clearing each one whose input
+ * was emptied. The dedicated setters are used rather than `updateField`, which
+ * merges and therefore cannot remove a property.
+ */
+const applyMetadata = (editor: FormDefinitionEditor, itemId: number, values: EditorFormValues): void => {
+    editor.setPlaceholder(itemId, values.placeholder || undefined)
+    editor.setAnswerGuidelines(itemId, values.answerGuidelines || undefined)
+    editor.setReferenceId(itemId, values.referenceId || undefined)
 }
 
 const validate = (values: EditorFormValues): Partial<Record<keyof EditorFormValues, string>> => {
@@ -110,6 +127,7 @@ const EditorBody: FC<{
             if (values.kind === 'section') {
                 editor.updateSection(item.id, { title: values.title })
                 editor.setFieldDescription(item.id, values.description || undefined)
+                applyMetadata(editor, item.id, values)
             } else {
                 const field = item as FieldContentItem
                 if (values.type !== field.type) {
@@ -130,6 +148,8 @@ const EditorBody: FC<{
                     editor.setLabel(item.id, values.label)
                     editor.setFieldDescription(item.id, values.description || undefined)
                 }
+
+                applyMetadata(editor, item.id, values)
 
                 if (values.type === 'select') {
                     editor.setOptions(item.id, values.options)

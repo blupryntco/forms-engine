@@ -63,6 +63,10 @@ export type EditorComponentMap = {
 
 export type EditorFieldProps = {
     onChange: (value: unknown) => void
+    /** Copies this field's suggested value into its value, keeping the suggestion. */
+    onAcceptSuggestion?: () => void
+    /** Removes this field's suggestion, leaving its value untouched. */
+    onRejectSuggestion?: () => void
     onAddItem?: () => void
     onRemoveItem?: (index: number) => void
     onMoveItem?: (fromIndex: number, toIndex: number) => void

@@ -20,6 +20,7 @@ export const FormViewer: FC<FormViewerProps> = ({ components }) => {
             items={definition.content}
             visibilityMap={visibilityMap}
             values={data.values}
+            suggestions={data.suggestions}
             fieldErrors={fieldErrors}
             components={components}
             section={section}

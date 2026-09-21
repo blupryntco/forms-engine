@@ -693,4 +693,99 @@ describe('FormValuesEditor', () => {
             expect((editor.getFieldValue(1) as FileValue).name).toBe('doc.pdf')
         })
     })
+
+    describe('suggestions', () => {
+        const suggestion = (value: unknown, confidence = 0.5, source = 'extracted from page 1') => ({
+            value,
+            confidence,
+            source,
+        })
+
+        it('sets and reads a suggestion', () => {
+            const editor = new FormValuesEditor(simpleDef)
+            editor.setSuggestion(1, suggestion('Acme Ltd'))
+            expect(editor.getSuggestion(1)).toEqual(suggestion('Acme Ltd'))
+        })
+
+        it('returns undefined for a field without a suggestion', () => {
+            expect(new FormValuesEditor(simpleDef).getSuggestion(1)).toBeUndefined()
+        })
+
+        it('returns every suggestion via getSuggestions', () => {
+            const editor = new FormValuesEditor(simpleDef)
+            editor.setSuggestion(1, suggestion('Acme Ltd')).setSuggestion(2, suggestion(42))
+            expect(editor.getSuggestions()).toEqual({ '1': suggestion('Acme Ltd'), '2': suggestion(42) })
+        })
+
+        it('returns an empty map for a document with no suggestions', () => {
+            expect(new FormValuesEditor(simpleDef).getSuggestions()).toEqual({})
+        })
+
+        it('throws when setting a suggestion on an unknown field', () => {
+            expect(() => new FormValuesEditor(simpleDef).setSuggestion(99, suggestion('x'))).toThrow(
+                'Field with id 99 not found',
+            )
+        })
+
+        it('throws when setting a suggestion on a section', () => {
+            const def = baseDef([
+                { id: 1, type: 'section', title: 'Details', content: [{ id: 2, type: 'string', label: 'Name' }] },
+            ])
+            expect(() => new FormValuesEditor(def).setSuggestion(1, suggestion('x'))).toThrow(
+                'Item 1 is a section, not a field',
+            )
+        })
+
+        it('throws when confidence is outside 0..1', () => {
+            expect(() => new FormValuesEditor(simpleDef).setSuggestion(1, suggestion('x', 1.5))).toThrow(
+                /confidence must be a number between 0 and 1/,
+            )
+        })
+
+        it('clears a suggestion', () => {
+            const editor = new FormValuesEditor(simpleDef)
+            editor.setSuggestion(1, suggestion('Acme Ltd')).clearSuggestion(1)
+            expect(editor.getSuggestion(1)).toBeUndefined()
+        })
+
+        it('accepts a suggestion into the value and keeps the suggestion', () => {
+            const editor = new FormValuesEditor(simpleDef)
+            editor.setSuggestion(1, suggestion('Acme Ltd')).acceptSuggestion(1)
+            expect(editor.getFieldValue(1)).toBe('Acme Ltd')
+            expect(editor.getSuggestion(1)).toEqual(suggestion('Acme Ltd'))
+        })
+
+        it('rejects a suggestion without touching the value', () => {
+            const editor = new FormValuesEditor(simpleDef)
+            editor.setFieldValue(1, 'typed').setSuggestion(1, suggestion('Acme Ltd')).rejectSuggestion(1)
+            expect(editor.getFieldValue(1)).toBe('typed')
+            expect(editor.getSuggestion(1)).toBeUndefined()
+        })
+
+        it('does not alias an accepted array value to the suggestion', () => {
+            const editor = new FormValuesEditor(simpleDef)
+            editor
+                .setSuggestion(6, suggestion(['a', 'b']))
+                .acceptSuggestion(6)
+                .addArrayItem(6, 'c')
+            expect(editor.getSuggestion(6)?.value).toEqual(['a', 'b'])
+            expect(editor.getFieldValue(6)).toEqual(['a', 'b', 'c'])
+        })
+
+        it('emits no suggestions key for a document that never had one', () => {
+            const snapshot = new FormValuesEditor(simpleDef, doc({ '1': 'typed' })).toJSON()
+            expect('suggestions' in snapshot).toBe(false)
+        })
+
+        it('drops the suggestions key again once the last suggestion is rejected', () => {
+            const editor = new FormValuesEditor(simpleDef, doc({ '1': 'typed' }))
+            editor.setSuggestion(1, suggestion('Acme Ltd')).rejectSuggestion(1)
+            expect('suggestions' in editor.toJSON()).toBe(false)
+        })
+
+        it('preserves existing suggestions from a loaded document', () => {
+            const existing = { ...doc({ '1': 'typed' }), suggestions: { '1': suggestion('Acme Ltd') } }
+            expect(new FormValuesEditor(simpleDef, existing).getSuggestion(1)).toEqual(suggestion('Acme Ltd'))
+        })
+    })
 })

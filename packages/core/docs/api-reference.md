@@ -219,9 +219,16 @@ editor.setOptions(7, [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }])
 editor.setArrayItem(8, { type: 'string', label: 'Item' })
 editor.setLabel(3, 'New Label')
 editor.setFieldDescription(3, 'Help text')
+editor.setPlaceholder(3, 'e.g. Acme Ltd')
+editor.setAnswerGuidelines(3, 'Use the name as registered')
+editor.setReferenceId(3, 'KYI-3.1.a')
 ```
 
 Pass `undefined` to `setValidation` or `setCondition` to clear the value.
+
+`setFieldDescription`, `setPlaceholder`, `setAnswerGuidelines` and `setReferenceId` work on both fields and
+sections, and also clear on `undefined`. Prefer them over `updateField` / `updateSection` when a property
+needs removing: those merge with `Object.assign` and cannot delete a key.
 
 #### Listing Methods
 
@@ -329,6 +336,40 @@ Sets the value of an item at a specific index in an array field.
 ```ts
 editor.setArrayItem(6, 0, 'Updated Value')
 ```
+
+#### Suggestions
+
+Machine-proposed answers carried in the document's optional `suggestions` block. A suggestion never affects
+validation or visibility.
+
+##### `getSuggestion(fieldId: number): FieldSuggestion | undefined`
+
+##### `getSuggestions(): FormSuggestions`
+
+Returns a copy of every suggestion, keyed by stringified field id. Empty when the document has none.
+
+##### `setSuggestion(fieldId: number, suggestion: FieldSuggestion): this`
+
+**Throws:** If `fieldId` is unknown, references a section, or `confidence` falls outside `0..1`.
+
+##### `clearSuggestion(fieldId: number): this`
+
+##### `acceptSuggestion(fieldId: number): this`
+
+Copies the suggested value into the field's value and **keeps** the suggestion. No-op when there is none.
+
+##### `rejectSuggestion(fieldId: number): this`
+
+Removes the suggestion, leaving the field's value untouched. No-op when there is none.
+
+```ts
+editor.setSuggestion(3, { value: 'Acme Ltd', confidence: 0.9, source: 'Certificate of incorporation, p.1' })
+editor.acceptSuggestion(3)   // values['3'] === 'Acme Ltd', suggestion still present
+editor.rejectSuggestion(3)   // suggestion gone, values['3'] unchanged
+```
+
+When the last suggestion is removed the `suggestions` key is dropped from the document, so a document that
+never had suggestions round-trips through `toJSON()` unchanged.
 
 #### Document Metadata
 
@@ -483,6 +524,27 @@ Performs semantic checks. Returns an array of errors. See [Schema Issue Codes](.
 
 ---
 
+## Suggestion Helpers
+
+Pure `FormDocument -> FormDocument` functions, exported from `@bluprynt/forms-core`. `FormValuesEditor`
+delegates to them, and consumers that hold a plain document (such as the viewer's editor handlers) can use
+them directly without constructing an engine.
+
+```ts
+import { applySuggestion, getSuggestion, getSuggestions, removeSuggestion, setSuggestion } from '@bluprynt/forms-core'
+```
+
+| Function | Description |
+|----------|-------------|
+| `getSuggestion(doc, fieldId)` | The field's suggestion, or `undefined`. |
+| `getSuggestions(doc)` | Copy of every suggestion; `{}` when the document has none. |
+| `setSuggestion(doc, fieldId, suggestion)` | New document carrying the suggestion. Throws when `confidence` is outside `0..1`. |
+| `removeSuggestion(doc, fieldId)` | New document without it; drops the `suggestions` key when it empties. Returns `doc` itself when there was nothing to remove. |
+| `applySuggestion(doc, fieldId)` | New document with the suggested value deep-copied into `values`, suggestion kept. Returns `doc` itself when the field has none. |
+
+None of these validate that `fieldId` refers to an existing, non-section field — that check belongs to
+`FormValuesEditor`, which calls it before delegating. Writers never mutate their input.
+
 ## Types
 
 ### Form Structure
@@ -491,13 +553,15 @@ Performs semantic checks. Returns an array of errors. See [Schema Issue Codes](.
 |------|-------------|
 | `FormDefinition` | Top-level schema: `{ id, version, title, description?, content[] }` |
 | `ContentItem` | Union: `FieldContentItem \| SectionContentItem` |
-| `FieldContentItem` | Field node: `{ id, type, label, description?, condition?, validation?, options?, item? }` |
-| `SectionContentItem` | Section node: `{ id, type: 'section', title, description?, condition?, content[] }` |
+| `FieldContentItem` | Field node: `{ id, type, label, description?, placeholder?, answer_guidelines?, reference_id?, condition?, validation?, options?, item? }` |
+| `SectionContentItem` | Section node: `{ id, type: 'section', title, description?, placeholder?, answer_guidelines?, reference_id?, condition?, content[] }` |
 | `FieldType` | `'string' \| 'number' \| 'boolean' \| 'date' \| 'select' \| 'array' \| 'file'` |
 | `ContentItemType` | `FieldType \| 'section'` |
 | `FormValues` | `Record<string, unknown>` — flat map keyed by stringified field ID |
-| `FormDocument` | `{ form: { id, version, submittedAt }, values: FormValues }` |
+| `FormDocument` | `{ form: { id, version, submittedAt }, values: FormValues, suggestions?: FormSuggestions }` |
 | `FormSnapshot` | `{ definition: FormDefinition, document: FormDocument }` |
+| `FieldSuggestion` | `{ value: unknown, confidence: number, source: string }` — `confidence` is a `0..1` fraction |
+| `FormSuggestions` | `Record<string, FieldSuggestion>` — sparse, keyed like `FormValues` |
 
 ### Conditions
 
@@ -531,7 +595,7 @@ Performs semantic checks. Returns an array of errors. See [Schema Issue Codes](.
 |------|-------------|
 | `FieldEntry` | Flattened registry entry: `{ id, type, condition, validation, parentId, options, item, label, title }` |
 | `SelectOption` | `{ value: string \| number, label: string }` |
-| `ArrayItemDef` | `{ type, label, description?, validation?, options? }` — no `id`, no nested arrays |
+| `ArrayItemDef` | `{ type, label, description?, placeholder?, answer_guidelines?, reference_id?, validation?, options? }` — no `id`, no nested arrays |
 | `FileValue` | `{ name, mimeType, size, url }` |
 | `DocumentError` | Error class with `.errors: DocumentValidationError[]` — thrown on definition validation failure or by `loadDocument()` on id/version mismatch |
 | `EvaluationContext` | `{ values, visibilityMap?, now }` |

@@ -1,6 +1,12 @@
 import type { FC } from 'react'
 
-import type { ContentItem, FieldContentItem, FieldValidationError, FormValues } from '@bluprynt/forms-core'
+import type {
+    ContentItem,
+    FieldContentItem,
+    FieldValidationError,
+    FormSuggestions,
+    FormValues,
+} from '@bluprynt/forms-core'
 
 import { DEFAULT, ROOT } from '../constants'
 import type { EditorArrayItemProps, EditorComponentMap, EditorFieldProps, ViewerComponentMap } from '../types'
@@ -11,6 +17,7 @@ type FormContentBaseProps = {
     items: ContentItem[]
     visibilityMap: Map<number, boolean>
     values: FormValues
+    suggestions?: FormSuggestions
     fieldErrors: Map<number, FieldValidationError[]>
     section?: typeof ROOT | typeof DEFAULT | number
     showInlineValidation: boolean
@@ -31,13 +38,14 @@ type FormContentEditorProps = FormContentBaseProps & {
 export type FormContentProps = FormContentViewerProps | FormContentEditorProps
 
 export const FormContent: FC<FormContentProps> = (props) => {
-    const { items, visibilityMap, values, fieldErrors, section, showInlineValidation } = props
+    const { items, visibilityMap, values, suggestions, fieldErrors, section, showInlineValidation } = props
 
     const sharedProps =
         props.mode === 'editor'
             ? {
                   visibilityMap,
                   values,
+                  suggestions,
                   fieldErrors,
                   components: props.components,
                   showInlineValidation,
@@ -47,6 +55,7 @@ export const FormContent: FC<FormContentProps> = (props) => {
             : {
                   visibilityMap,
                   values,
+                  suggestions,
                   fieldErrors,
                   components: props.components,
                   showInlineValidation,

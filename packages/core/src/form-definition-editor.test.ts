@@ -1097,4 +1097,61 @@ describe('FormDefinitionEditor', () => {
             })
         })
     })
+
+    describe('metadata setters', () => {
+        const defWithBoth = (): FormDefinition => ({
+            id: 'f',
+            version: '1.0.0',
+            title: 'F',
+            content: [
+                { id: 1, type: 'string', label: 'Name' },
+                { id: 2, type: 'section', title: 'Details', content: [{ id: 3, type: 'string', label: 'Note' }] },
+            ],
+        })
+
+        const cases = [
+            ['setPlaceholder', 'placeholder', 'Acme Ltd'],
+            ['setAnswerGuidelines', 'answer_guidelines', 'Use the registered name'],
+            ['setReferenceId', 'reference_id', 'KYI-3.1.a'],
+        ] as const
+
+        it.each(cases)('%s sets %s on a field', (method, property, value) => {
+            const editor = new FormDefinitionEditor(defWithBoth())
+            editor[method](1, value)
+            expect((editor.toJSON().content[0] as FieldContentItem)[property]).toBe(value)
+        })
+
+        it.each(cases)('%s sets %s on a section', (method, property, value) => {
+            const editor = new FormDefinitionEditor(defWithBoth())
+            editor[method](2, value)
+            expect((editor.toJSON().content[1] as SectionContentItem)[property]).toBe(value)
+        })
+
+        it.each(cases)('%s removes %s when passed undefined', (method, property, value) => {
+            const editor = new FormDefinitionEditor(defWithBoth())
+            editor[method](1, value)
+            editor[method](1, undefined)
+            expect(property in (editor.toJSON().content[0] as FieldContentItem)).toBe(false)
+        })
+
+        it.each(cases)('%s throws for an unknown id', (method) => {
+            expect(() => new FormDefinitionEditor(defWithBoth())[method](99, 'x')).toThrow('Item with id 99 not found')
+        })
+
+        it('returns this for chaining', () => {
+            const editor = new FormDefinitionEditor(defWithBoth())
+            expect(editor.setPlaceholder(1, 'a').setAnswerGuidelines(1, 'b').setReferenceId(1, 'c')).toBe(editor)
+        })
+
+        it('carries metadata through addField and updateField', () => {
+            const editor = new FormDefinitionEditor(defWithBoth())
+            editor.addField({ id: 4, type: 'string', label: 'Extra', placeholder: 'hint' })
+            editor.updateField(4, { answer_guidelines: 'guide', reference_id: 'REF-1' })
+
+            const field = editor.toJSON().content[2] as FieldContentItem
+            expect(field.placeholder).toBe('hint')
+            expect(field.answer_guidelines).toBe('guide')
+            expect(field.reference_id).toBe('REF-1')
+        })
+    })
 })

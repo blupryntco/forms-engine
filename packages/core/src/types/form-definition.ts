@@ -36,6 +36,9 @@ export type ContentItem = FieldContentItem | SectionContentItem
  * @property type - The field's data type.
  * @property label - Display label shown to the user.
  * @property description - Optional help text.
+ * @property placeholder - Optional placeholder text for the field's input control.
+ * @property answer_guidelines - Optional guidance describing how the field should be answered.
+ * @property reference_id - Optional external reference (e.g. a regulation or questionnaire item id).
  * @property condition - Visibility condition that controls whether this field is shown.
  * @property validation - Type-specific validation rules.
  * @property options - Allowed values (required for `select` fields).
@@ -46,6 +49,9 @@ export type FieldContentItem = {
     type: FieldType
     label: string
     description?: string
+    placeholder?: string
+    answer_guidelines?: string
+    reference_id?: string
     condition?: Condition
     validation?: TypeSpecificValidation
     options?: SelectOption[]
@@ -61,6 +67,9 @@ export type FieldContentItem = {
  * @property type - Always `'section'`.
  * @property title - Display title for the section.
  * @property description - Optional description.
+ * @property placeholder - Optional placeholder text.
+ * @property answer_guidelines - Optional guidance describing how the section should be completed.
+ * @property reference_id - Optional external reference (e.g. a regulation or questionnaire item id).
  * @property condition - Visibility condition. When hidden, all descendant
  *   fields and sections are also hidden.
  * @property content - Ordered list of child content items.
@@ -70,6 +79,9 @@ export type SectionContentItem = {
     type: 'section'
     title: string
     description?: string
+    placeholder?: string
+    answer_guidelines?: string
+    reference_id?: string
     condition?: Condition
     content: ContentItem[]
 }

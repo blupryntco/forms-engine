@@ -40,7 +40,14 @@ Types `"string"` through `"array"` are **fields** — they produce values. Type 
 |----------|------|----------|-------------|
 | `label` | `string` | yes | Human-readable field label. |
 | `description` | `string` | no | Help text or hint for the field. |
+| `placeholder` | `string` | no | Placeholder shown inside the empty input control. |
+| `answer_guidelines` | `string` | no | Guidance on how the field should be answered. Free text, not enforced. |
+| `reference_id` | `string` | no | External reference, e.g. the regulation or questionnaire item this field came from. Opaque to the engine. |
 | `validation` | `object` | no | Type-specific validation rules. Shape depends on `type`. See §3. |
+
+`placeholder`, `answer_guidelines` and `reference_id` are presentation/authoring metadata: the engine never
+reads them, they do not participate in validation or conditions, and they are all optional, so definitions
+written before they existed remain valid.
 
 ### 2.3 Section Properties (`type: "section"`)
 
@@ -48,6 +55,9 @@ Types `"string"` through `"array"` are **fields** — they produce values. Type 
 |----------|------|----------|-------------|
 | `title` | `string` | yes | Human-readable section title. |
 | `description` | `string` | no | Section description or instructions. |
+| `placeholder` | `string` | no | Placeholder shown inside the empty input control. |
+| `answer_guidelines` | `string` | no | Guidance on how the field should be answered. Free text, not enforced. |
+| `reference_id` | `string` | no | External reference, e.g. the regulation or questionnaire item this field came from. Opaque to the engine. |
 | `content` | `ContentItem[]` | yes | Nested content items (fields and/or sections). At least one item required. |
 
 When a section's condition evaluates to `false`, all items within (including nested sections' fields) are hidden and excluded from validation.
@@ -294,7 +304,7 @@ Some field types have configuration properties beyond `validation`.
 |----------|------|----------|-------------|
 | `item` | `object` | yes | Field definition for each array item. Same shape as any field (§2.2), excluding `id` and `type: "array"` (no nested arrays). |
 
-The `item` object supports all field properties (`type`, `label`, `description`, `validation`, `options` for select) except `id` and `condition`.
+The `item` object supports all field properties (`type`, `label`, `description`, `placeholder`, `answer_guidelines`, `reference_id`, `validation`, `options` for select) except `id` and `condition`.
 
 **Array of numbers with item validation:**
 
@@ -473,6 +483,13 @@ Form values document links to its form definition via `form` and contains field 
     "5": "contract",
     "6": ["TypeScript", "React"],
     "18": {"name": "document.pdf", "mimeType": "application/pdf", "size": 1048576, "url": "https://storage.example.com/files/abc123/document.pdf"}
+  },
+  "suggestions": {
+    "1": {
+      "value": "Jonathan Doe",
+      "confidence": 0.8,
+      "source": "Passport MRZ, line 2."
+    }
   }
 }
 ```
@@ -484,8 +501,35 @@ Form values document links to its form definition via `form` and contains field 
 | `form.version` | `string` | yes | Must match the `version` of the form schema (semver). Validated by `FormEngine.validate()` — mismatch produces a `FORM_VERSION_MISMATCH` document error. |
 | `form.submittedAt` | `string` | yes | ISO 8601 timestamp of when the form was submitted. Used as the sole reference time for relative date resolution. Auto-populated by `createFormDocument()`. Missing `submittedAt` produces a `FORM_SUBMITTED_AT_MISSING` document error; malformed values produce a `FORM_SUBMITTED_AT_INVALID` document error. |
 | `values` | `object` | yes | Flat key-value map. Keys are stringified field IDs, values match field types. |
+| `suggestions` | `object` | no | Sparse map of machine-proposed answers, keyed like `values`. See §6.1. |
 
 Field IDs are globally unique, so `values` is always flat regardless of section nesting. Sections affect only presentation/grouping — not the data structure.
+
+### 6.1 Suggestions
+
+`suggestions` is optional and sparse: it may be absent entirely (documents written before suggestions
+existed), and when present only some fields have an entry. Keys are stringified field IDs, in the same key
+space as `values`. Sections never have suggestions — they hold no value.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `value` | any | yes | The proposed value, shaped like the field's own value. For an `array` field this is the whole array, not a single item. |
+| `confidence` | `number` | yes | How confident the producer is, as a `0..1` fraction (`0.3` means 30%). |
+| `source` | `string` | yes | Human-readable explanation of why the value was proposed. |
+
+Suggestions never affect validation or visibility: a suggestion cannot satisfy a `required` rule, and
+`FormEngine.validate()` returns the same result whether or not the block is present.
+
+`confidence` is range-checked only on write — `FormValuesEditor.setSuggestion()` and the core
+`setSuggestion()` helper throw outside `0..1`. There is **no** JSON schema for form values, so a stored
+document with `confidence: 1.5` loads and renders without complaint.
+
+Two operations are defined on a suggestion:
+
+- **Accept** copies `value` into `values` under the same key and **keeps** the suggestion, so the origin of
+  the answer stays visible.
+- **Reject** removes the suggestion and leaves the field's value untouched. When the last entry is removed,
+  the `suggestions` key is dropped from the document rather than left as `{}`.
 
 ---
 
@@ -498,6 +542,7 @@ Field IDs are globally unique, so `values` is always flat regardless of section 
 | ID uniqueness | Global across entire schema (all fields and sections) |
 | Select options minimum | 1 |
 | Select option values | Unique within the field's options list |
+| Suggestion `confidence` | `0..1` (checked on write only) |
 
 ---
 

@@ -242,7 +242,14 @@ Component map for editable rendering. Extends view props with mutation callbacks
 | `section` | `SectionEditProps` | Section wrapper (receives `children`) |
 | `error?` | `ErrorProps` | Optional inline error renderer |
 
-All edit field props extend `BaseEditFieldProps` which adds `onChange(value)` to the base view props.
+All edit field props extend `BaseEditFieldProps`, which adds `onChange(value)` plus the optional
+`onAcceptSuggestion()` / `onRejectSuggestion()` handlers to the base view props.
+
+Every field component — read-only and editable — also receives the field's authoring metadata on
+`field` (`description`, `placeholder`, `answer_guidelines`, `reference_id`) and an optional
+`suggestion` (`{ value, confidence, source }`) when the document carries one for that field. Accepting
+copies the suggested value into the field's value and keeps the suggestion; rejecting removes the
+suggestion and leaves the value alone. See [CHANGES.md](../../CHANGES.md).
 
 ## Exported API
 
@@ -267,7 +274,9 @@ All edit field props extend `BaseEditFieldProps` which adds `onChange(value)` to
 | `FormValuesEditor` | Class | Fluent editor for reading and writing form values against a definition |
 | `DocumentError` | Class | Error representing a document-level validation failure |
 | `FormDefinition` | Type | JSON schema describing form structure, fields, sections, and rules |
-| `FormDocument` | Type | JSON document containing user-submitted form values |
+| `FormDocument` | Type | JSON document containing user-submitted form values and optional suggestions |
+| `FieldSuggestion` | Type | A machine-proposed answer: `{ value, confidence, source }` |
+| `FormSuggestions` | Type | Sparse map of suggestions keyed by stringified field id |
 | `FormValidationResult` | Type | Validation outcome with document-level and field-level errors |
 | `FieldType` | Type | Union of supported field types (`string`, `number`, `boolean`, `date`, `select`, `array`, `file`) |
 | `FileValue` | Type | File field value containing name, MIME type, size, and URL |

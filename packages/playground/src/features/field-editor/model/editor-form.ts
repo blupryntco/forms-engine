@@ -13,6 +13,9 @@ export type EditorFormValues = {
     title: string
     // common
     description: string
+    placeholder: string
+    answerGuidelines: string
+    referenceId: string
     conditionText: string
 }
 
