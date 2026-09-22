@@ -1,0 +1,43 @@
+{
+    "form": {
+        "id": "legacy-matrix",
+        "version": "1.0.0",
+        "submittedAt": "2025-06-15T00:00:00.000Z"
+    },
+    "values": {
+        "1": "hello",
+        "2": 42,
+        "3": true,
+        "4": "2025-06-01T00:00:00.000Z",
+        "5": "b",
+        "6": ["x", "y"],
+        "7": { "name": "a.pdf", "mimeType": "application/pdf", "size": 1024, "url": "https://example.test/a.pdf" },
+        "9": [],
+        "10": false,
+        "402": "abc",
+        "403": "abcdef",
+        "404": "lower",
+        "405": 7,
+        "406": 5,
+        "407": 500,
+        "408": true,
+        "409": "2025-03-01T00:00:00.000Z",
+        "410": "2024-01-01T00:00:00.000Z",
+        "411": "2026-01-01T00:00:00.000Z",
+        "412": "a",
+        "413": ["one"],
+        "414": ["one", "two", "three"],
+        "415": { "name": "b.pdf", "mimeType": "application/pdf", "size": 2048, "url": "https://example.test/b.pdf" },
+        "416": "2025-06-10T00:00:00.000Z",
+        "417": "2025-12-01T00:00:00.000Z",
+        "418": "not a number",
+        "419": "not-a-date",
+        "420": "z",
+        "501": ["a", "bb"],
+        "502": [0, 5],
+        "503": [true, false],
+        "504": ["2025-01-01T00:00:00.000Z"],
+        "505": ["a", "b"],
+        "506": [{ "name": "c.pdf", "mimeType": "application/pdf", "size": 3072, "url": "https://example.test/c.pdf" }]
+    }
+}

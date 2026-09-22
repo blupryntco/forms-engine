@@ -1,0 +1,51 @@
+{
+    "form": {
+        "id": "c7e2a4f0-8b1d-4e3a-9f6c-d5a2b8e1c4f7",
+        "version": "1.0.0",
+        "submittedAt": "2025-12-05T14:45:00.000Z"
+    },
+    "values": {
+        "2": "0xabc123def456789012345678901234567890abcdef1234567890abcdef123456",
+        "3": "ethereum",
+        "4": "2025-12-05T00:00:00.000Z",
+        "5": 75000,
+        "6": "outgoing",
+        "8": "Apex Digital Exchange Pte. Ltd. (on behalf of client)",
+        "9": "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18",
+        "11": {
+            "name": "originator-kyc.pdf",
+            "mimeType": "application/pdf",
+            "size": 245760,
+            "url": "https://storage.example.com/compliance/travel-rule/originator-kyc.pdf"
+        },
+        "13": "Meridian Capital Holdings Ltd.",
+        "14": "0xDEAD000000000000000000000000000000000002",
+        "15": "Coinbase Custody International",
+        "16": {
+            "name": "beneficiary-kyc.pdf",
+            "mimeType": "application/pdf",
+            "size": 198400,
+            "url": "https://storage.example.com/compliance/travel-rule/beneficiary-kyc.pdf"
+        },
+        "18": {
+            "name": "screening-report.pdf",
+            "mimeType": "application/pdf",
+            "size": 153600,
+            "url": "https://storage.example.com/compliance/travel-rule/screening-report.pdf"
+        },
+        "19": false,
+        "21": [
+            {
+                "name": "source-of-funds.pdf",
+                "mimeType": "application/pdf",
+                "size": 307200,
+                "url": "https://storage.example.com/compliance/travel-rule/source-of-funds.pdf"
+            }
+        ],
+        "22": "Standard outgoing transfer to institutional counterparty. All screening passed, no adverse flags.",
+        "24": "Rachel Tan",
+        "25": "2025-12-05T00:00:00.000Z",
+        "26": true,
+        "27": true
+    }
+}
