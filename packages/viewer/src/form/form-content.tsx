@@ -9,7 +9,13 @@ import type {
 } from '@bluprynt/forms-core'
 
 import { DEFAULT, ROOT } from '../constants'
-import type { EditorArrayItemProps, EditorComponentMap, EditorFieldProps, ViewerComponentMap } from '../types'
+import type {
+    EditorArrayItemProps,
+    EditorArrayObjItemProps,
+    EditorComponentMap,
+    EditorFieldProps,
+    ViewerComponentMap,
+} from '../types'
 import { FormItems } from './form-items'
 import { findSection } from './utils'
 
@@ -33,6 +39,11 @@ type FormContentEditorProps = FormContentBaseProps & {
     components: EditorComponentMap
     renderFieldProps: (field: FieldContentItem) => EditorFieldProps
     renderArrayItemProps: (arrayField: FieldContentItem, index: number) => EditorArrayItemProps
+    renderArrayObjItemProps: (
+        arrayField: FieldContentItem,
+        index: number,
+        subFieldId: number,
+    ) => EditorArrayObjItemProps
 }
 
 export type FormContentProps = FormContentViewerProps | FormContentEditorProps
@@ -51,6 +62,7 @@ export const FormContent: FC<FormContentProps> = (props) => {
                   showInlineValidation,
                   renderFieldProps: props.renderFieldProps,
                   renderArrayItemProps: props.renderArrayItemProps,
+                  renderArrayObjItemProps: props.renderArrayObjItemProps,
               }
             : {
                   visibilityMap,

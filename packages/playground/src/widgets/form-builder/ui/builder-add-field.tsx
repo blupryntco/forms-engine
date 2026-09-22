@@ -25,16 +25,22 @@ const FIELD_TYPES = [
     { type: 'select', label: 'Select' },
     { type: 'multiselect', label: 'Multi-select' },
     { type: 'array', label: 'Array' },
+    { type: 'array_obj', label: 'Array of rows' },
     { type: 'file', label: 'File' },
     { type: 'static', label: 'Static text' },
     { type: 'blockchain', label: 'Blockchain' },
     { type: 'sustainability', label: 'Sustainability' },
 ] as const
 
-/** A static block carries `text` instead of a required `label`. */
+/**
+ * A static block carries `text` instead of a required `label`; an `array_obj`
+ * is seeded with an empty sub-field list, which the property panel then fills
+ * (it fails schema validation until it has one, exactly like `select` options).
+ */
 const newItemOfType = (type: string): NewContentItem => {
     if (type === 'section') return { type: 'section', title: '', content: [] }
     if (type === 'static') return { type: 'static', text: '' }
+    if (type === 'array_obj') return { type: 'array_obj', label: '', items: [] }
     return { type: type as Exclude<(typeof FIELD_TYPES)[number]['type'], 'static'>, label: '' }
 }
 

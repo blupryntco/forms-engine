@@ -216,7 +216,8 @@ editor.moveItem(5, undefined, 0) // move field 5 to top-level, first position
 editor.setValidation(3, { required: true, minLength: 2 })
 editor.setCondition(5, { field: 3, op: 'set' })
 editor.setOptions(7, [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }])   // select or multiselect
-editor.setArrayItem(8, { type: 'string', label: 'Item' })
+editor.setArrayItem(8, { type: 'string', label: 'Item' })                      // array fields only
+editor.setArrayItems(12, [{ id: 121, type: 'string', label: 'Name' }])         // array_obj fields only
 editor.setLabel(3, 'New Label')
 editor.setText(9, 'Answers are checked against your filings.')   // static blocks only
 editor.setFieldDescription(3, 'Help text')
@@ -230,6 +231,26 @@ Pass `undefined` to `setValidation` or `setCondition` to clear the value.
 `setFieldDescription`, `setPlaceholder`, `setAnswerGuidelines` and `setReferenceId` work on both fields and
 sections, and also clear on `undefined`. Prefer them over `updateField` / `updateSection` when a property
 needs removing: those merge with `Object.assign` and cannot delete a key.
+
+#### `array_obj` Sub-Field Methods
+
+All five throw when the id is unknown or does not refer to an `array_obj` field.
+
+```ts
+editor.getArrayItems(12)                                          // ArrayObjItemDef[]
+editor.setArrayItems(12, [{ id: 121, type: 'string', label: 'Name' }])   // replaces the whole list
+editor.setArrayKind(12, 'table')                                        // 'list' | 'table' | undefined
+editor.addArrayItemField(12, { type: 'date', label: 'Appointed' }) // → the new sub-field id
+editor.updateArrayItemField(12, 121, { label: 'Full name' })       // merges; the id is never changed
+editor.removeArrayItemField(12, 121)
+editor.moveArrayItemField(12, 1, 0)
+editor.setArrayKind(12, 'table')                                   // undefined removes the key
+```
+
+`addArrayItemField` assigns the sub-field id from `nextId()` when one is not supplied, and rejects an
+explicit id that is already taken anywhere in the definition. `nextId()` itself counts sub-field ids, so a
+new top-level field can never collide with one. `updateArrayItemField` merges like `updateField`: a
+property left out is kept, so pass it explicitly as `undefined` to clear it.
 
 #### Listing Methods
 
@@ -298,9 +319,12 @@ editor.clearFieldValue(1)
 
 #### Array Methods
 
+These work on both `array` and `array_obj` fields; for an `array_obj` an "item" is a row object.
+
 ##### `addArrayItem(fieldId: number, value?: unknown): this`
 
-Appends an item to an array field. Initializes the field to `[]` if no value is currently set.
+Appends an item to an array field. Initializes the field to `[]` if no value is currently set. With no
+explicit value, appends `undefined` for an `array` field and an empty row (`{}`) for an `array_obj`.
 
 **Throws:** If `fieldId` is not an array field.
 
@@ -336,6 +360,22 @@ Sets the value of an item at a specific index in an array field.
 
 ```ts
 editor.setArrayItem(6, 0, 'Updated Value')
+```
+
+#### Array-of-Rows Methods
+
+##### `getArrayObjValue(fieldId, index, subFieldId): unknown`
+##### `setArrayObjValue(fieldId, index, subFieldId, value): this`
+##### `clearArrayObjValue(fieldId, index, subFieldId): this`
+
+Read, write and remove one cell of one row of an `array_obj` field. A row that is absent or not an object
+is replaced with a fresh one before writing.
+
+**Throws:** If `fieldId` is not an `array_obj` field, the row index is out of bounds, or `subFieldId` does
+not belong to that field or is a `static` sub-field.
+
+```ts
+editor.addArrayItem(12).setArrayObjValue(12, 0, 121, 'Jane Roe')
 ```
 
 #### Suggestions
@@ -558,7 +598,7 @@ None of these validate that `fieldId` refers to an existing, non-section field �
 | `FieldContentItem` | Value-producing field node: `{ id, type, label, description?, placeholder?, answer_guidelines?, reference_id?, condition?, validation?, options?, item? }`. `type` excludes `'static'`. |
 | `StaticFieldContentItem` | Display-only block: `{ id, type: 'static', text, label?, description?, placeholder?, answer_guidelines?, reference_id?, condition? }` — no value, no validation, no options |
 | `SectionContentItem` | Section node: `{ id, type: 'section', title, description?, placeholder?, answer_guidelines?, reference_id?, condition?, content[] }` |
-| `FieldType` | `'string' \| 'number' \| 'boolean' \| 'date' \| 'select' \| 'multiselect' \| 'array' \| 'file' \| 'static' \| 'blockchain' \| 'sustainability'` |
+| `FieldType` | `'string' \| 'number' \| 'boolean' \| 'date' \| 'select' \| 'multiselect' \| 'array' \| 'array_obj' \| 'file' \| 'static' \| 'blockchain' \| 'sustainability'` |
 | `ContentItemType` | `FieldType \| 'section'` |
 | `FormValues` | `Record<string, unknown>` — flat map keyed by stringified field ID |
 | `FormDocument` | `{ form: { id, version, submittedAt }, values: FormValues, suggestions?: FormSuggestions }` |
@@ -592,20 +632,23 @@ None of these validate that `fieldId` refers to an existing, non-section field �
 | `FileValidation` | `{ required? }` |
 | `BlockchainValidation` | `{ required? }` — no format rule; a CAIP address is an opaque string |
 | `SustainabilityValidation` | `{ required? }` — satisfied by a non-empty `address`; `ccri` and `cmc` are always optional |
-| `TypeSpecificValidation` | Union of all type-specific validation shapes: `StringValidation \| NumberValidation \| BooleanValidation \| DateValidation \| SelectValidation \| MultiselectValidation \| ArrayValidation \| FileValidation` |
+| `TypeSpecificValidation` | Union of all type-specific validation shapes: `StringValidation \| NumberValidation \| BooleanValidation \| DateValidation \| SelectValidation \| MultiselectValidation \| ArrayValidation \| ArrayObjValidation \| FileValidation \| BlockchainValidation \| SustainabilityValidation` |
 | `FieldValidationRule` | `'REQUIRED' \| 'TYPE' \| 'MIN_LENGTH' \| 'MAX_LENGTH' \| 'PATTERN' \| 'MIN' \| 'MAX' \| 'MIN_DATE' \| 'MAX_DATE' \| 'INVALID_DATE' \| 'INVALID_OPTION' \| 'MIN_ITEMS' \| 'MAX_ITEMS'` |
 
 ### Other
 
 | Type | Description |
 |------|-------------|
-| `FieldEntry` | Flattened registry entry: `{ id, type, condition, validation, parentId, options, item, label, title }` |
+| `FieldEntry` | Flattened registry entry: `{ id, type, condition, validation, parentId, options, item, items, label, title }`. `array_obj` sub-fields are **not** registry entries — like `array` items, they never appear in the registry, `contentOrder`, the dependency graph or the visibility map |
 | `SelectOption` | `{ value: string \| number, label: string }` |
-| `ArrayItemDef` | `{ type, label, description?, placeholder?, answer_guidelines?, reference_id?, validation?, options? }` — no `id`; `type` excludes `'array'`, `'multiselect'` and `'static'` |
+| `ArrayItemDef` | `ValueArrayItemDef \| StaticArrayItemDef` — no `id` and no `condition`; `type` excludes `'array'` and `'array_obj'`. The static member carries `text` and an optional `label` |
+| `ArrayObjItemDef` | `ValueArrayObjItemDef \| StaticArrayObjItemDef` — like `ArrayItemDef` but **with** a required `id`, drawn from the same globally unique id space as fields and sections |
+| `ArrayObjRow` | `Record<string, unknown>` — one row of an `array_obj` value, keyed by stringified sub-field id |
+| `ArrayObjKind` | `'list' \| 'table'` — an `array_obj` field's layout hint. Presentation metadata: the engine never reads it, and `'list'` applies when the key is absent |
 | `FileValue` | `{ name, mimeType, size, url }` |
 | `SustainabilityValue` | `{ address, ccri?, cmc? }` — the value of a `sustainability` field |
 | `DocumentError` | Error class with `.errors: DocumentValidationError[]` — thrown on definition validation failure or by `loadDocument()` on id/version mismatch |
 | `EvaluationContext` | `{ values, visibilityMap?, now }` |
-| `FieldDescriptor` | `Omit<FieldContentItem, 'id'> & { id?: number }` |
+| `FieldDescriptor` | `(Omit<FieldContentItem, 'id'> \| Omit<StaticFieldContentItem, 'id'>) & { id?: number }` — hand-written, because `Omit` does not distribute over a union |
 | `SectionDescriptor` | `Omit<SectionContentItem, 'id' \| 'content'> & { id?: number, content?: ContentItem[] }` |
 | `ContentItemInfo` | `{ id, type, label?, title?, parentId }` |

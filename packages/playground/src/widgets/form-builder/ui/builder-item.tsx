@@ -23,6 +23,7 @@ import {
     ListChecks,
     Paperclip,
     Pencil,
+    Table,
     Text,
     Type,
     X,
@@ -41,6 +42,7 @@ const TYPE_ICONS: Record<FieldType, FC<{ className?: string }>> = {
     select: ChevronDown,
     multiselect: ListChecks,
     array: List,
+    array_obj: Table,
     file: Paperclip,
     static: Text,
     blockchain: Link2,
@@ -55,6 +57,7 @@ const TYPE_LABELS: Record<FieldType, string> = {
     select: 'Select',
     multiselect: 'Multi',
     array: 'Array',
+    array_obj: 'Rows',
     file: 'File',
     static: 'Static',
     blockchain: 'Chain',
@@ -129,7 +132,8 @@ const getValidationBadges = (type: FieldType, validation: TypeSpecificValidation
                 )
             break
         }
-        case 'array': {
+        case 'array':
+        case 'array_obj': {
             const v = validation as ArrayValidation
             if (v.minItems != null)
                 badges.push(

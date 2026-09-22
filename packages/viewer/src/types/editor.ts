@@ -2,6 +2,9 @@ import type { ComponentType, ReactNode } from 'react'
 
 import type {
     ArrayItemDef,
+    ArrayObjItemDef,
+    ArrayObjKind,
+    ArrayObjRow,
     FileValue,
     SectionContentItem,
     SelectOption,
@@ -60,6 +63,23 @@ export type ArrayEditProps = BaseEditFieldProps & {
     onMoveItem: (fromIndex: number, toIndex: number) => void
 }
 
+/**
+ * Props for an `array_obj` field in an editable form.
+ *
+ * The row mutators live here; the per-cell `onChange` reaches each sub-field's
+ * own component instead, exactly as it does for `array` items.
+ */
+export type ArrayObjEditProps = BaseEditFieldProps & {
+    value: ArrayObjRow[] | undefined
+    itemsDef: ArrayObjItemDef[]
+    /** The field's layout hint, already resolved to `'list'` when omitted. */
+    kind: ArrayObjKind
+    children: ReactNode[][]
+    onAddItem: () => void
+    onRemoveItem: (index: number) => void
+    onMoveItem: (fromIndex: number, toIndex: number) => void
+}
+
 export type FileEditProps = BaseEditFieldProps & {
     value: FileValue | undefined
     onChange: (value: FileValue | undefined) => void
@@ -95,6 +115,8 @@ export type EditorComponentMap = {
     file: ComponentType<FileEditProps>
     section: ComponentType<SectionEditProps>
     /** Optional: fields of this type render nothing when no component is supplied. */
+    array_obj?: ComponentType<ArrayObjEditProps>
+    /** Optional: fields of this type render nothing when no component is supplied. */
     multiselect?: ComponentType<MultiselectEditProps>
     /** Optional: fields of this type render nothing when no component is supplied. */
     static?: ComponentType<StaticEditProps>
@@ -117,5 +139,10 @@ export type EditorFieldProps = {
 }
 
 export type EditorArrayItemProps = {
+    onChange: (value: unknown) => void
+}
+
+/** Edit props handed to one sub-field of one row of an `array_obj` field. */
+export type EditorArrayObjItemProps = {
     onChange: (value: unknown) => void
 }

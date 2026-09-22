@@ -2,6 +2,9 @@ import type { ComponentType, ReactNode } from 'react'
 
 import type {
     ArrayItemDef,
+    ArrayObjItemDef,
+    ArrayObjKind,
+    ArrayObjRow,
     FileValue,
     SectionContentItem,
     SelectOption,
@@ -52,6 +55,25 @@ export type ArrayViewProps = BaseViewFieldProps & {
     children: ReactNode[]
 }
 
+/**
+ * Props for an `array_obj` field -- a list of rows, each holding one value per
+ * sub-field in {@link itemsDef}.
+ *
+ * `children` is indexed **twice**: `children[rowIndex][subFieldIndex]`, with
+ * the inner index matching `itemsDef`. That is what lets a component lay the
+ * rows out as a table rather than as opaque blocks.
+ *
+ * @property kind - The field's layout hint, already resolved: `'list'` when the
+ *   definition omits it, so a component never needs to apply the default itself.
+ *   It is a hint, not a contract -- honouring it is entirely up to the component.
+ */
+export type ArrayObjViewProps = BaseViewFieldProps & {
+    value: ArrayObjRow[] | undefined
+    itemsDef: ArrayObjItemDef[]
+    kind: ArrayObjKind
+    children: ReactNode[][]
+}
+
 export type FileViewProps = BaseViewFieldProps & {
     value: FileValue | undefined
 }
@@ -82,6 +104,8 @@ export type ViewerComponentMap = {
     array: ComponentType<ArrayViewProps>
     file: ComponentType<FileViewProps>
     section: ComponentType<SectionViewProps>
+    /** Optional: fields of this type render nothing when no component is supplied. */
+    array_obj?: ComponentType<ArrayObjViewProps>
     /** Optional: fields of this type render nothing when no component is supplied. */
     multiselect?: ComponentType<MultiselectViewProps>
     /** Optional: fields of this type render nothing when no component is supplied. */

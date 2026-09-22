@@ -21,13 +21,13 @@ A form document may also carry an optional `suggestions` block alongside `values
 ### 2.3 Editors
 
 - **`FormDefinitionEditor`** — fluent builder for programmatically constructing and modifying form schemas (`FormDefinition`). Operates on the schema structure: add/remove/move fields and sections, set validation rules, configure conditions and options.
-- **`FormValuesEditor`** — fluent editor for programmatically reading and writing form values against a `FormDefinition`. Wraps a `FormEngine` and a mutable `FormDocument`. Supports setting/clearing field values, array item manipulation (add, remove, move, set), suggestion management (set/clear/accept/reject), validation, and visibility queries.
+- **`FormValuesEditor`** — fluent editor for programmatically reading and writing form values against a `FormDefinition`. Wraps a `FormEngine` and a mutable `FormDocument`. Supports setting/clearing field values, array item manipulation (add, remove, move, set — on `array` and `array_obj` alike), per-cell writes into `array_obj` rows, suggestion management (set/clear/accept/reject), validation, and visibility queries.
 
 ## 3. Field Types
 
 Every field and section also accepts four optional authoring-metadata properties: `description`, `placeholder`, `answer_guidelines` and `reference_id` (all strings). They are presentation metadata — the engine never reads them.
 
-A `static` block is the one field type whose `label` is optional; it carries a required `text` property instead, and accepts no `validation` or `options`. Neither `static` nor `multiselect` may be used as an `array` item type.
+A `static` block is the one field type whose `label` is optional; it carries a required `text` property instead, and accepts no `validation` or `options`. Neither list type (`array`, `array_obj`) may be used as an item type — lists do not nest — but every other type may, including `static` and `multiselect`.
 
 Each field in a form has a type. The following types must be supported:
 
@@ -39,7 +39,8 @@ Each field in a form has a type. The following types must be supported:
 | **date** | Date picker |
 | **select** | Single selection from a predefined list of options |
 | **multiselect** | Any number of selections from a predefined list; the value is an array of the chosen options' values |
-| **array** | A list of values (any of existing field types described above) |
+| **array** | A list of values (any of the existing field types described above, via `item`) |
+| **array_obj** | A list of rows; each row holds one value per sub-field declared in `items`. Sub-fields carry their own globally unique `id`, which is the key their value takes inside each row object. An optional `kind` (`list` \| `table`, `list` by default) is a layout hint for the renderer — the engine never reads it. |
 | **file** | File upload (stores name, MIME type, size, URL) |
 | **static** | Display-only text (`text` property). Holds no value, is never validated, and cannot be referenced by a condition. |
 | **blockchain** | A CAIP address identifying an on-chain asset. The value is an opaque string — the engine never checks its format. |
@@ -60,6 +61,7 @@ Each field may have validation rules depending on its type:
 | **select** | required |
 | **multiselect** | required (an absent value and an empty array both fail) |
 | **array** | min items, max items |
+| **array_obj** | min items, max items (counted in rows); each sub-field is validated in every row |
 | **file** | required |
 | **static** | *(none — static blocks hold no value)* |
 | **blockchain** | required |
@@ -92,13 +94,13 @@ Conditionals control the visibility of individual fields or entire sections base
 
 ### 6.2 Conditional Behavior
 
-- A conditional references another field in the form by its identifier. Sections and `static` blocks hold no value and cannot be referenced.
+- A conditional references another field in the form by its identifier. Sections and `static` blocks hold no value and cannot be referenced. An `array_obj` **sub-field** id cannot be referenced either — its value is per-row, so a form-level condition cannot say which row it means. Sub-fields carry no `condition` of their own; they inherit the `array_obj` field's visibility.
 - When a conditional evaluates to false, the associated field or section must be hidden.
 - When a conditional evaluates to true, the associated field or section must be shown.
 - Conditionals must be evaluated dynamically as form values change.
 - When a conditional field is hidden we do not consider it in form validation at all.
 - Against an object-valued field (`file`, `sustainability`) only `set` and `notset` are meaningful: any object present counts as set, and the comparison operators compare by reference so they never match. A half-filled `{ address: "", ccri: "", cmc: "" }` therefore still counts as set.
-- Against a `multiselect` field the operators are set-oriented: `set` means at least one option is chosen, `eq`/`ne` compare the whole selection as a set (order- and duplicate-insensitive), `in`/`notin` test whether *any* chosen option appears in the given list, and the ordering operators are always false. Every other type — including `array` — keeps scalar semantics.
+- Against a `multiselect` field the operators are set-oriented: `set` means at least one option is chosen, `eq`/`ne` compare the whole selection as a set (order- and duplicate-insensitive), `in`/`notin` test whether *any* chosen option appears in the given list, and the ordering operators are always false. Every other type — including `array` and `array_obj` — keeps scalar semantics.
 
 ## 7. Workflows
 

@@ -106,6 +106,23 @@ never appear in `fieldErrors`.
 | item validation | Each item validated against `item` definition | varies (per-item rule) |
 
 Item validation errors include `itemIndex` (zero-based) so consumers can pinpoint which array element failed.
+A `static` item is skipped — it holds no value.
+
+#### Array of rows (`array_obj`)
+
+| Rule | Condition | Error rule name |
+|------|-----------|-----------------|
+| type check | Value is not an array | `TYPE` |
+| `minItems` | `value.length < minItems` | `MIN_ITEMS` |
+| `maxItems` | `value.length > maxItems` | `MAX_ITEMS` |
+| row shape | A row is present but is not an object | `TYPE` with `itemIndex` |
+| sub-field validation | Each sub-field in `items` validated in every row | varies (per-sub-field rule) |
+
+A sub-field error carries **both** `itemIndex` (the row) and `itemFieldId` (the sub-field), while its
+`fieldId` stays the `array_obj` field's own id — which is also the key the error is stored under in
+`fieldErrors`. Its `message` is prefixed with the sub-field's label, since every error for the field is
+listed under one id. An absent row (`null` / `undefined`) is read as an empty one, so its `required`
+sub-fields still report; a `static` sub-field is never validated.
 
 #### File
 
@@ -143,7 +160,8 @@ sustainability field produces at most one field-level error.
   rule: FieldValidationRule  // e.g., "REQUIRED", "MIN_LENGTH", "MIN", "PATTERN"
   message: string     // human-readable description
   params?: Record<string, unknown>  // e.g., { minLength: 5, actual: 3 }
-  itemIndex?: number  // zero-based index for array items
+  itemIndex?: number  // zero-based index for array items / array_obj rows
+  itemFieldId?: number // array_obj only: the sub-field within that row
 }
 ```
 
@@ -177,7 +195,11 @@ A simple condition evaluates a single field:
 | `notin` | Value is not in array | Yes (array) |
 
 **Multiselect fields** are compared as sets rather than scalars — see the table below. Every other type,
-including `array`, keeps the scalar behaviour described here.
+including `array` and `array_obj`, keeps the scalar behaviour described here.
+
+An `array_obj` **sub-field** id may not be referenced by a condition at all: its value is per-row, so a
+form-level condition cannot say which row it means. The engine rejects such a definition with
+`CONDITION_REFS_ARRAY_OBJ_ITEM`.
 
 **Object-valued fields** (`file`, `sustainability`) take the scalar path too, which makes only `set` and
 `notset` useful: any object present counts as set — including a half-filled

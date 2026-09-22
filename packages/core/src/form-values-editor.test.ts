@@ -208,6 +208,100 @@ describe('FormValuesEditor', () => {
         })
     })
 
+    describe('array_obj fields', () => {
+        const objDef = baseDef([
+            {
+                id: 10,
+                type: 'array_obj',
+                label: 'Directors',
+                items: [
+                    { id: 11, type: 'string', label: 'Name', validation: { required: true } },
+                    { id: 12, type: 'date', label: 'Appointed' },
+                    { id: 13, type: 'static', text: 'Checked against filings' },
+                ],
+                validation: { minItems: 1 },
+            },
+        ])
+
+        const rows = (editor: FormValuesEditor) => editor.getFieldValue(10) as Record<string, unknown>[]
+
+        it('addArrayItem appends an empty row object', () => {
+            const editor = new FormValuesEditor(objDef, doc())
+            editor.addArrayItem(10)
+            expect(rows(editor)).toEqual([{}])
+        })
+
+        it('addArrayItem still honours an explicit row value', () => {
+            const editor = new FormValuesEditor(objDef, doc())
+            editor.addArrayItem(10, { '11': 'Jane' })
+            expect(rows(editor)).toEqual([{ '11': 'Jane' }])
+        })
+
+        it('remove / move / set work on rows', () => {
+            const editor = new FormValuesEditor(objDef, doc({ '10': [{ '11': 'A' }, { '11': 'B' }, { '11': 'C' }] }))
+            editor.moveArrayItem(10, 2, 0).removeArrayItem(10, 2).setArrayItem(10, 1, { '11': 'Z' })
+            expect(rows(editor)).toEqual([{ '11': 'C' }, { '11': 'Z' }])
+        })
+
+        it('setArrayObjValue writes one cell', () => {
+            const editor = new FormValuesEditor(objDef, doc({ '10': [{}] }))
+            editor.setArrayObjValue(10, 0, 11, 'Jane').setArrayObjValue(10, 0, 12, '2024-01-05')
+            expect(rows(editor)).toEqual([{ '11': 'Jane', '12': '2024-01-05' }])
+        })
+
+        it('getArrayObjValue reads one cell', () => {
+            const editor = new FormValuesEditor(objDef, doc({ '10': [{ '11': 'Jane' }] }))
+            expect(editor.getArrayObjValue(10, 0, 11)).toBe('Jane')
+            expect(editor.getArrayObjValue(10, 0, 12)).toBeUndefined()
+        })
+
+        it('clearArrayObjValue removes one cell', () => {
+            const editor = new FormValuesEditor(objDef, doc({ '10': [{ '11': 'Jane', '12': '2024-01-05' }] }))
+            editor.clearArrayObjValue(10, 0, 11)
+            expect(rows(editor)).toEqual([{ '12': '2024-01-05' }])
+        })
+
+        it('replaces a row that is not an object before writing', () => {
+            const editor = new FormValuesEditor(objDef, doc({ '10': [null] }))
+            editor.setArrayObjValue(10, 0, 11, 'Jane')
+            expect(rows(editor)).toEqual([{ '11': 'Jane' }])
+        })
+
+        it('throws for a static sub-field', () => {
+            const editor = new FormValuesEditor(objDef, doc({ '10': [{}] }))
+            expect(() => editor.setArrayObjValue(10, 0, 13, 'x')).toThrow('static field')
+        })
+
+        it('throws for a sub-field of another field', () => {
+            const editor = new FormValuesEditor(objDef, doc({ '10': [{}] }))
+            expect(() => editor.setArrayObjValue(10, 0, 99, 'x')).toThrow('does not belong')
+        })
+
+        it('throws for an out-of-bounds row', () => {
+            const editor = new FormValuesEditor(objDef, doc({ '10': [] }))
+            expect(() => editor.setArrayObjValue(10, 0, 11, 'x')).toThrow('out of bounds')
+        })
+
+        it('throws when the field is not an array_obj', () => {
+            const editor = new FormValuesEditor(simpleDef, doc())
+            expect(() => editor.setArrayObjValue(1, 0, 2, 'x')).toThrow('not an array_obj')
+        })
+
+        it('validates sub-fields per row', () => {
+            const editor = new FormValuesEditor(objDef, doc({ '10': [{ '11': 'Jane' }, {}] }))
+            const result = editor.validate()
+            expect(result.valid).toBe(false)
+            expect(result.fieldErrors.get(10)).toEqual([
+                expect.objectContaining({ fieldId: 10, rule: 'REQUIRED', itemIndex: 1, itemFieldId: 11 }),
+            ])
+        })
+
+        it('round-trips a document through toJSON', () => {
+            const original = doc({ '10': [{ '11': 'Jane', '12': '2024-01-05' }] })
+            expect(new FormValuesEditor(objDef, original).toJSON()).toEqual(original)
+        })
+    })
+
     describe('setSubmittedAt', () => {
         it('updates document submittedAt', () => {
             const editor = new FormValuesEditor(simpleDef)

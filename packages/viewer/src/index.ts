@@ -1,6 +1,9 @@
 export type {
     AnyFieldContentItem,
     ArrayItemDef,
+    ArrayObjItemDef,
+    ArrayObjKind,
+    ArrayObjRow,
     ContentItem,
     DocumentValidationError,
     DocumentValidationErrorCode,
@@ -34,6 +37,8 @@ export { FormSections } from './form-sections'
 export { FormViewer } from './form-viewer'
 export type {
     ArrayEditProps,
+    ArrayObjEditProps,
+    ArrayObjViewProps,
     ArrayViewProps,
     BaseEditFieldProps,
     BaseViewFieldProps,
@@ -44,6 +49,7 @@ export type {
     DateEditProps,
     DateViewProps,
     EditorArrayItemProps,
+    EditorArrayObjItemProps,
     EditorComponentMap,
     EditorFieldProps,
     ErrorProps,

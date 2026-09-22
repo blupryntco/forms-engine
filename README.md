@@ -14,7 +14,7 @@ A system for defining custom form schemas (JSON), rendering forms from those sch
 
 The foundation. Compiles a JSON form definition into a runtime engine that handles:
 - Field visibility via conditional logic (simple and compound conditions)
-- Type-aware validation (string, number, boolean, date, select, multiselect, array, file, blockchain, sustainability; `static` blocks hold no value)
+- Type-aware validation (string, number, boolean, date, select, multiselect, array, array_obj, file, blockchain, sustainability; `static` blocks hold no value)
 - Dependency graph with cycle detection and topological ordering
 - Fluent APIs for building schemas (`FormDefinitionEditor`) and editing values (`FormValuesEditor`)
 

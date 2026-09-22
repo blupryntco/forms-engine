@@ -38,6 +38,20 @@ const MockArray: FC<Record<string, unknown>> = jest.fn((props) => (
     <div data-testid={`array-${(props.field as FieldContentItem).id}`}>{props.children as ReactNode}</div>
 ))
 
+const MockArrayObj: FC<Record<string, unknown>> = jest.fn((props) => {
+    const rows = (props.children as ReactNode[][]) ?? []
+    return (
+        <div data-testid={`array-obj-${(props.field as FieldContentItem).id}`} data-rows={rows.length}>
+            {rows.map((cells, index) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: index is unique in the row list
+                <div key={index} data-testid={`row-${index}`} data-cells={cells.length}>
+                    {cells}
+                </div>
+            ))}
+        </div>
+    )
+})
+
 const MockFile: FC<Record<string, unknown>> = jest.fn((props) => (
     <div data-testid={`file-${(props.field as FieldContentItem).id}`}>{String(props.value ?? '')}</div>
 ))
@@ -89,6 +103,7 @@ const makeComponents = (withError = false): ViewerComponentMap => ({
 /** The same map plus every optional key, for the newer field types. */
 const makeComponentsWithNewTypes = (withError = false): ViewerComponentMap => ({
     ...makeComponents(withError),
+    array_obj: MockArrayObj as ViewerComponentMap['array_obj'],
     multiselect: MockMultiselect as ViewerComponentMap['multiselect'],
     static: MockStatic as ViewerComponentMap['static'],
     blockchain: MockBlockchain as ViewerComponentMap['blockchain'],
@@ -575,6 +590,174 @@ describe('FormItems', () => {
                 return errors.some((e) => e.itemIndex === 0)
             })
             expect(itemErrorCall).toBeDefined()
+        })
+    })
+
+    describe('array_obj fields', () => {
+        const directors = (): ContentItem =>
+            ({
+                id: 10,
+                type: 'array_obj',
+                label: 'Directors',
+                items: [
+                    { id: 11, type: 'string', label: 'Name' },
+                    { id: 12, type: 'select', label: 'Role', options: [{ value: 'ceo', label: 'CEO' }] },
+                    { id: 13, type: 'static', text: 'Checked against filings' },
+                ],
+            }) as ContentItem
+
+        const renderField = (values: FormValues, fieldErrors = new Map<number, FieldValidationError[]>()) =>
+            render(
+                <FormItems
+                    items={[directors()]}
+                    visibilityMap={new Map([[10, true]])}
+                    values={values}
+                    fieldErrors={fieldErrors}
+                    components={makeComponentsWithNewTypes(true)}
+                    showInlineValidation
+                />,
+            )
+
+        it('renders one child list per row, one cell per sub-field', () => {
+            renderField({ '10': [{ '11': 'Jane' }, { '11': 'John' }] })
+
+            expect(screen.getByTestId('array-obj-10').dataset.rows).toBe('2')
+            expect(screen.getAllByTestId(/^row-/)).toHaveLength(2)
+            for (const row of screen.getAllByTestId(/^row-/)) {
+                expect(row.dataset.cells).toBe('3')
+            }
+        })
+
+        it('passes each cell its own value keyed by sub-field id', () => {
+            renderField({ '10': [{ '11': 'Jane', '12': 'ceo' }] })
+
+            expect(screen.getByTestId('string-11').textContent).toBe('Jane')
+            expect(screen.getByTestId('select-12').textContent).toBe('ceo')
+        })
+
+        it('injects options into a select sub-field', () => {
+            renderField({ '10': [{}] })
+            expect(lastCallProps(MockSelect as unknown as jest.Mock).options).toEqual([{ value: 'ceo', label: 'CEO' }])
+        })
+
+        it('gives a static sub-field the field and nothing else', () => {
+            renderField({ '10': [{}] })
+
+            const props = lastCallProps(MockStatic as unknown as jest.Mock)
+            expect(Object.keys(props)).toEqual(['field'])
+            expect(screen.getByTestId('static-13').textContent).toBe('Checked against filings')
+        })
+
+        it('passes the field, the whole value and itemsDef to the container', () => {
+            const value = [{ '11': 'Jane' }]
+            renderField({ '10': value })
+
+            const props = lastCallProps(MockArrayObj as unknown as jest.Mock)
+            expect(props.value).toEqual(value)
+            expect(props.itemsDef).toHaveLength(3)
+            expect((props.field as FieldContentItem).id).toBe(10)
+        })
+
+        it('resolves an absent kind to "list"', () => {
+            renderField({ '10': [{}] })
+            expect(lastCallProps(MockArrayObj as unknown as jest.Mock).kind).toBe('list')
+        })
+
+        it('passes the declared kind through', () => {
+            const items: ContentItem[] = [{ ...(directors() as FieldContentItem), kind: 'table' } as ContentItem]
+            render(
+                <FormItems
+                    items={items}
+                    visibilityMap={new Map([[10, true]])}
+                    values={{ '10': [{}] }}
+                    fieldErrors={new Map()}
+                    components={makeComponentsWithNewTypes()}
+                    showInlineValidation={false}
+                />,
+            )
+
+            expect(lastCallProps(MockArrayObj as unknown as jest.Mock).kind).toBe('table')
+        })
+
+        it('renders nothing for an absent value', () => {
+            renderField({})
+            expect(screen.getByTestId('array-obj-10').dataset.rows).toBe('0')
+        })
+
+        it('routes a cell error to that cell only', () => {
+            const fieldErrors = new Map<number, FieldValidationError[]>([
+                [10, [{ fieldId: 10, rule: 'REQUIRED', message: 'Name: Is required', itemIndex: 1, itemFieldId: 11 }]],
+            ])
+            renderField({ '10': [{ '11': 'Jane' }, {}] }, fieldErrors)
+
+            expect(screen.getByTestId('error-11').textContent).toBe('Name: Is required')
+            expect(lastCallProps(MockArrayObj as unknown as jest.Mock).errors).toEqual([])
+        })
+
+        it('routes a field-level error to the container', () => {
+            const fieldErrors = new Map<number, FieldValidationError[]>([
+                [10, [{ fieldId: 10, rule: 'MIN_ITEMS', message: 'Must have at least 1 items' }]],
+            ])
+            renderField({ '10': [] }, fieldErrors)
+
+            expect(screen.getByTestId('error-10').textContent).toBe('Must have at least 1 items')
+        })
+
+        it('surfaces a row-level error on the container', () => {
+            const fieldErrors = new Map<number, FieldValidationError[]>([
+                [10, [{ fieldId: 10, rule: 'TYPE', message: 'Must be an object', itemIndex: 0 }]],
+            ])
+            renderField({ '10': ['oops'] }, fieldErrors)
+
+            expect(screen.getByTestId('error-10').textContent).toBe('Must be an object')
+        })
+
+        it('renders nothing when no array_obj component is supplied', () => {
+            render(
+                <FormItems
+                    items={[directors()]}
+                    visibilityMap={new Map([[10, true]])}
+                    values={{ '10': [{ '11': 'Jane' }] }}
+                    fieldErrors={new Map()}
+                    components={makeComponents()}
+                    showInlineValidation={false}
+                />,
+            )
+
+            expect(screen.queryByTestId('array-obj-10')).toBeNull()
+            expect(screen.queryByTestId('string-11')).toBeNull()
+        })
+
+        it('skips a sub-field whose component is missing without dropping the row', () => {
+            const items: ContentItem[] = [
+                {
+                    id: 10,
+                    type: 'array_obj',
+                    label: 'Wallets',
+                    items: [
+                        { id: 11, type: 'string', label: 'Label' },
+                        { id: 12, type: 'blockchain', label: 'Address' },
+                    ],
+                } as ContentItem,
+            ]
+
+            // `blockchain` is an optional map key -- leaving it out must not drop the row.
+            const { blockchain: _blockchain, ...components } = makeComponentsWithNewTypes()
+
+            render(
+                <FormItems
+                    items={items}
+                    visibilityMap={new Map([[10, true]])}
+                    values={{ '10': [{ '11': 'Cold storage', '12': 'eip155:1:0x0' }] }}
+                    fieldErrors={new Map()}
+                    components={components}
+                    showInlineValidation={false}
+                />,
+            )
+
+            expect(screen.getByTestId('string-11').textContent).toBe('Cold storage')
+            expect(screen.queryByTestId('blockchain-12')).toBeNull()
+            expect(screen.getByTestId('row-0').dataset.cells).toBe('2')
         })
     })
 

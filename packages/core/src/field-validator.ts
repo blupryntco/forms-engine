@@ -1,6 +1,8 @@
 import type { FieldEntry } from './types/field-entry'
 import type { FormValues } from './types/form-values'
 import type { FieldValidationError, FormValidationResult } from './types/validation-results'
+import type { ArrayObjValidatorContext } from './validators/array-obj-validator'
+import { ArrayObjValidator } from './validators/array-obj-validator'
 import type { ArrayValidatorContext } from './validators/array-validator'
 import { ArrayValidator } from './validators/array-validator'
 import { BlockchainValidator } from './validators/blockchain-validator'
@@ -38,6 +40,10 @@ import type { TypeValidator } from './validators/type-validator'
  * - `array` -- `minItems`, `maxItems`, plus each item is validated
  *   individually according to the array's {@link ArrayItemDef}. Item-level
  *   errors carry an `itemIndex`.
+ * - `array_obj` -- `minItems`, `maxItems`, plus every sub-field of every row is
+ *   validated according to the field's {@link ArrayObjItemDef} list. Sub-field
+ *   errors carry an `itemIndex` (the row) and an `itemFieldId` (the sub-field),
+ *   while `fieldId` stays the container's id.
  *
  * For all types, if `required` fails, no further rules are checked for that
  * field (early return). If the value is empty/absent and `required` is not
@@ -60,6 +66,7 @@ export class FieldValidator {
             select: new SelectValidator(),
             multiselect: new MultiselectValidator(),
             array: new ArrayValidator(),
+            array_obj: new ArrayObjValidator(),
             file: new FileValidator(),
             blockchain: new BlockchainValidator(),
             sustainability: new SustainabilityValidator(),
@@ -104,6 +111,18 @@ export class FieldValidator {
                 validation: entry.validation,
                 now,
                 item: entry.item,
+                validateField: this.validateField.bind(this),
+            }
+            return validator.validate(ctx)
+        }
+
+        if (entry.type === 'array_obj') {
+            const ctx: ArrayObjValidatorContext = {
+                fieldId,
+                value,
+                validation: entry.validation,
+                now,
+                items: entry.items,
                 validateField: this.validateField.bind(this),
             }
             return validator.validate(ctx)

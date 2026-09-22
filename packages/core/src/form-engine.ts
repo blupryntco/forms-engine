@@ -320,6 +320,7 @@ export class FormEngine {
                 parentId,
                 options: item.type === 'select' || item.type === 'multiselect' ? item.options : undefined,
                 item: item.type === 'array' ? item.item : undefined,
+                items: item.type === 'array_obj' ? item.items : undefined,
                 label: item.type !== 'section' ? item.label : undefined,
                 title: item.type === 'section' ? item.title : undefined,
             }

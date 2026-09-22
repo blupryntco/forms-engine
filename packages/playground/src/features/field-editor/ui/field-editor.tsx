@@ -54,6 +54,8 @@ const buildInitialValues = (item: ContentItem): EditorFormValues => {
             text: '',
             options: [],
             item: undefined,
+            items: undefined,
+            arrayKind: 'list',
             validation: undefined,
             title: section.title,
             description: section.description ?? '',
@@ -71,6 +73,8 @@ const buildInitialValues = (item: ContentItem): EditorFormValues => {
             text: item.text,
             options: [],
             item: undefined,
+            items: undefined,
+            arrayKind: 'list',
             validation: undefined,
             title: '',
             description: item.description ?? '',
@@ -89,6 +93,8 @@ const buildInitialValues = (item: ContentItem): EditorFormValues => {
         text: '',
         options: field.options ?? [],
         item: field.item,
+        items: field.items,
+        arrayKind: field.kind ?? 'list',
         validation: field.validation,
         title: '',
         description: field.description ?? '',
@@ -188,6 +194,11 @@ const EditorBody: FC<{
                 }
                 if (values.type === 'array' && values.item) {
                     editor.setArrayItem(item.id, values.item)
+                }
+                if (values.type === 'array_obj') {
+                    editor.setArrayItems(item.id, values.items ?? [])
+                    // 'list' is the default, so leave the key off rather than serializing it.
+                    editor.setArrayKind(item.id, values.arrayKind === 'table' ? 'table' : undefined)
                 }
 
                 // Static blocks have no validation — core throws if we try to set it.

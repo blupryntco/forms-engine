@@ -22,6 +22,7 @@ const makeEntry = (id: number, overrides: Partial<FieldEntry> = {}): FieldEntry 
     parentId: undefined,
     options: undefined,
     item: undefined,
+    items: undefined,
     label: `Field ${id}`,
     title: undefined,
     ...overrides,
@@ -667,6 +668,120 @@ describe('FormDefinitionValidator.validateSchema', () => {
         })
     })
 
+    describe('array_obj fields', () => {
+        const directors = (overrides: Record<string, unknown> = {}) => ({
+            id: 10,
+            type: 'array_obj',
+            label: 'Directors',
+            items: [
+                { id: 11, type: 'string', label: 'Name' },
+                { id: 12, type: 'date', label: 'Appointed' },
+            ],
+            ...overrides,
+        })
+
+        it('accepts a well-formed array_obj field', () => {
+            expect(schemaIssues({ ...minimal, content: [directors()] })).toEqual([])
+        })
+
+        it('accepts both layout kinds', () => {
+            for (const kind of ['list', 'table']) {
+                expect(schemaIssues({ ...minimal, content: [directors({ kind })] })).toEqual([])
+            }
+        })
+
+        it('rejects an unknown layout kind', () => {
+            expect(schemaValid({ ...minimal, content: [directors({ kind: 'grid' })] })).toBe(false)
+        })
+
+        it('rejects array_obj without items', () => {
+            expect(schemaValid({ ...minimal, content: [{ id: 10, type: 'array_obj', label: 'Directors' }] })).toBe(
+                false,
+            )
+        })
+
+        it('rejects an empty items list', () => {
+            expect(schemaValid({ ...minimal, content: [directors({ items: [] })] })).toBe(false)
+        })
+
+        it('rejects a sub-field without an id', () => {
+            expect(schemaValid({ ...minimal, content: [directors({ items: [{ type: 'string', label: 'N' }] })] })).toBe(
+                false,
+            )
+        })
+
+        it('rejects a sub-field carrying a condition', () => {
+            const items = [{ id: 11, type: 'string', label: 'N', condition: { field: 1, op: 'set' } }]
+            expect(schemaValid({ ...minimal, content: [directors({ items })] })).toBe(false)
+        })
+
+        it('rejects a nested list sub-field', () => {
+            for (const nested of [
+                { id: 11, type: 'array', label: 'N', item: { type: 'string', label: 'I' } },
+                { id: 11, type: 'array_obj', label: 'N', items: [{ id: 12, type: 'string', label: 'I' }] },
+            ]) {
+                expect(schemaValid({ ...minimal, content: [directors({ items: [nested] })] })).toBe(false)
+            }
+        })
+
+        it('accepts every allowed sub-field type', () => {
+            const byType: Record<string, Record<string, unknown>> = {
+                select: { options: [{ value: 'a', label: 'A' }] },
+                multiselect: { options: [{ value: 'a', label: 'A' }] },
+                static: { text: 'Note' },
+            }
+            for (const type of [
+                'string',
+                'number',
+                'boolean',
+                'date',
+                'select',
+                'multiselect',
+                'file',
+                'blockchain',
+                'sustainability',
+                'static',
+            ]) {
+                const sub = { id: 11, type, label: 'I', ...(byType[type] ?? {}) }
+                expect(schemaIssues({ ...minimal, content: [directors({ items: [sub] })] })).toEqual([])
+            }
+        })
+
+        it('reports DUPLICATE_ID when a sub-field id collides with a top-level id', () => {
+            const definition = {
+                ...minimal,
+                content: [...minimal.content, directors({ items: [{ id: 1, type: 'string', label: 'Name' }] })],
+            } as unknown as FormDefinition
+            const issues = validator.validate(definition, new Map())
+            expect(issues).toEqual([expect.objectContaining({ code: 'DUPLICATE_ID', itemId: 1 })])
+        })
+
+        it('reports DUPLICATE_ID when two sub-fields share an id', () => {
+            const items = [
+                { id: 11, type: 'string', label: 'Name' },
+                { id: 11, type: 'string', label: 'Role' },
+            ]
+            const definition = { ...minimal, content: [directors({ items })] } as unknown as FormDefinition
+            const issues = validator.validate(definition, new Map())
+            expect(issues).toEqual([expect.objectContaining({ code: 'DUPLICATE_ID', itemId: 11 })])
+        })
+
+        it('reports CONDITION_REFS_ARRAY_OBJ_ITEM, not UNKNOWN_FIELD_REF, for a sub-field reference', () => {
+            const definition = { ...minimal, content: [directors()] } as unknown as FormDefinition
+            const registry = new Map<number, FieldEntry>([[2, makeEntry(2, { condition: { field: 11, op: 'set' } })]])
+            const issues = validator.validate(definition, registry)
+            expect(issues).toEqual([expect.objectContaining({ code: 'CONDITION_REFS_ARRAY_OBJ_ITEM', itemId: 2 })])
+        })
+
+        it('reports INVALID_MIN_MAX when maxItems is below minItems', () => {
+            const registry = new Map<number, FieldEntry>([
+                [10, makeEntry(10, { type: 'array_obj', validation: { minItems: 3, maxItems: 1 } })],
+            ])
+            const issues = validator.validate(minimal as unknown as FormDefinition, registry)
+            expect(issues).toEqual([expect.objectContaining({ code: 'INVALID_MIN_MAX', itemId: 10 })])
+        })
+    })
+
     describe('conditions', () => {
         it('accepts set/notset without value', () => {
             expect(
@@ -1089,8 +1204,13 @@ describe('FormDefinitionValidator.validateSchema', () => {
             expect(issues.some((i) => i.code === 'SCHEMA_INVALID' && i.message.includes('"options"'))).toBe(true)
         })
 
-        it('rejects a static field as an array item', () => {
+        it('accepts a static field as an array item', () => {
             const content = [{ id: 1, type: 'array', label: 'Notes', item: { type: 'static', text: 'Note' } }]
+            expect(schemaValid({ ...minimal, content })).toBe(true)
+        })
+
+        it('rejects a static array item without text', () => {
+            const content = [{ id: 1, type: 'array', label: 'Notes', item: { type: 'static', label: 'Note' } }]
             expect(schemaValid({ ...minimal, content })).toBe(false)
         })
 
@@ -1155,8 +1275,13 @@ describe('FormDefinitionValidator.validateSchema', () => {
             expect(schemaValid({ ...minimal, content: [multiselect({ validation: { minItems: 1 } })] })).toBe(false)
         })
 
-        it('rejects a multiselect field as an array item', () => {
+        it('accepts a multiselect field as an array item', () => {
             const item = { type: 'multiselect', label: 'Item', options: [{ value: 'a', label: 'A' }] }
+            expect(schemaValid({ ...minimal, content: [{ id: 1, type: 'array', label: 'Rows', item }] })).toBe(true)
+        })
+
+        it('rejects a multiselect array item without options', () => {
+            const item = { type: 'multiselect', label: 'Item' }
             expect(schemaValid({ ...minimal, content: [{ id: 1, type: 'array', label: 'Rows', item }] })).toBe(false)
         })
     })

@@ -1,5 +1,7 @@
 import type {
+    AnyFieldContentItem,
     ArrayItemDef,
+    ArrayObjItemDef,
     ContentItem,
     FieldContentItem,
     FieldValidationError,
@@ -46,10 +48,13 @@ export const getFieldErrors = (
  * so this helper projects the item definition into one, preserving the parent field's `id`
  * while adopting the item's `type`, `label`, authoring metadata, `validation`, and `options`.
  *
+ * A `static` item projects to a `StaticFieldContentItem`, so the return type is
+ * the wider {@link AnyFieldContentItem}.
+ *
  * @param arrayField - The array field definition whose `.item` property describes the item schema.
  * @param _index - The zero-based position of the item in the array (reserved for future use,
  *   e.g. per-item overrides).
- * @returns A `FieldContentItem` that can be passed directly to a typed field component.
+ * @returns An `AnyFieldContentItem` that can be passed directly to a typed field component.
  *
  * @example
  * ```ts
@@ -62,20 +67,90 @@ export const getFieldErrors = (
  * // → { id: 10, type: 'string', label: 'Tag', ... }
  * ```
  */
-export const getArrayField = (arrayField: FieldContentItem, _index: number): FieldContentItem => {
+export const getArrayField = (arrayField: FieldContentItem, _index: number): AnyFieldContentItem => {
     const itemDef = arrayField.item as ArrayItemDef
-    return {
-        id: arrayField.id,
-        type: itemDef.type,
-        label: itemDef.label,
+    const metadata = {
         description: itemDef.description,
         placeholder: itemDef.placeholder,
         answer_guidelines: itemDef.answer_guidelines,
         reference_id: itemDef.reference_id,
+    }
+
+    if (itemDef.type === 'static') {
+        return { id: arrayField.id, type: 'static', text: itemDef.text, label: itemDef.label, ...metadata }
+    }
+
+    return {
+        id: arrayField.id,
+        type: itemDef.type,
+        label: itemDef.label,
+        ...metadata,
         validation: itemDef.validation as FieldContentItem['validation'],
         options: itemDef.options,
     }
 }
+
+/**
+ * Creates a {@link AnyFieldContentItem} representing one sub-field of an `array_obj` field.
+ *
+ * Unlike an `array` item, a sub-field carries its own id, so the projection keeps it:
+ * it is both the key its value is stored under inside each row and a stable React key.
+ *
+ * @param subField - The sub-field definition taken from the field's `items` list.
+ * @returns An `AnyFieldContentItem` that can be passed directly to a typed field component.
+ */
+export const getArrayObjField = (subField: ArrayObjItemDef): AnyFieldContentItem => {
+    const metadata = {
+        description: subField.description,
+        placeholder: subField.placeholder,
+        answer_guidelines: subField.answer_guidelines,
+        reference_id: subField.reference_id,
+    }
+
+    if (subField.type === 'static') {
+        return { id: subField.id, type: 'static', text: subField.text, label: subField.label, ...metadata }
+    }
+
+    return {
+        id: subField.id,
+        type: subField.type,
+        label: subField.label,
+        ...metadata,
+        validation: subField.validation as FieldContentItem['validation'],
+        options: subField.options,
+    }
+}
+
+/**
+ * Retrieves the validation errors for one sub-field of one row of an `array_obj` field.
+ *
+ * Errors for an `array_obj` are all stored under the container's id; the row is
+ * identified by `itemIndex` and the sub-field by `itemFieldId`.
+ *
+ * @param fieldErrors - Map from field id to its validation errors.
+ * @param fieldId - The numeric id of the `array_obj` field.
+ * @param index - Zero-based row index.
+ * @param subFieldId - The numeric id of the sub-field.
+ * @returns Errors for that cell. Empty array if none.
+ */
+export const getArrayObjItemErrors = (
+    fieldErrors: Map<number, FieldValidationError[]>,
+    fieldId: number,
+    index: number,
+    subFieldId: number,
+): FieldValidationError[] =>
+    (fieldErrors.get(fieldId) ?? []).filter((e) => e.itemIndex === index && e.itemFieldId === subFieldId)
+
+/**
+ * Retrieves the row-level validation errors for one row of an `array_obj` field --
+ * those carrying an `itemIndex` but no `itemFieldId`, such as a row that is not an object.
+ */
+export const getArrayObjRowErrors = (
+    fieldErrors: Map<number, FieldValidationError[]>,
+    fieldId: number,
+    index: number,
+): FieldValidationError[] =>
+    (fieldErrors.get(fieldId) ?? []).filter((e) => e.itemIndex === index && e.itemFieldId == null)
 
 /**
  * Recursively searches content items for a section with the given id.

@@ -1,7 +1,9 @@
+import { FormDefinitionEditor } from './form-definition-editor'
 import { FormEngine } from './form-engine'
+import { FormValuesEditor } from './form-values-editor'
 import { SimpleCondition } from './types/conditions'
 import { DocumentError } from './types/errors'
-import type { ContentItem, FormDefinition } from './types/form-definition'
+import type { ContentItem, FieldContentItem, FormDefinition } from './types/form-definition'
 import type { FormSnapshot } from './types/form-snapshot'
 import type { FormDocument, FormValues } from './types/form-values'
 
@@ -2333,6 +2335,73 @@ describe('FormEngine', () => {
         it('does not introduce a suggestions key', () => {
             new FormEngine(legacyDef).validate(legacyDoc)
             expect('suggestions' in legacyDoc).toBe(false)
+        })
+
+        it('round-trips through FormValuesEditor byte-identically', () => {
+            const roundTripped = new FormValuesEditor(legacyDef, legacyDoc).toJSON()
+            expect(JSON.stringify(roundTripped)).toBe(JSON.stringify(legacyDoc))
+        })
+
+        it('gains no `items` key on an existing array field', () => {
+            const definition = new FormDefinitionEditor(legacyDef).toJSON()
+            const tags = definition.content.find((item) => item.id === 8) as FieldContentItem
+            expect('items' in tags).toBe(false)
+        })
+    })
+
+    describe('array_obj fields', () => {
+        const objDef = baseDef([
+            {
+                id: 10,
+                type: 'array_obj',
+                label: 'Directors',
+                items: [
+                    { id: 11, type: 'string', label: 'Name', validation: { required: true } },
+                    { id: 12, type: 'date', label: 'Appointed' },
+                ],
+                validation: { minItems: 1 },
+            },
+            { id: 20, type: 'string', label: 'Notes', condition: { field: 10, op: 'set' } },
+        ])
+
+        const objDoc = (rows: unknown): FormDocument => ({
+            form: { id: 'test-form', version: '1.0.0', submittedAt: SUBMITTED_AT },
+            values: { '10': rows },
+        })
+
+        it('compiles and registers the field without registering its sub-fields', () => {
+            const engine = new FormEngine(objDef)
+            expect(engine.getFieldDef(10)?.items).toHaveLength(2)
+            expect(engine.getFieldDef(11)).toBeUndefined()
+            expect(engine.contentOrder).toEqual([10, 20])
+        })
+
+        it('validates sub-fields per row', () => {
+            const result = new FormEngine(objDef).validate(objDoc([{ '11': 'Jane' }, {}]))
+            expect(result.valid).toBe(false)
+            expect(result.fieldErrors.get(10)).toEqual([
+                expect.objectContaining({ fieldId: 10, rule: 'REQUIRED', itemIndex: 1, itemFieldId: 11 }),
+            ])
+        })
+
+        it('keeps scalar condition semantics -- an empty list still counts as set', () => {
+            const engine = new FormEngine(objDef)
+            expect(engine.isVisible(20, objDoc([]))).toBe(true)
+            expect(engine.isVisible(20, objDoc(undefined))).toBe(false)
+        })
+
+        it('rejects a condition that references a sub-field', () => {
+            const broken = baseDef([
+                {
+                    id: 10,
+                    type: 'array_obj',
+                    label: 'Directors',
+                    items: [{ id: 11, type: 'string', label: 'Name' }],
+                },
+                { id: 20, type: 'string', label: 'Notes', condition: { field: 11, op: 'set' } },
+            ])
+
+            expect(() => new FormEngine(broken)).toThrow(DocumentError)
         })
     })
 })

@@ -1,5 +1,6 @@
 export { AnswerGuidelines } from './answer-guidelines'
 export { ArrayEdit, ArrayView } from './array'
+export { ArrayObjEdit, ArrayObjView } from './array-object'
 export { BlockchainEdit, BlockchainView } from './blockchain'
 export { BooleanEdit, BooleanView } from './boolean'
 export { DateEdit, DateView } from './date'

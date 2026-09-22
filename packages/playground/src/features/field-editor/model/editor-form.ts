@@ -1,4 +1,11 @@
-import type { ArrayItemDef, FieldType, SelectOption, TypeSpecificValidation } from '@bluprynt/forms-core'
+import type {
+    ArrayItemDef,
+    ArrayObjItemDef,
+    ArrayObjKind,
+    FieldType,
+    SelectOption,
+    TypeSpecificValidation,
+} from '@bluprynt/forms-core'
 import type { useFormik } from 'formik'
 
 export type EditorFormValues = {
@@ -9,7 +16,12 @@ export type EditorFormValues = {
     /** Static blocks only: the displayed text. */
     text: string
     options: SelectOption[]
+    /** `array` fields only: the single item definition. */
     item: ArrayItemDef | undefined
+    /** `array_obj` fields only: the ordered sub-field definitions. */
+    items: ArrayObjItemDef[] | undefined
+    /** `array_obj` fields only: the layout hint. Named to avoid the `kind` discriminator above. */
+    arrayKind: ArrayObjKind
     validation: TypeSpecificValidation | undefined
     // section-specific
     title: string

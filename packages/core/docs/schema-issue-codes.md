@@ -24,11 +24,12 @@ Checks logical correctness that JSON Schema alone cannot express.
 | Code | Stage | Description |
 |------|:-----:|-------------|
 | `SCHEMA_INVALID` | 1 | JSON Schema structural violation |
-| `DUPLICATE_ID` | 2 | Two or more items share the same ID |
+| `DUPLICATE_ID` | 2 | Two or more items share the same ID. `array_obj` sub-field ids share the same id space and are checked with it |
 | `NESTING_DEPTH` | 2 | Section nested deeper than 3 levels |
 | `UNKNOWN_FIELD_REF` | 2 | Condition references a field ID not in the schema |
 | `CONDITION_REFS_SECTION` | 2 | Condition references a section (sections have no values) |
 | `CONDITION_REFS_STATIC` | 2 | Condition references a static block (static blocks have no values) |
+| `CONDITION_REFS_ARRAY_OBJ_ITEM` | 2 | Condition references an `array_obj` sub-field (its value is per-row, so no single value exists) |
 | `INVALID_MIN_MAX` | 2 | A field's minimum constraint exceeds its maximum constraint |
 | `INVALID_REGEX` | 2 | String: `pattern` is not a valid regex |
 | `CIRCULAR_DEPENDENCY` | 2 | Condition dependencies form a cycle |

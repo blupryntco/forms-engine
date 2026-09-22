@@ -42,6 +42,20 @@ const MockArray: FC<Record<string, unknown>> = jest.fn((props) => (
     <div data-testid={`array-${(props.field as FieldContentItem).id}`}>{props.children as ReactNode}</div>
 ))
 
+const MockArrayObj: FC<Record<string, unknown>> = jest.fn((props) => {
+    const rows = (props.children as ReactNode[][]) ?? []
+    return (
+        <div data-testid={`array-obj-${(props.field as FieldContentItem).id}`} data-rows={rows.length}>
+            {rows.map((cells, index) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: index is unique in the row list
+                <div key={index} data-testid={`row-${index}`}>
+                    {cells}
+                </div>
+            ))}
+        </div>
+    )
+})
+
 const MockFile: FC<Record<string, unknown>> = jest.fn((props) => (
     <div data-testid={`file-${(props.field as FieldContentItem).id}`}>
         {(props.value as { name?: string })?.name ?? ''}
@@ -95,6 +109,7 @@ const makeComponents = (withError = false): EditorComponentMap => ({
 /** The same map plus every optional key, for the newer field types. */
 const makeComponentsWithNewTypes = (withError = false): EditorComponentMap => ({
     ...makeComponents(withError),
+    array_obj: MockArrayObj as EditorComponentMap['array_obj'],
     multiselect: MockMultiselect as EditorComponentMap['multiselect'],
     static: MockStatic as EditorComponentMap['static'],
     blockchain: MockBlockchain as EditorComponentMap['blockchain'],
@@ -291,6 +306,99 @@ describe('FormEditor', () => {
             expect(onChange).toHaveBeenCalledTimes(1)
             const [newDoc] = onChange.mock.calls[0] as [FormDocument]
             expect(newDoc.values['1']).toEqual([undefined])
+        })
+    })
+
+    describe('array_obj row handlers', () => {
+        const directorsDef = () =>
+            baseDef([
+                {
+                    id: 10,
+                    type: 'array_obj',
+                    label: 'Directors',
+                    items: [
+                        { id: 11, type: 'string', label: 'Name' },
+                        { id: 12, type: 'date', label: 'Appointed' },
+                    ],
+                },
+            ])
+
+        const renderWith = (values: FormValues, onChange: jest.Mock) =>
+            renderEditor(
+                { definition: directorsDef(), data: doc(values) },
+                { components: makeComponentsWithNewTypes(), onChange },
+            )
+
+        it('onAddItem appends an empty row, not undefined', () => {
+            const onChange = jest.fn()
+            renderWith({ '10': [{ '11': 'Jane' }] }, onChange)
+
+            const props = lastCallProps(MockArrayObj as unknown as jest.Mock)
+            ;(props.onAddItem as () => void)()
+
+            const [newDoc] = onChange.mock.calls[0] as [FormDocument]
+            expect(newDoc.values['10']).toEqual([{ '11': 'Jane' }, {}])
+        })
+
+        it('onAddItem creates the list when no prior value exists', () => {
+            const onChange = jest.fn()
+            renderWith({}, onChange)
+            ;(lastCallProps(MockArrayObj as unknown as jest.Mock).onAddItem as () => void)()
+
+            const [newDoc] = onChange.mock.calls[0] as [FormDocument]
+            expect(newDoc.values['10']).toEqual([{}])
+        })
+
+        it('onRemoveItem drops the row at the given index', () => {
+            const onChange = jest.fn()
+            renderWith({ '10': [{ '11': 'A' }, { '11': 'B' }] }, onChange)
+            ;(lastCallProps(MockArrayObj as unknown as jest.Mock).onRemoveItem as (i: number) => void)(0)
+
+            const [newDoc] = onChange.mock.calls[0] as [FormDocument]
+            expect(newDoc.values['10']).toEqual([{ '11': 'B' }])
+        })
+
+        it('onMoveItem reorders rows', () => {
+            const onChange = jest.fn()
+            renderWith({ '10': [{ '11': 'A' }, { '11': 'B' }] }, onChange)
+            ;(lastCallProps(MockArrayObj as unknown as jest.Mock).onMoveItem as (f: number, t: number) => void)(1, 0)
+
+            const [newDoc] = onChange.mock.calls[0] as [FormDocument]
+            expect(newDoc.values['10']).toEqual([{ '11': 'B' }, { '11': 'A' }])
+        })
+
+        it('a cell onChange writes only that cell of that row', () => {
+            const onChange = jest.fn()
+            renderWith({ '10': [{ '11': 'Jane', '12': '2024-01-05' }, { '11': 'John' }] }, onChange)
+
+            const cellProps = lastCallProps(MockString as jest.Mock)
+            ;(cellProps.onChange as (v: unknown) => void)('Joan')
+
+            const [newDoc] = onChange.mock.calls[0] as [FormDocument]
+            expect(newDoc.values['10']).toEqual([{ '11': 'Jane', '12': '2024-01-05' }, { '11': 'Joan' }])
+        })
+
+        it('a cell onChange replaces a row that is not an object', () => {
+            const onChange = jest.fn()
+            renderWith({ '10': [{}] }, onChange)
+            ;(lastCallProps(MockString as jest.Mock).onChange as (v: unknown) => void)('Jane')
+
+            const [newDoc] = onChange.mock.calls[0] as [FormDocument]
+            expect(newDoc.values['10']).toEqual([{ '11': 'Jane' }])
+        })
+
+        it('cell handlers are referentially stable across renders', () => {
+            const onChange = jest.fn()
+            const tree = (
+                <Form definition={directorsDef()} data={doc({ '10': [{ '11': 'Jane' }] })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={onChange} />
+                </Form>
+            )
+            const { rerender } = render(tree)
+
+            const first = lastCallProps(MockString as jest.Mock).onChange
+            rerender(tree)
+            expect(lastCallProps(MockString as jest.Mock).onChange).toBe(first)
         })
     })
 

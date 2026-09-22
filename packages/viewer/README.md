@@ -5,7 +5,7 @@ Headless React components for rendering and editing JSON-driven dynamic forms. P
 ## Key Capabilities
 
 - **Read-only rendering** — `FormViewer` renders a form from a definition and document using your custom view components, with automatic visibility and validation display.
-- **Editable forms** — `FormEditor` renders an editable form with per-field `onChange` handlers, array item manipulation (add, remove, move), and live re-validation on every change.
+- **Editable forms** — `FormEditor` renders an editable form with per-field `onChange` handlers, array and array-of-rows item manipulation (add, remove, move), and live re-validation on every change.
 - **Section navigation** — `FormSections` enumerates visible top-level sections (including a synthetic root for ungrouped fields) and tracks the active section.
 - **Validation display** — `FormFieldsValidation` groups field-level errors by field; `FormDocumentValidation` renders document-level errors (schema mismatch, missing `submittedAt`, etc.).
 - **Headless architecture** — all rendering is delegated to component maps you provide (`ViewerComponentMap`, `EditorComponentMap`), so the package has zero UI opinions.
@@ -220,6 +220,7 @@ Component map for read-only rendering. Each key maps a field type to a React com
 | `date` | `DateViewProps` | Date field display |
 | `select` | `SelectViewProps` | Select field display (receives `options`) |
 | `array` | `ArrayViewProps` | Array field display (receives `children` for items, `itemDef`) |
+| `array_obj?` | `ArrayObjViewProps` | Array-of-rows display. Receives `itemsDef`, the resolved `kind` (`'list'` \| `'table'`) and `children: ReactNode[][]`, indexed `children[row][subField]` and aligned with `itemsDef`. |
 | `file` | `FileViewProps` | File field display |
 | `section` | `SectionViewProps` | Section wrapper (receives `children`) |
 | `multiselect?` | `MultiselectViewProps` | Multi-select display. Value is `(string \| number)[]`; receives `options`. |
@@ -230,7 +231,7 @@ Component map for read-only rendering. Each key maps a field type to a React com
 
 All view field props extend `BaseViewFieldProps` which provides `field: FieldContentItem` and `errors: FieldValidationError[]`. `StaticViewProps` is the exception: it carries only `field: StaticFieldContentItem`, whose `text` is the content and whose `label` is an optional heading.
 
-`multiselect`, `static`, `blockchain` and `sustainability` are **optional** keys, so existing maps keep compiling. A field whose component is not supplied renders nothing rather than throwing.
+`array_obj`, `multiselect`, `static`, `blockchain` and `sustainability` are **optional** keys, so existing maps keep compiling. A field whose component is not supplied renders nothing rather than throwing.
 
 ### EditorComponentMap
 
@@ -244,6 +245,7 @@ Component map for editable rendering. Extends view props with mutation callbacks
 | `date` | `DateEditProps` | Date input with `onChange(value)` |
 | `select` | `SelectEditProps` | Select input with `onChange(value)` and `options` |
 | `array` | `ArrayEditProps` | Array editor with `onAddItem`, `onRemoveItem(index)`, `onMoveItem(from, to)` |
+| `array_obj?` | `ArrayObjEditProps` | Array-of-rows editor with the same three row handlers. `onAddItem` appends an empty row; the per-cell `onChange` reaches each sub-field component. |
 | `file` | `FileEditProps` | File input with `onChange(value)` |
 | `section` | `SectionEditProps` | Section wrapper (receives `children`) |
 | `multiselect?` | `MultiselectEditProps` | Checkbox group. `onChange((string \| number)[] \| undefined)` — send the whole array. |
@@ -289,7 +291,7 @@ suggestion and leaves the value alone. See [CHANGES.md](../../CHANGES.md).
 | `FieldSuggestion` | Type | A machine-proposed answer: `{ value, confidence, source }` |
 | `FormSuggestions` | Type | Sparse map of suggestions keyed by stringified field id |
 | `FormValidationResult` | Type | Validation outcome with document-level and field-level errors |
-| `FieldType` | Type | Union of supported field types (`string`, `number`, `boolean`, `date`, `select`, `multiselect`, `array`, `file`, `static`, `blockchain`, `sustainability`) |
+| `FieldType` | Type | Union of supported field types (`string`, `number`, `boolean`, `date`, `select`, `multiselect`, `array`, `array_obj`, `file`, `static`, `blockchain`, `sustainability`) |
 | `FileValue` | Type | File field value containing name, MIME type, size, and URL |
 | `SustainabilityValue` | Type | Sustainability field value: `{ address, ccri?, cmc? }` |
 

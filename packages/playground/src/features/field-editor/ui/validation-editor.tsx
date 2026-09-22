@@ -41,6 +41,8 @@ export const ValidationEditor: FC<{
             // Every one of these shapes is `{ required?: boolean }`, so one editor serves them all.
             return <SelectValidationEditor validation={(validation ?? {}) as SelectValidation} onChange={onChange} />
         case 'array':
+        case 'array_obj':
+            // Both list types validate their length the same way.
             return <ArrayValidationEditor validation={(validation ?? {}) as ArrayValidation} onChange={onChange} />
         case 'file':
             return <FileValidationEditor validation={(validation ?? {}) as FileValidation} onChange={onChange} />

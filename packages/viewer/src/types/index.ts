@@ -1,10 +1,12 @@
 export type { BaseEditFieldProps, BaseViewFieldProps, ErrorProps } from './base'
 export type {
     ArrayEditProps,
+    ArrayObjEditProps,
     BlockchainEditProps,
     BooleanEditProps,
     DateEditProps,
     EditorArrayItemProps,
+    EditorArrayObjItemProps,
     EditorComponentMap,
     EditorFieldProps,
     FileEditProps,
@@ -17,6 +19,7 @@ export type {
     SustainabilityEditProps,
 } from './editor'
 export type {
+    ArrayObjViewProps,
     ArrayViewProps,
     BlockchainViewProps,
     BooleanViewProps,

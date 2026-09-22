@@ -1,4 +1,5 @@
 import type { ArrayValidation } from './array'
+import type { ArrayObjValidation } from './array-obj'
 import type { BlockchainValidation } from './blockchain'
 import type { BooleanValidation } from './boolean'
 import type { DateValidation } from './date'
@@ -21,6 +22,7 @@ export type TypeSpecificValidation =
     | SelectValidation
     | MultiselectValidation
     | ArrayValidation
+    | ArrayObjValidation
     | FileValidation
     | BlockchainValidation
     | SustainabilityValidation

@@ -1,4 +1,5 @@
 import type { ArrayItemDef } from './array-item-def'
+import type { ArrayObjItemDef, ArrayObjKind } from './array-obj-item-def'
 import type { Condition } from './conditions'
 import type { FieldType } from './field-types'
 import type { SelectOption } from './select-option'
@@ -35,7 +36,7 @@ export type ContentItem = AnyFieldContentItem | SectionContentItem
  *
  * Narrow with `item.type === 'static'` to reach {@link StaticFieldContentItem}'s
  * `text`, or with `item.type !== 'static'` to reach the value-field properties
- * (`label`, `validation`, `options`, `item`).
+ * (`label`, `validation`, `options`, `item`, `items`).
  */
 export type AnyFieldContentItem = FieldContentItem | StaticFieldContentItem
 
@@ -56,6 +57,9 @@ export type AnyFieldContentItem = FieldContentItem | StaticFieldContentItem
  * @property validation - Type-specific validation rules.
  * @property options - Allowed values (required for `select` and `multiselect` fields).
  * @property item - Item schema (required for `array` fields).
+ * @property items - Sub-field schemas (required for `array_obj` fields).
+ * @property kind - Layout hint for `array_obj` fields (`'list'` when absent).
+ *   Presentation metadata only -- the engine never reads it.
  */
 export type FieldContentItem = {
     id: number
@@ -69,6 +73,8 @@ export type FieldContentItem = {
     validation?: TypeSpecificValidation
     options?: SelectOption[]
     item?: ArrayItemDef
+    items?: ArrayObjItemDef[]
+    kind?: ArrayObjKind
 }
 
 /**

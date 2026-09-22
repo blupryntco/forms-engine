@@ -14,7 +14,14 @@ export {
     removeSuggestion,
     setSuggestion,
 } from './suggestions'
-export type { ArrayItemDef } from './types/array-item-def'
+export type { ArrayItemDef, StaticArrayItemDef, ValueArrayItemDef } from './types/array-item-def'
+export type {
+    ArrayObjItemDef,
+    ArrayObjKind,
+    ArrayObjRow,
+    StaticArrayObjItemDef,
+    ValueArrayObjItemDef,
+} from './types/array-obj-item-def'
 export type { CompoundCondition, Condition, SimpleCondition } from './types/conditions'
 export { DocumentError } from './types/errors'
 export type { FieldEntry } from './types/field-entry'
@@ -34,6 +41,7 @@ export type { SelectOption } from './types/select-option'
 export type { FieldSuggestion, FormSuggestions } from './types/suggestion'
 export type { SustainabilityValue } from './types/sustainability-value'
 export type { ArrayValidation } from './types/validation/array'
+export type { ArrayObjValidation } from './types/validation/array-obj'
 export type { BlockchainValidation } from './types/validation/blockchain'
 export type { BooleanValidation } from './types/validation/boolean'
 export type { DateValidation } from './types/validation/date'

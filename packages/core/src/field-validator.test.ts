@@ -10,6 +10,7 @@ const makeEntry = (id: number, overrides: Partial<FieldEntry> = {}): FieldEntry 
     parentId: undefined,
     options: undefined,
     item: undefined,
+    items: undefined,
     label: `Field ${id}`,
     title: undefined,
     ...overrides,

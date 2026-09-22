@@ -91,6 +91,7 @@ export type FieldType =
     | 'select'
     | 'multiselect'
     | 'array'
+    | 'array_obj'
     | 'file'
     | 'static'
     | 'blockchain'
@@ -117,9 +118,11 @@ export type TypeSpecificValidation =
   | EmailValidation
 ```
 
-**d.** Decide whether the type is a legal `array` item. `ArrayItemDef['type']` is an `Exclude<...>` of
-`FieldType`, so a new type becomes a legal item **by default** — add it to the exclusion list in
-`types/array-item-def.ts` if it should not be.
+**d.** Decide whether the type is a legal item inside a list. `ValueArrayItemDef['type']` and
+`ValueArrayObjItemDef['type']` are both `Exclude<...>` of `FieldType`, so a new type becomes a legal item
+in **both** `array` and `array_obj` by default — add it to the exclusion list in
+`types/array-item-def.ts` and `types/array-obj-item-def.ts` if it should not be. (`'array'` and
+`'array_obj'` are excluded from both: lists do not nest.)
 
 **e.** If the new type does not fit the `FieldContentItem` shape (e.g. it has no `label`, like `static`),
 add a sibling type in `types/form-definition.ts` and widen `AnyFieldContentItem` rather than loosening

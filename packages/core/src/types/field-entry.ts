@@ -1,4 +1,5 @@
 import type { ArrayItemDef } from './array-item-def'
+import type { ArrayObjItemDef } from './array-obj-item-def'
 import type { Condition } from './conditions'
 import type { ContentItemType } from './field-types'
 import type { SelectOption } from './select-option'
@@ -18,6 +19,7 @@ import type { TypeSpecificValidation } from './validation/type-specific'
  * @property parentId - Id of the containing section, or `undefined` for top-level items.
  * @property options - Select options (only for `select` fields).
  * @property item - Array item definition (only for `array` fields).
+ * @property items - Sub-field definitions (only for `array_obj` fields).
  * @property label - Display label (only for fields, `undefined` for sections).
  * @property title - Display title (only for sections, `undefined` for fields).
  */
@@ -29,6 +31,7 @@ export type FieldEntry = {
     parentId: number | undefined
     options: SelectOption[] | undefined
     item: ArrayItemDef | undefined
+    items: ArrayObjItemDef[] | undefined
     label: string | undefined
     title: string | undefined
 }

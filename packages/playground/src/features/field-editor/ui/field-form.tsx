@@ -4,6 +4,7 @@ import type { Condition, FieldType, FormDefinition } from '@bluprynt/forms-core'
 
 import type { EditorFormik } from '../model/editor-form'
 import { ArrayItemEditor } from './array-item-editor'
+import { ArrayItemsEditor } from './array-items-editor'
 import { ConditionalEditor, collectFields } from './conditional-editor'
 import { MetadataFields } from './metadata-fields'
 import { OptionsEditor } from './options-editor'
@@ -18,6 +19,7 @@ const FIELD_TYPES: { value: FieldType; label: string }[] = [
     { value: 'select', label: 'Select' },
     { value: 'multiselect', label: 'Multi-select' },
     { value: 'array', label: 'Array' },
+    { value: 'array_obj', label: 'Array of rows' },
     { value: 'file', label: 'File' },
     { value: 'static', label: 'Static text' },
     { value: 'blockchain', label: 'Blockchain' },
@@ -45,6 +47,7 @@ export const FieldForm: FC<{
         formik.setFieldValue('type', newType)
         if (newType !== 'select' && newType !== 'multiselect') formik.setFieldValue('options', [])
         if (newType !== 'array') formik.setFieldValue('item', undefined)
+        if (newType !== 'array_obj') formik.setFieldValue('items', undefined)
         if (newType !== 'static') formik.setFieldValue('text', '')
         formik.setFieldValue('validation', undefined)
     }
@@ -126,6 +129,32 @@ export const FieldForm: FC<{
                         <ArrayItemEditor
                             itemDef={formik.values.item}
                             onChange={(def) => formik.setFieldValue('item', def)}
+                        />
+                    </div>
+                </div>
+            )}
+
+            {formik.values.type === 'array_obj' && (
+                <div>
+                    <Label>Row layout</Label>
+                    <select
+                        value={formik.values.arrayKind}
+                        onChange={(e) => formik.setFieldValue('arrayKind', e.target.value)}
+                        className="mt-1 w-full rounded border border-gray-200 px-2 py-1.5 text-sm outline-none focus:border-blue-400">
+                        <option value="list">List — one stacked block per row</option>
+                        <option value="table">Table — one shared header, one column per sub-field</option>
+                    </select>
+                </div>
+            )}
+
+            {formik.values.type === 'array_obj' && (
+                <div>
+                    <Label>Row sub-fields</Label>
+                    <div className="mt-1">
+                        <ArrayItemsEditor
+                            items={formik.values.items}
+                            definition={definition}
+                            onChange={(items) => formik.setFieldValue('items', items)}
                         />
                     </div>
                 </div>
