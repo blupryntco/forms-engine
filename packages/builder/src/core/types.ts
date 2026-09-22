@@ -1,9 +1,23 @@
-import type { ContentItem, ContentItemType, FieldContentItem, SectionContentItem } from '@bluprynt/forms-core'
+import type {
+    AnyFieldContentItem,
+    ContentItem,
+    ContentItemType,
+    FieldContentItem,
+    SectionContentItem,
+    StaticFieldContentItem,
+} from '@bluprynt/forms-core'
 
 /**
  * A `ContentItem` without an `id` — used when adding new items (id is auto-generated).
+ *
+ * Written as an explicit union rather than `Omit<ContentItem, 'id'>` because
+ * `Omit` does not distribute over a union: it would collapse to the properties
+ * the members share, dropping `label`, `text` and `content`.
  */
-export type NewContentItem = Omit<FieldContentItem, 'id'> | Omit<SectionContentItem, 'id'>
+export type NewContentItem =
+    | Omit<FieldContentItem, 'id'>
+    | Omit<StaticFieldContentItem, 'id'>
+    | Omit<SectionContentItem, 'id'>
 
 /**
  * Flat representation of a content item within the sortable tree.
@@ -27,11 +41,15 @@ export const isSection = (item: TreeItem): item is TreeItem & { type: 'section';
     item.type === 'section'
 
 /**
- * Type guard that narrows a `TreeItem` to a field (`type` is not `'section'`, `item` is `FieldContentItem`).
+ * Type guard that narrows a `TreeItem` to a field (`type` is not `'section'`,
+ * `item` is {@link AnyFieldContentItem}).
+ *
+ * Note that this includes `static` blocks, which are fields in the tree but
+ * carry `text` instead of a required `label`.
  */
 export const isField = (
     item: TreeItem,
-): item is TreeItem & { type: Exclude<ContentItemType, 'section'>; item: FieldContentItem } =>
+): item is TreeItem & { type: Exclude<ContentItemType, 'section'>; item: AnyFieldContentItem } =>
     item.type !== 'section' && item.type !== 'add-placeholder'
 
 /**

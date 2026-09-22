@@ -1,8 +1,18 @@
 import type { ComponentType, ReactNode } from 'react'
 
-import type { ArrayItemDef, FileValue, SectionContentItem, SelectOption } from '@bluprynt/forms-core'
+import type {
+    ArrayItemDef,
+    ArrayObjItemDef,
+    ArrayObjKind,
+    ArrayObjRow,
+    FileValue,
+    SectionContentItem,
+    SelectOption,
+    SustainabilityValue,
+} from '@bluprynt/forms-core'
 
 import type { BaseEditFieldProps, ErrorProps } from './base'
+import type { StaticViewProps } from './viewer'
 
 export type StringEditProps = BaseEditFieldProps & {
     value: string | undefined
@@ -30,6 +40,20 @@ export type SelectEditProps = BaseEditFieldProps & {
     onChange: (value: string | number | undefined) => void
 }
 
+export type MultiselectEditProps = BaseEditFieldProps & {
+    value: (string | number)[] | undefined
+    options: SelectOption[]
+    onChange: (value: (string | number)[] | undefined) => void
+}
+
+/**
+ * Props for a `static` block in an editable form. Identical to
+ * {@link StaticViewProps}: there is nothing to edit, so the same component can
+ * serve both maps. It deliberately does not extend {@link BaseEditFieldProps},
+ * which requires an `onChange` a static block has no use for.
+ */
+export type StaticEditProps = StaticViewProps
+
 export type ArrayEditProps = BaseEditFieldProps & {
     value: unknown[] | undefined
     itemDef: ArrayItemDef
@@ -39,9 +63,41 @@ export type ArrayEditProps = BaseEditFieldProps & {
     onMoveItem: (fromIndex: number, toIndex: number) => void
 }
 
+/**
+ * Props for an `array_obj` field in an editable form.
+ *
+ * The row mutators live here; the per-cell `onChange` reaches each sub-field's
+ * own component instead, exactly as it does for `array` items.
+ */
+export type ArrayObjEditProps = BaseEditFieldProps & {
+    value: ArrayObjRow[] | undefined
+    itemsDef: ArrayObjItemDef[]
+    /** The field's layout hint, already resolved to `'list'` when omitted. */
+    kind: ArrayObjKind
+    children: ReactNode[][]
+    onAddItem: () => void
+    onRemoveItem: (index: number) => void
+    onMoveItem: (fromIndex: number, toIndex: number) => void
+}
+
 export type FileEditProps = BaseEditFieldProps & {
     value: FileValue | undefined
     onChange: (value: FileValue | undefined) => void
+}
+
+export type BlockchainEditProps = BaseEditFieldProps & {
+    value: string | undefined
+    onChange: (value: string | undefined) => void
+}
+
+/**
+ * Props for a `sustainability` field. The value is written wholesale: emit
+ * `undefined` rather than an all-blank object when the input is cleared, so
+ * `required` behaves the same way it does for every other type.
+ */
+export type SustainabilityEditProps = BaseEditFieldProps & {
+    value: SustainabilityValue | undefined
+    onChange: (value: SustainabilityValue | undefined) => void
 }
 
 export type SectionEditProps = {
@@ -58,16 +114,35 @@ export type EditorComponentMap = {
     array: ComponentType<ArrayEditProps>
     file: ComponentType<FileEditProps>
     section: ComponentType<SectionEditProps>
+    /** Optional: fields of this type render nothing when no component is supplied. */
+    array_obj?: ComponentType<ArrayObjEditProps>
+    /** Optional: fields of this type render nothing when no component is supplied. */
+    multiselect?: ComponentType<MultiselectEditProps>
+    /** Optional: fields of this type render nothing when no component is supplied. */
+    static?: ComponentType<StaticEditProps>
+    /** Optional: fields of this type render nothing when no component is supplied. */
+    blockchain?: ComponentType<BlockchainEditProps>
+    /** Optional: fields of this type render nothing when no component is supplied. */
+    sustainability?: ComponentType<SustainabilityEditProps>
     error?: ComponentType<ErrorProps>
 }
 
 export type EditorFieldProps = {
     onChange: (value: unknown) => void
+    /** Copies this field's suggested value into its value, keeping the suggestion. */
+    onAcceptSuggestion?: () => void
+    /** Removes this field's suggestion, leaving its value untouched. */
+    onRejectSuggestion?: () => void
     onAddItem?: () => void
     onRemoveItem?: (index: number) => void
     onMoveItem?: (fromIndex: number, toIndex: number) => void
 }
 
 export type EditorArrayItemProps = {
+    onChange: (value: unknown) => void
+}
+
+/** Edit props handed to one sub-field of one row of an `array_obj` field. */
+export type EditorArrayObjItemProps = {
     onChange: (value: unknown) => void
 }

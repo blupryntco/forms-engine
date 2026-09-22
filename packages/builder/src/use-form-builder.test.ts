@@ -71,7 +71,7 @@ describe('useFormBuilder', () => {
             })
 
             const newItem: NewContentItem = { type: 'string', label: 'New Field' }
-            let id: number
+            let id = 0
             act(() => {
                 id = result.current.handleItemAdd(null, newItem)
             })
@@ -233,6 +233,107 @@ describe('useFormBuilder', () => {
             expect(result.current.handleItemAdd).toBe(handlers1.add)
             expect(result.current.handleItemChange).toBe(handlers1.change)
             expect(result.current.handleItemRemove).toBe(handlers1.remove)
+        })
+    })
+
+    describe('authoring metadata pass-through', () => {
+        const METADATA = {
+            placeholder: 'Acme Ltd',
+            answer_guidelines: 'Use the registered name',
+            reference_id: 'KYI-3.1.a',
+        }
+
+        const renderBuilder = (def: FormDefinition, onChange: jest.Mock) =>
+            renderHook(({ d, cb }) => useFormBuilder(d, cb), { initialProps: { d: def, cb: onChange } })
+
+        it('writes metadata set on a field through handleItemChange', () => {
+            const onChange = jest.fn()
+            const { result } = renderBuilder(defWithField({ id: 1, type: 'string', label: 'Name' }), onChange)
+
+            act(() => {
+                result.current.handleItemChange(1, { id: 1, type: 'string', label: 'Name', ...METADATA })
+            })
+
+            expect(onChange.mock.calls[0][0].content[0] as FieldContentItem).toMatchObject(METADATA)
+        })
+
+        it('writes metadata set on a section through handleItemChange', () => {
+            const onChange = jest.fn()
+            const def = defWithSection({ id: 1, type: 'section', title: 'Issuer', content: [] })
+            const { result } = renderBuilder(def, onChange)
+
+            act(() => {
+                result.current.handleItemChange(1, {
+                    id: 1,
+                    type: 'section',
+                    title: 'Issuer',
+                    content: [],
+                    ...METADATA,
+                })
+            })
+
+            expect(onChange.mock.calls[0][0].content[0] as SectionContentItem).toMatchObject(METADATA)
+        })
+
+        it('clears metadata when the consumer passes an explicit undefined', () => {
+            const onChange = jest.fn()
+            const def = defWithField({ id: 1, type: 'string', label: 'Name', ...METADATA })
+            const { result } = renderBuilder(def, onChange)
+
+            act(() => {
+                result.current.handleItemChange(1, {
+                    id: 1,
+                    type: 'string',
+                    label: 'Name',
+                    placeholder: undefined,
+                    answer_guidelines: undefined,
+                    reference_id: undefined,
+                })
+            })
+
+            const field = onChange.mock.calls[0][0].content[0] as FieldContentItem
+            expect('placeholder' in field).toBe(false)
+            expect('answer_guidelines' in field).toBe(false)
+            expect('reference_id' in field).toBe(false)
+        })
+
+        it('preserves metadata that the consumer does not mention', () => {
+            const onChange = jest.fn()
+            const def = defWithField({ id: 1, type: 'string', label: 'Name', ...METADATA })
+            const { result } = renderBuilder(def, onChange)
+
+            act(() => {
+                result.current.handleItemChange(1, { id: 1, type: 'string', label: 'Full Name' })
+            })
+
+            expect(onChange.mock.calls[0][0].content[0] as FieldContentItem).toMatchObject(METADATA)
+        })
+
+        it('carries array item metadata through a round trip', () => {
+            const onChange = jest.fn()
+            const item = { type: 'string' as const, label: 'Tag', ...METADATA }
+            const { result } = renderBuilder(defWithField({ id: 1, type: 'array', label: 'Tags', item }), onChange)
+
+            act(() => {
+                result.current.handleItemChange(1, { id: 1, type: 'array', label: 'Labels', item })
+            })
+
+            expect((onChange.mock.calls[0][0].content[0] as FieldContentItem).item).toMatchObject(METADATA)
+        })
+
+        it('accepts metadata on a newly added field', () => {
+            const onChange = jest.fn()
+            const { result } = renderBuilder(emptyDef(), onChange)
+
+            act(() => {
+                result.current.handleItemAdd(null, {
+                    type: 'string',
+                    label: 'Name',
+                    ...METADATA,
+                } as NewContentItem)
+            })
+
+            expect(onChange.mock.calls[0][0].content[0] as FieldContentItem).toMatchObject(METADATA)
         })
     })
 })

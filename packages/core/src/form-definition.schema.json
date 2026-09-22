@@ -123,6 +123,13 @@
             },
             "additionalProperties": false
         },
+        "multiselectValidation": {
+            "type": "object",
+            "properties": {
+                "required": { "type": "boolean" }
+            },
+            "additionalProperties": false
+        },
         "arrayValidation": {
             "type": "object",
             "properties": {
@@ -131,7 +138,29 @@
             },
             "additionalProperties": false
         },
+        "arrayObjValidation": {
+            "type": "object",
+            "properties": {
+                "minItems": { "type": "integer", "minimum": 0 },
+                "maxItems": { "type": "integer", "minimum": 1 }
+            },
+            "additionalProperties": false
+        },
         "fileValidation": {
+            "type": "object",
+            "properties": {
+                "required": { "type": "boolean" }
+            },
+            "additionalProperties": false
+        },
+        "blockchainValidation": {
+            "type": "object",
+            "properties": {
+                "required": { "type": "boolean" }
+            },
+            "additionalProperties": false
+        },
+        "sustainabilityValidation": {
             "type": "object",
             "properties": {
                 "required": { "type": "boolean" }
@@ -156,6 +185,9 @@
                 "type": { "const": "string" },
                 "label": { "type": "string" },
                 "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
                 "validation": { "$ref": "#/$defs/stringValidation" }
             },
             "additionalProperties": false
@@ -167,6 +199,9 @@
                 "type": { "const": "number" },
                 "label": { "type": "string" },
                 "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
                 "validation": { "$ref": "#/$defs/numberValidation" }
             },
             "additionalProperties": false
@@ -178,6 +213,9 @@
                 "type": { "const": "boolean" },
                 "label": { "type": "string" },
                 "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
                 "validation": { "$ref": "#/$defs/booleanValidation" }
             },
             "additionalProperties": false
@@ -189,6 +227,9 @@
                 "type": { "const": "date" },
                 "label": { "type": "string" },
                 "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
                 "validation": { "$ref": "#/$defs/dateValidation" }
             },
             "additionalProperties": false
@@ -200,6 +241,9 @@
                 "type": { "const": "select" },
                 "label": { "type": "string" },
                 "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
                 "options": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/selectOption" } },
                 "validation": { "$ref": "#/$defs/selectValidation" }
             },
@@ -212,7 +256,67 @@
                 "type": { "const": "file" },
                 "label": { "type": "string" },
                 "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
                 "validation": { "$ref": "#/$defs/fileValidation" }
+            },
+            "additionalProperties": false
+        },
+        "arrayItemBlockchain": {
+            "type": "object",
+            "required": ["type", "label"],
+            "properties": {
+                "type": { "const": "blockchain" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
+                "validation": { "$ref": "#/$defs/blockchainValidation" }
+            },
+            "additionalProperties": false
+        },
+        "arrayItemSustainability": {
+            "type": "object",
+            "required": ["type", "label"],
+            "properties": {
+                "type": { "const": "sustainability" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
+                "validation": { "$ref": "#/$defs/sustainabilityValidation" }
+            },
+            "additionalProperties": false
+        },
+        "arrayItemMultiselect": {
+            "type": "object",
+            "required": ["type", "label", "options"],
+            "properties": {
+                "type": { "const": "multiselect" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
+                "options": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/selectOption" } },
+                "validation": { "$ref": "#/$defs/multiselectValidation" }
+            },
+            "additionalProperties": false
+        },
+        "arrayItemStatic": {
+            "type": "object",
+            "required": ["type", "text"],
+            "properties": {
+                "type": { "const": "static" },
+                "text": { "type": "string" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" }
             },
             "additionalProperties": false
         },
@@ -223,7 +327,177 @@
                 { "$ref": "#/$defs/arrayItemBoolean" },
                 { "$ref": "#/$defs/arrayItemDate" },
                 { "$ref": "#/$defs/arrayItemSelect" },
-                { "$ref": "#/$defs/arrayItemFile" }
+                { "$ref": "#/$defs/arrayItemFile" },
+                { "$ref": "#/$defs/arrayItemBlockchain" },
+                { "$ref": "#/$defs/arrayItemSustainability" },
+                { "$ref": "#/$defs/arrayItemMultiselect" },
+                { "$ref": "#/$defs/arrayItemStatic" }
+            ]
+        },
+        "arrayObjItemString": {
+            "type": "object",
+            "required": ["id", "type", "label"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "string" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
+                "validation": { "$ref": "#/$defs/stringValidation" }
+            },
+            "additionalProperties": false
+        },
+        "arrayObjItemNumber": {
+            "type": "object",
+            "required": ["id", "type", "label"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "number" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
+                "validation": { "$ref": "#/$defs/numberValidation" }
+            },
+            "additionalProperties": false
+        },
+        "arrayObjItemBoolean": {
+            "type": "object",
+            "required": ["id", "type", "label"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "boolean" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
+                "validation": { "$ref": "#/$defs/booleanValidation" }
+            },
+            "additionalProperties": false
+        },
+        "arrayObjItemDate": {
+            "type": "object",
+            "required": ["id", "type", "label"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "date" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
+                "validation": { "$ref": "#/$defs/dateValidation" }
+            },
+            "additionalProperties": false
+        },
+        "arrayObjItemSelect": {
+            "type": "object",
+            "required": ["id", "type", "label", "options"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "select" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
+                "options": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/selectOption" } },
+                "validation": { "$ref": "#/$defs/selectValidation" }
+            },
+            "additionalProperties": false
+        },
+        "arrayObjItemMultiselect": {
+            "type": "object",
+            "required": ["id", "type", "label", "options"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "multiselect" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
+                "options": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/selectOption" } },
+                "validation": { "$ref": "#/$defs/multiselectValidation" }
+            },
+            "additionalProperties": false
+        },
+        "arrayObjItemFile": {
+            "type": "object",
+            "required": ["id", "type", "label"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "file" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
+                "validation": { "$ref": "#/$defs/fileValidation" }
+            },
+            "additionalProperties": false
+        },
+        "arrayObjItemBlockchain": {
+            "type": "object",
+            "required": ["id", "type", "label"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "blockchain" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
+                "validation": { "$ref": "#/$defs/blockchainValidation" }
+            },
+            "additionalProperties": false
+        },
+        "arrayObjItemSustainability": {
+            "type": "object",
+            "required": ["id", "type", "label"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "sustainability" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
+                "validation": { "$ref": "#/$defs/sustainabilityValidation" }
+            },
+            "additionalProperties": false
+        },
+        "arrayObjItemStatic": {
+            "type": "object",
+            "required": ["id", "type", "text"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "static" },
+                "text": { "type": "string" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" }
+            },
+            "additionalProperties": false
+        },
+        "arrayObjItem": {
+            "oneOf": [
+                { "$ref": "#/$defs/arrayObjItemString" },
+                { "$ref": "#/$defs/arrayObjItemNumber" },
+                { "$ref": "#/$defs/arrayObjItemBoolean" },
+                { "$ref": "#/$defs/arrayObjItemDate" },
+                { "$ref": "#/$defs/arrayObjItemSelect" },
+                { "$ref": "#/$defs/arrayObjItemMultiselect" },
+                { "$ref": "#/$defs/arrayObjItemFile" },
+                { "$ref": "#/$defs/arrayObjItemBlockchain" },
+                { "$ref": "#/$defs/arrayObjItemSustainability" },
+                { "$ref": "#/$defs/arrayObjItemStatic" }
             ]
         },
 
@@ -235,6 +509,9 @@
                 "type": { "const": "string" },
                 "label": { "type": "string" },
                 "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
                 "condition": { "$ref": "#/$defs/condition" },
                 "validation": { "$ref": "#/$defs/stringValidation" }
             },
@@ -248,6 +525,9 @@
                 "type": { "const": "number" },
                 "label": { "type": "string" },
                 "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
                 "condition": { "$ref": "#/$defs/condition" },
                 "validation": { "$ref": "#/$defs/numberValidation" }
             },
@@ -261,6 +541,9 @@
                 "type": { "const": "boolean" },
                 "label": { "type": "string" },
                 "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
                 "condition": { "$ref": "#/$defs/condition" },
                 "validation": { "$ref": "#/$defs/booleanValidation" }
             },
@@ -274,6 +557,9 @@
                 "type": { "const": "date" },
                 "label": { "type": "string" },
                 "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
                 "condition": { "$ref": "#/$defs/condition" },
                 "validation": { "$ref": "#/$defs/dateValidation" }
             },
@@ -287,9 +573,45 @@
                 "type": { "const": "select" },
                 "label": { "type": "string" },
                 "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
                 "condition": { "$ref": "#/$defs/condition" },
                 "options": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/selectOption" } },
                 "validation": { "$ref": "#/$defs/selectValidation" }
+            },
+            "additionalProperties": false
+        },
+        "multiselectField": {
+            "type": "object",
+            "required": ["id", "type", "label", "options"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "multiselect" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
+                "condition": { "$ref": "#/$defs/condition" },
+                "options": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/selectOption" } },
+                "validation": { "$ref": "#/$defs/multiselectValidation" }
+            },
+            "additionalProperties": false
+        },
+        "staticField": {
+            "type": "object",
+            "required": ["id", "type", "text"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "static" },
+                "text": { "type": "string" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
+                "condition": { "$ref": "#/$defs/condition" }
             },
             "additionalProperties": false
         },
@@ -301,9 +623,30 @@
                 "type": { "const": "array" },
                 "label": { "type": "string" },
                 "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
                 "condition": { "$ref": "#/$defs/condition" },
                 "item": { "$ref": "#/$defs/arrayItem" },
                 "validation": { "$ref": "#/$defs/arrayValidation" }
+            },
+            "additionalProperties": false
+        },
+        "arrayObjField": {
+            "type": "object",
+            "required": ["id", "type", "label", "items"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "array_obj" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
+                "condition": { "$ref": "#/$defs/condition" },
+                "items": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/arrayObjItem" } },
+                "kind": { "type": "string", "enum": ["list", "table"] },
+                "validation": { "$ref": "#/$defs/arrayObjValidation" }
             },
             "additionalProperties": false
         },
@@ -315,8 +658,43 @@
                 "type": { "const": "file" },
                 "label": { "type": "string" },
                 "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
                 "condition": { "$ref": "#/$defs/condition" },
                 "validation": { "$ref": "#/$defs/fileValidation" }
+            },
+            "additionalProperties": false
+        },
+        "blockchainField": {
+            "type": "object",
+            "required": ["id", "type", "label"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "blockchain" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
+                "condition": { "$ref": "#/$defs/condition" },
+                "validation": { "$ref": "#/$defs/blockchainValidation" }
+            },
+            "additionalProperties": false
+        },
+        "sustainabilityField": {
+            "type": "object",
+            "required": ["id", "type", "label"],
+            "properties": {
+                "id": { "type": "integer", "minimum": 1 },
+                "type": { "const": "sustainability" },
+                "label": { "type": "string" },
+                "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
+                "condition": { "$ref": "#/$defs/condition" },
+                "validation": { "$ref": "#/$defs/sustainabilityValidation" }
             },
             "additionalProperties": false
         },
@@ -327,8 +705,13 @@
                 { "$ref": "#/$defs/booleanField" },
                 { "$ref": "#/$defs/dateField" },
                 { "$ref": "#/$defs/selectField" },
+                { "$ref": "#/$defs/multiselectField" },
                 { "$ref": "#/$defs/arrayField" },
-                { "$ref": "#/$defs/fileField" }
+                { "$ref": "#/$defs/arrayObjField" },
+                { "$ref": "#/$defs/fileField" },
+                { "$ref": "#/$defs/staticField" },
+                { "$ref": "#/$defs/blockchainField" },
+                { "$ref": "#/$defs/sustainabilityField" }
             ]
         },
 
@@ -340,6 +723,9 @@
                 "type": { "const": "section" },
                 "title": { "type": "string" },
                 "description": { "type": "string" },
+                "placeholder": { "type": "string" },
+                "answer_guidelines": { "type": "string" },
+                "reference_id": { "type": "string" },
                 "condition": { "$ref": "#/$defs/condition" },
                 "content": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/contentItem" } }
             },

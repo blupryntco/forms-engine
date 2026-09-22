@@ -1,0 +1,19 @@
+{
+    "form": {
+        "id": "de86a89e-9ab0-43f7-96ab-ca6b2ece3855",
+        "version": "1.0.0",
+        "submittedAt": "2025-11-22T08:30:00.000Z"
+    },
+    "values": {
+        "1": "2025-11-20T00:00:00.000Z",
+        "2": "large-transfer",
+        "4": "0xDEAD000000000000000000000000000000000001",
+        "5": "ethereum",
+        "6": 2400000,
+        "7": "Multiple large transfers totaling $2.4M routed through a newly created wallet within a 3-hour window, with funds immediately bridged to a separate chain.",
+        "8": false,
+        "10": "James Wong",
+        "11": "j.wong@exchange.example.com",
+        "12": true
+    }
+}

@@ -1,5 +1,6 @@
 import type { ContentItem, FieldContentItem, SectionContentItem } from '@bluprynt/forms-core'
 
+import { getProjection } from './projection'
 import { flattenTree, getDescendants } from './tree'
 
 const field = (id: number, type: FieldContentItem['type'] = 'string'): FieldContentItem => ({
@@ -140,5 +141,41 @@ describe('getDescendants', () => {
     it('does not include the parent itself', () => {
         const items = flattenTree([section(1, [field(2)])])
         expect(getDescendants(items, 1).has(1)).toBe(false)
+    })
+})
+
+describe('array_obj fields are leaves', () => {
+    const directors = (): FieldContentItem => ({
+        id: 10,
+        type: 'array_obj',
+        label: 'Directors',
+        items: [
+            { id: 11, type: 'string', label: 'Name' },
+            { id: 12, type: 'date', label: 'Appointed' },
+        ],
+    })
+
+    it('flattens as a single node -- sub-fields never enter the tree', () => {
+        const result = flattenTree([directors()])
+
+        // the field + the root placeholder, and nothing for the two sub-fields
+        expect(result).toHaveLength(2)
+        expect(result[0]).toMatchObject({ id: 10, type: 'array_obj', depth: 0, parentId: null })
+        expect(result[1]?.type).toBe('add-placeholder')
+        expect(result.some((i) => i.id === 11 || i.id === 12)).toBe(false)
+    })
+
+    it('has no descendants', () => {
+        expect(getDescendants(flattenTree([directors()]), 10).size).toBe(0)
+    })
+
+    it('cannot become a drag parent -- only sections accept children', () => {
+        const items = flattenTree([directors(), field(20)])
+        // field 20 dragged one level in, right after the array_obj field
+        const projection = getProjection(items, 20, 1, 3)
+
+        expect(projection.parentId).toBeNull()
+        expect(projection.maxDepth).toBe(0)
+        expect(projection.depth).toBe(0)
     })
 })

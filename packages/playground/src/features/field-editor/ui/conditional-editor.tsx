@@ -18,12 +18,17 @@ export type FieldInfo = {
     options?: SelectOption[]
 }
 
+/**
+ * Collects the fields a condition may reference. Static blocks are skipped:
+ * they hold no value, and the engine rejects a definition whose condition
+ * points at one (`CONDITION_REFS_STATIC`).
+ */
 export const collectFields = (content: ContentItem[], excludeId?: number): FieldInfo[] => {
     const result: FieldInfo[] = []
     for (const item of content) {
         if (item.type === 'section') {
             result.push(...collectFields((item as SectionContentItem).content, excludeId))
-        } else if (item.id !== excludeId) {
+        } else if (item.type !== 'static' && item.id !== excludeId) {
             const f = item as FieldContentItem
             result.push({ id: f.id, label: f.label, type: f.type, options: f.options })
         }
@@ -57,6 +62,13 @@ const makeSimple = (fields: FieldInfo[]): SimpleCondition => ({
 
 const opNeedsValue = (op: SimpleCondition['op']) => OPERATORS.find((o) => o.value === op)?.needsValue ?? true
 
+/**
+ * A `sustainability` value is an object, so the engine compares it by reference:
+ * only the presence operators mean anything. Offer just those.
+ */
+const operatorsFor = (field: FieldInfo | undefined) =>
+    field?.type === 'sustainability' ? OPERATORS.filter((o) => !o.needsValue) : OPERATORS
+
 const selectCls = 'rounded border border-gray-200 px-2 py-1.5 text-sm outline-none focus:border-blue-400 bg-white'
 const inputCls = 'rounded border border-gray-200 px-2 py-1.5 text-sm outline-none focus:border-blue-400'
 const btnCls = 'text-xs text-blue-600 hover:text-blue-800'
@@ -69,6 +81,26 @@ const ValueInput: FC<{
     onChange: (v: unknown) => void
 }> = ({ field, op, value, onChange }) => {
     if (!opNeedsValue(op)) return null
+
+    if ((op === 'in' || op === 'notin') && field?.type === 'multiselect' && field.options?.length) {
+        const chosen = Array.isArray(value) ? value : []
+        return (
+            <div className="flex flex-wrap items-center gap-2">
+                {field.options.map((o) => (
+                    <label key={String(o.value)} className="flex items-center gap-1 text-sm text-gray-700">
+                        <input
+                            type="checkbox"
+                            checked={chosen.includes(o.value)}
+                            onChange={(e) =>
+                                onChange(e.target.checked ? [...chosen, o.value] : chosen.filter((v) => v !== o.value))
+                            }
+                        />
+                        {o.label}
+                    </label>
+                ))}
+            </div>
+        )
+    }
 
     if (op === 'in' || op === 'notin') {
         return (
@@ -99,6 +131,27 @@ const ValueInput: FC<{
                 <option value="true">True</option>
                 <option value="false">False</option>
             </select>
+        )
+    }
+
+    if (field?.type === 'multiselect' && field.options?.length) {
+        const chosen = Array.isArray(value) ? value : []
+        return (
+            <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-gray-400">exactly:</span>
+                {field.options.map((o) => (
+                    <label key={String(o.value)} className="flex items-center gap-1 text-sm text-gray-700">
+                        <input
+                            type="checkbox"
+                            checked={chosen.includes(o.value)}
+                            onChange={(e) =>
+                                onChange(e.target.checked ? [...chosen, o.value] : chosen.filter((v) => v !== o.value))
+                            }
+                        />
+                        {o.label}
+                    </label>
+                ))}
+            </div>
         )
     }
 
@@ -148,9 +201,13 @@ const SimpleRow: FC<{
 
     const handleFieldChange = useCallback(
         (id: number) => {
-            onChange({ ...condition, field: id, value: undefined })
+            const next = fields.find((f) => f.id === id)
+            // Switching onto a sustainability field can leave an operator it no
+            // longer offers selected, so snap back to the first one it does.
+            const op = operatorsFor(next).some((o) => o.value === condition.op) ? condition.op : 'set'
+            onChange({ ...condition, field: id, op, value: undefined })
         },
-        [condition, onChange],
+        [condition, fields, onChange],
     )
 
     const handleOpChange = useCallback(
@@ -187,7 +244,7 @@ const SimpleRow: FC<{
                 value={condition.op}
                 onChange={(e) => handleOpChange(e.target.value as SimpleCondition['op'])}
                 className={selectCls}>
-                {OPERATORS.map((o) => (
+                {operatorsFor(targetField).map((o) => (
                     <option key={o.value} value={o.value}>
                         {o.label}
                     </option>

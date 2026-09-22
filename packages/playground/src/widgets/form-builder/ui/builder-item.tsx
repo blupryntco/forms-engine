@@ -11,7 +11,23 @@ import type {
     TypeSpecificValidation,
 } from '@bluprynt/forms-core'
 import { useSetAtom } from 'jotai'
-import { Calendar, CheckSquare, ChevronDown, GripVertical, Hash, List, Paperclip, Pencil, Type, X } from 'lucide-react'
+import {
+    Calendar,
+    CheckSquare,
+    ChevronDown,
+    GripVertical,
+    Hash,
+    Leaf,
+    Link2,
+    List,
+    ListChecks,
+    Paperclip,
+    Pencil,
+    Table,
+    Text,
+    Type,
+    X,
+} from 'lucide-react'
 
 import { editorModeAtom, selectedItemIdAtom } from '@/features/field-editor'
 import { Badge } from '@/shared/ui/badge'
@@ -24,8 +40,13 @@ const TYPE_ICONS: Record<FieldType, FC<{ className?: string }>> = {
     boolean: CheckSquare,
     date: Calendar,
     select: ChevronDown,
+    multiselect: ListChecks,
     array: List,
+    array_obj: Table,
     file: Paperclip,
+    static: Text,
+    blockchain: Link2,
+    sustainability: Leaf,
 }
 
 const TYPE_LABELS: Record<FieldType, string> = {
@@ -34,8 +55,13 @@ const TYPE_LABELS: Record<FieldType, string> = {
     boolean: 'Boolean',
     date: 'Date',
     select: 'Select',
+    multiselect: 'Multi',
     array: 'Array',
+    array_obj: 'Rows',
     file: 'File',
+    static: 'Static',
+    blockchain: 'Chain',
+    sustainability: 'Sustain',
 }
 
 const getValidationBadges = (type: FieldType, validation: TypeSpecificValidation | undefined): ReactNode[] => {
@@ -106,7 +132,8 @@ const getValidationBadges = (type: FieldType, validation: TypeSpecificValidation
                 )
             break
         }
-        case 'array': {
+        case 'array':
+        case 'array_obj': {
             const v = validation as ArrayValidation
             if (v.minItems != null)
                 badges.push(
@@ -124,7 +151,11 @@ const getValidationBadges = (type: FieldType, validation: TypeSpecificValidation
         }
         case 'boolean':
         case 'select':
+        case 'multiselect':
         case 'file':
+        case 'static':
+        case 'blockchain':
+        case 'sustainability':
             break
     }
 
@@ -147,7 +178,7 @@ export const BuilderItem: FC<FieldRenderProps> = ({
     const setSelectedItemId = useSetAtom(selectedItemIdAtom)
     const setEditorMode = useSetAtom(editorModeAtom)
     const Icon = TYPE_ICONS[type]
-    const badges = getValidationBadges(type, item.validation)
+    const badges = item.type === 'static' ? [] : getValidationBadges(type, item.validation)
 
     return (
         <li
@@ -168,21 +199,29 @@ export const BuilderItem: FC<FieldRenderProps> = ({
 
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <div className="flex items-center gap-2">
-                        <input
-                            type="text"
-                            value={item.label}
-                            placeholder="Field label"
-                            onChange={(e) => onChange({ ...(item as FieldContentItem), label: e.target.value })}
-                            className="min-w-0 flex-1 truncate border-none bg-transparent text-sm outline-none focus:ring-0"
-                        />
+                        {item.type === 'static' ? (
+                            <input
+                                type="text"
+                                value={item.text}
+                                placeholder="Static text"
+                                onChange={(e) => onChange({ ...item, text: e.target.value })}
+                                className="min-w-0 flex-1 truncate border-none bg-transparent text-sm outline-none focus:ring-0"
+                            />
+                        ) : (
+                            <input
+                                type="text"
+                                value={item.label ?? ''}
+                                placeholder="Field label"
+                                onChange={(e) => onChange({ ...(item as FieldContentItem), label: e.target.value })}
+                                className="min-w-0 flex-1 truncate border-none bg-transparent text-sm outline-none focus:ring-0"
+                            />
+                        )}
                     </div>
                     <input
                         type="text"
                         value={item.description ?? ''}
                         placeholder="Description"
-                        onChange={(e) =>
-                            onChange({ ...(item as FieldContentItem), description: e.target.value || undefined })
-                        }
+                        onChange={(e) => onChange({ ...item, description: e.target.value || undefined })}
                         className="min-w-0 border-none bg-transparent text-xs text-gray-400 outline-none placeholder:text-gray-300 focus:ring-0"
                     />
                 </div>

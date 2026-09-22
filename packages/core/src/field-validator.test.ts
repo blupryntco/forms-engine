@@ -10,6 +10,7 @@ const makeEntry = (id: number, overrides: Partial<FieldEntry> = {}): FieldEntry 
     parentId: undefined,
     options: undefined,
     item: undefined,
+    items: undefined,
     label: `Field ${id}`,
     title: undefined,
     ...overrides,
@@ -25,18 +26,46 @@ const now = new Date('2025-06-15T00:00:00.000Z')
 
 describe('FieldValidator', () => {
     describe('validator registration', () => {
-        const fieldTypes: FieldType[] = ['string', 'number', 'boolean', 'date', 'select', 'array', 'file']
+        const fieldTypes: FieldType[] = [
+            'string',
+            'number',
+            'boolean',
+            'date',
+            'select',
+            'multiselect',
+            'array',
+            'file',
+            'blockchain',
+            'sustainability',
+        ]
 
         it.each(fieldTypes.filter((t) => t !== 'array'))('has a validator registered for "%s" field type', (type) => {
             const entry = makeEntry(1, {
                 type,
                 validation: { required: true },
-                options: type === 'select' ? [{ value: 'a', label: 'A' }] : undefined,
+                options: type === 'select' || type === 'multiselect' ? [{ value: 'a', label: 'A' }] : undefined,
             })
             const registry = new Map<number, FieldEntry>([[1, entry]])
             const validator = new FieldValidator(registry)
             const result = validator.validate({}, allVisible(1), now)
             expect(result.fieldErrors.has(1)).toBe(true)
+        })
+
+        it('has no validator registered for "static" field type', () => {
+            const entry = makeEntry(1, { type: 'static' })
+            const registry = new Map<number, FieldEntry>([[1, entry]])
+            const validator = new FieldValidator(registry)
+            const result = validator.validate({}, allVisible(1), now)
+            expect(result.valid).toBe(true)
+            expect(result.fieldErrors.has(1)).toBe(false)
+        })
+
+        it('produces no errors for a static field even when a stray value is present', () => {
+            const entry = makeEntry(1, { type: 'static' })
+            const registry = new Map<number, FieldEntry>([[1, entry]])
+            const validator = new FieldValidator(registry)
+            const result = validator.validate({ '1': 'stray' }, allVisible(1), now)
+            expect(result.valid).toBe(true)
         })
 
         it('has a validator registered for "array" field type', () => {

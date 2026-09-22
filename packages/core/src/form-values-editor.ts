@@ -1,6 +1,9 @@
 import { FormEngine } from './form-engine'
+import { applySuggestion, getSuggestion, getSuggestions, removeSuggestion, setSuggestion } from './suggestions'
+import type { ArrayObjRow } from './types/array-obj-item-def'
 import type { FormDefinition } from './types/form-definition'
 import type { FormDocument } from './types/form-values'
+import type { FieldSuggestion, FormSuggestions } from './types/suggestion'
 import type { FormValidationResult } from './types/validation-results'
 
 /**
@@ -78,14 +81,16 @@ export class FormValuesEditor {
      * If the field currently has no value, it is initialized to an empty array
      * before appending.
      *
-     * @param fieldId - Numeric id of the array field.
-     * @param value - The value to append. Defaults to `undefined`.
+     * @param fieldId - Numeric id of the `array` or `array_obj` field.
+     * @param value - The value to append. Defaults to `undefined` for an
+     *   `array` field and to an empty row (`{}`) for an `array_obj` field.
      * @returns `this` for chaining.
      * @throws If `fieldId` is not an array field.
      */
     addArrayItem(fieldId: number, value?: unknown): this {
         const arr = this.getOrInitArray(fieldId)
-        arr.push(value)
+        const entry = this.engine.getFieldDef(fieldId)
+        arr.push(value === undefined && entry?.type === 'array_obj' ? {} : value)
         return this
     }
 
@@ -143,6 +148,123 @@ export class FormValuesEditor {
             throw new Error(`Index ${index} is out of bounds for array field ${fieldId} (length ${arr.length})`)
         }
         arr[index] = value
+        return this
+    }
+
+    /**
+     * Returns the value of one sub-field within one row of an `array_obj` field.
+     *
+     * @param fieldId - Numeric id of the `array_obj` field.
+     * @param index - Zero-based row index.
+     * @param subFieldId - Numeric id of the sub-field.
+     * @returns The sub-field value, or `undefined` if not set.
+     * @throws If the field is not an `array_obj`, the row index is out of
+     *   bounds, or the sub-field does not belong to the field.
+     */
+    getArrayObjValue(fieldId: number, index: number, subFieldId: number): unknown {
+        return this.assertArrayObjRow(fieldId, index, subFieldId)[String(subFieldId)]
+    }
+
+    /**
+     * Sets the value of one sub-field within one row of an `array_obj` field.
+     *
+     * @param fieldId - Numeric id of the `array_obj` field.
+     * @param index - Zero-based row index.
+     * @param subFieldId - Numeric id of the sub-field.
+     * @param value - The value to set.
+     * @returns `this` for chaining.
+     * @throws If the field is not an `array_obj`, the row index is out of
+     *   bounds, or the sub-field does not belong to the field or is static.
+     */
+    setArrayObjValue(fieldId: number, index: number, subFieldId: number, value: unknown): this {
+        this.assertArrayObjRow(fieldId, index, subFieldId)[String(subFieldId)] = value
+        return this
+    }
+
+    /**
+     * Removes one sub-field's value from one row of an `array_obj` field.
+     *
+     * @returns `this` for chaining.
+     * @throws Under the same conditions as {@link setArrayObjValue}.
+     */
+    clearArrayObjValue(fieldId: number, index: number, subFieldId: number): this {
+        delete this.assertArrayObjRow(fieldId, index, subFieldId)[String(subFieldId)]
+        return this
+    }
+
+    /**
+     * Returns the suggestion recorded for a field.
+     *
+     * @param fieldId - Numeric id of the field.
+     * @returns The suggestion, or `undefined` if the field has none.
+     */
+    getSuggestion(fieldId: number): FieldSuggestion | undefined {
+        return getSuggestion(this.doc, fieldId)
+    }
+
+    /**
+     * Returns every suggestion on the document, keyed by stringified field id.
+     *
+     * @returns A copy of the suggestions map. Empty when there are none.
+     */
+    getSuggestions(): FormSuggestions {
+        return getSuggestions(this.doc)
+    }
+
+    /**
+     * Records a suggestion for a field, replacing any existing one. The field's
+     * value is left untouched.
+     *
+     * @param fieldId - Numeric id of the field.
+     * @param suggestion - The suggestion to store.
+     * @returns `this` for chaining.
+     * @throws If `fieldId` is unknown, references a section, or `confidence`
+     *   falls outside `0..1`.
+     */
+    setSuggestion(fieldId: number, suggestion: FieldSuggestion): this {
+        this.assertField(fieldId)
+        this.doc = setSuggestion(this.doc, fieldId, suggestion)
+        return this
+    }
+
+    /**
+     * Removes the suggestion recorded for a field, leaving its value untouched.
+     *
+     * @param fieldId - Numeric id of the field.
+     * @returns `this` for chaining.
+     */
+    clearSuggestion(fieldId: number): this {
+        this.doc = removeSuggestion(this.doc, fieldId)
+        return this
+    }
+
+    /**
+     * Accepts a field's suggestion: copies the suggested value into the field's
+     * value and **keeps** the suggestion, so its source stays visible.
+     *
+     * No-op when the field has no suggestion.
+     *
+     * @param fieldId - Numeric id of the field.
+     * @returns `this` for chaining.
+     * @throws If `fieldId` is unknown or references a section.
+     */
+    acceptSuggestion(fieldId: number): this {
+        this.assertField(fieldId)
+        this.doc = applySuggestion(this.doc, fieldId)
+        return this
+    }
+
+    /**
+     * Rejects a field's suggestion: removes it entirely, leaving the field's
+     * value untouched.
+     *
+     * No-op when the field has no suggestion.
+     *
+     * @param fieldId - Numeric id of the field.
+     * @returns `this` for chaining.
+     */
+    rejectSuggestion(fieldId: number): this {
+        this.doc = removeSuggestion(this.doc, fieldId)
         return this
     }
 
@@ -208,6 +330,7 @@ export class FormValuesEditor {
 
         if (!entry) throw new Error(`Field with id ${fieldId} not found`)
         if (entry.type === 'section') throw new Error(`Item ${fieldId} is a section, not a field`)
+        if (entry.type === 'static') throw new Error(`Item ${fieldId} is a static field and holds no value`)
     }
 
     /**
@@ -218,7 +341,8 @@ export class FormValuesEditor {
         const entry = this.engine.getFieldDef(fieldId)
         if (!entry) throw new Error(`Field with id ${fieldId} not found`)
 
-        if (entry.type !== 'array') throw new Error(`Field ${fieldId} is not an array field`)
+        if (entry.type !== 'array' && entry.type !== 'array_obj')
+            throw new Error(`Field ${fieldId} is not an array field`)
 
         const val = this.doc.values[String(fieldId)]
         if (!Array.isArray(val)) throw new Error(`Field ${fieldId} does not currently hold an array value`)
@@ -233,7 +357,8 @@ export class FormValuesEditor {
         const entry = this.engine.getFieldDef(fieldId)
         if (!entry) throw new Error(`Field with id ${fieldId} not found`)
 
-        if (entry.type !== 'array') throw new Error(`Field ${fieldId} is not an array field`)
+        if (entry.type !== 'array' && entry.type !== 'array_obj')
+            throw new Error(`Field ${fieldId} is not an array field`)
 
         const key = String(fieldId)
         let val = this.doc.values[key]
@@ -243,5 +368,32 @@ export class FormValuesEditor {
         }
 
         return val as unknown[]
+    }
+
+    /**
+     * Asserts that `fieldId` is an `array_obj` field holding a row at `index`
+     * with a writable sub-field `subFieldId`, and returns that row.
+     * The row is created in place when it is absent or not an object.
+     */
+    private assertArrayObjRow(fieldId: number, index: number, subFieldId: number): ArrayObjRow {
+        const entry = this.engine.getFieldDef(fieldId)
+        if (!entry) throw new Error(`Field with id ${fieldId} not found`)
+        if (entry.type !== 'array_obj') throw new Error(`Field ${fieldId} is not an array_obj field`)
+
+        const subField = (entry.items ?? []).find((f) => f.id === subFieldId)
+        if (!subField) throw new Error(`Sub-field ${subFieldId} does not belong to field ${fieldId}`)
+        if (subField.type === 'static') throw new Error(`Sub-field ${subFieldId} is a static field and holds no value`)
+
+        const arr = this.assertArray(fieldId)
+        if (index < 0 || index >= arr.length) {
+            throw new Error(`Index ${index} is out of bounds for array field ${fieldId} (length ${arr.length})`)
+        }
+
+        const row = arr[index]
+        if (typeof row === 'object' && row !== null && !Array.isArray(row)) return row as ArrayObjRow
+
+        const created: ArrayObjRow = {}
+        arr[index] = created
+        return created
     }
 }

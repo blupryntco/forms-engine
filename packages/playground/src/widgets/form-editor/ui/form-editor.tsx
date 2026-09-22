@@ -17,6 +17,8 @@ import { useAtom, useAtomValue } from 'jotai'
 import { formDefinitionAtom, formDocumentAtom } from '@/entities/form'
 import {
     ArrayEdit,
+    ArrayObjEdit,
+    BlockchainEdit,
     BooleanEdit,
     DateEdit,
     DocumentErrorItem,
@@ -26,12 +28,15 @@ import {
     FieldErrorItem,
     FieldErrorsContainer,
     FileEdit,
+    MultiselectEdit,
     NumberEdit,
     SectionEdit,
     SectionTabItem,
     SectionTabsContainer,
     SelectEdit,
+    StaticEdit,
     StringEdit,
+    SustainabilityEdit,
 } from '@/shared/ui/form'
 
 export const components: EditorComponentMap = {
@@ -40,8 +45,13 @@ export const components: EditorComponentMap = {
     boolean: BooleanEdit,
     date: DateEdit,
     select: SelectEdit,
+    multiselect: MultiselectEdit,
     array: ArrayEdit,
+    array_obj: ArrayObjEdit,
     file: FileEdit,
+    static: StaticEdit,
+    blockchain: BlockchainEdit,
+    sustainability: SustainabilityEdit,
     section: SectionEdit,
     error: ErrorView,
 }

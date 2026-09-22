@@ -1,0 +1,176 @@
+{
+    "id": "de86a89e-9ab0-43f7-96ab-ca6b2ece3855",
+    "version": "1.0.0",
+    "title": "Suspicious Activity Report",
+    "description": "File a report for suspicious cryptocurrency transaction activity",
+    "content": [
+        {
+            "id": 1,
+            "type": "date",
+            "label": "Date of suspicious activity",
+            "validation": {
+                "required": true
+            }
+        },
+        {
+            "id": 2,
+            "type": "select",
+            "label": "Activity type",
+            "options": [
+                {
+                    "value": "large-transfer",
+                    "label": "Unusually large transfer"
+                },
+                {
+                    "value": "structuring",
+                    "label": "Transaction structuring"
+                },
+                {
+                    "value": "mixing",
+                    "label": "Use of mixing / tumbling service"
+                },
+                {
+                    "value": "darknet",
+                    "label": "Darknet marketplace interaction"
+                },
+                {
+                    "value": "fraud",
+                    "label": "Suspected fraud"
+                },
+                {
+                    "value": "sanctions",
+                    "label": "Potential sanctions violation"
+                },
+                {
+                    "value": "other",
+                    "label": "Other"
+                }
+            ],
+            "validation": {
+                "required": true
+            }
+        },
+        {
+            "id": 3,
+            "type": "string",
+            "label": "Specify activity type",
+            "condition": {
+                "field": 2,
+                "op": "eq",
+                "value": "other"
+            },
+            "validation": {
+                "required": true
+            }
+        },
+        {
+            "id": 4,
+            "type": "string",
+            "label": "Wallet address(es) involved",
+            "validation": {
+                "required": true
+            }
+        },
+        {
+            "id": 5,
+            "type": "select",
+            "label": "Blockchain network",
+            "options": [
+                {
+                    "value": "bitcoin",
+                    "label": "Bitcoin"
+                },
+                {
+                    "value": "ethereum",
+                    "label": "Ethereum"
+                },
+                {
+                    "value": "tron",
+                    "label": "TRON"
+                },
+                {
+                    "value": "solana",
+                    "label": "Solana"
+                },
+                {
+                    "value": "polygon",
+                    "label": "Polygon"
+                },
+                {
+                    "value": "bnb",
+                    "label": "BNB Chain"
+                },
+                {
+                    "value": "other",
+                    "label": "Other"
+                }
+            ],
+            "validation": {
+                "required": true
+            }
+        },
+        {
+            "id": 6,
+            "type": "number",
+            "label": "Estimated value (USD)",
+            "validation": {
+                "required": true,
+                "min": 0
+            }
+        },
+        {
+            "id": 7,
+            "type": "string",
+            "label": "Description of suspicious activity",
+            "validation": {
+                "required": true,
+                "minLength": 50,
+                "maxLength": 5000
+            }
+        },
+        {
+            "id": 8,
+            "type": "boolean",
+            "label": "Has this been reported to law enforcement?",
+            "validation": {
+                "required": true
+            }
+        },
+        {
+            "id": 9,
+            "type": "string",
+            "label": "Law enforcement reference number",
+            "condition": {
+                "field": 8,
+                "op": "eq",
+                "value": true
+            }
+        },
+        {
+            "id": 10,
+            "type": "string",
+            "label": "Reporting officer name",
+            "validation": {
+                "required": true
+            }
+        },
+        {
+            "id": 11,
+            "type": "string",
+            "label": "Reporting officer email",
+            "validation": {
+                "required": true,
+                "pattern": "^[^@]+@[^@]+\\.[^@]+$",
+                "patternMessage": "Must be a valid email address"
+            }
+        },
+        {
+            "id": 12,
+            "type": "boolean",
+            "label": "I confirm this report is filed in good faith",
+            "validation": {
+                "required": true
+            }
+        }
+    ]
+}

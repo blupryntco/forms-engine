@@ -1,0 +1,30 @@
+{
+    "form": {
+        "id": "3396368d-6a02-48c4-a2e9-8ffb458d3f81",
+        "version": "1.0.0",
+        "submittedAt": "2025-10-08T16:20:00.000Z"
+    },
+    "values": {
+        "2": "Apex Digital Exchange Pte. Ltd.",
+        "3": "202301234K",
+        "4": "exchange",
+        "5": "Singapore",
+        "6": "2023-01-15T00:00:00.000Z",
+        "7": "1 Raffles Place, Tower One, Singapore 048616",
+        "9": ["Fiat-to-crypto exchange", "Crypto-to-crypto exchange", "Custody services"],
+        "10": 85000000,
+        "11": 142000,
+        "12": "operational",
+        "14": true,
+        "15": "Rachel Tan",
+        "16": true,
+        "17": "notabene",
+        "18": true,
+        "19": "Chainalysis KYT",
+        "21": "medium",
+        "23": ["Singapore", "Hong Kong", "Japan", "Australia", "European Union"],
+        "24": false,
+        "26": true,
+        "27": true
+    }
+}

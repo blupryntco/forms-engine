@@ -1,14 +1,28 @@
 import type { ArrayItemDef } from './types/array-item-def'
+import type { ArrayObjItemDef, ArrayObjKind } from './types/array-obj-item-def'
 import type { Condition } from './types/conditions'
-import type { ContentItem, FieldContentItem, FormDefinition, SectionContentItem } from './types/form-definition'
+import type {
+    AnyFieldContentItem,
+    ContentItem,
+    FieldContentItem,
+    FormDefinition,
+    SectionContentItem,
+    StaticFieldContentItem,
+} from './types/form-definition'
 import type { SelectOption } from './types/select-option'
 import type { TypeSpecificValidation } from './types/validation/type-specific'
 
 /**
  * Descriptor for a field to be added via the editor.
  * `id` is optional -- when omitted the editor auto-assigns the next available id.
+ *
+ * Written as an explicit union rather than `Omit<AnyFieldContentItem, 'id'>`
+ * because `Omit` does not distribute over a union -- it would collapse to the
+ * properties the two members share, dropping `label` and `text`.
  */
-export type FieldDescriptor = Omit<FieldContentItem, 'id'> & { id?: number }
+export type FieldDescriptor =
+    | (Omit<FieldContentItem, 'id'> & { id?: number })
+    | (Omit<StaticFieldContentItem, 'id'> & { id?: number })
 
 /**
  * Descriptor for a section to be added via the editor.
@@ -83,11 +97,19 @@ export class FormDefinitionEditor {
 
     /**
      * Returns the next available numeric id (max existing + 1).
+     *
+     * `array_obj` sub-field ids share the form-wide id space, so they count
+     * here too -- otherwise a new top-level field could collide with one.
      */
     nextId(): number {
         let max = 0
         this.walkAll(this.definition.content, (item) => {
             if (item.id > max) max = item.id
+            if (item.type === 'array_obj') {
+                for (const subField of item.items ?? []) {
+                    if (subField.id > max) max = subField.id
+                }
+            }
         })
         return max + 1
     }
@@ -104,7 +126,7 @@ export class FormDefinitionEditor {
     addField(descriptor: FieldDescriptor, parentId?: number, index?: number): this {
         const id = descriptor.id ?? this.nextId()
         this.assertIdAvailable(id)
-        const field: FieldContentItem = { ...descriptor, id }
+        const field: AnyFieldContentItem = { ...descriptor, id }
         this.insertItem(field, parentId, index)
         return this
     }
@@ -136,7 +158,7 @@ export class FormDefinitionEditor {
      * Cannot change `id` or `type`. Use {@link removeItem} + {@link addField}
      * to change the type.
      */
-    updateField(id: number, updates: Partial<Omit<FieldContentItem, 'id' | 'type'>>): this {
+    updateField(id: number, updates: Partial<Omit<FieldContentItem, 'id' | 'type'> & { text: string }>): this {
         const item = this.findItem(id)
         if (!item) throw new Error(`Item with id ${id} not found`)
         if (item.type === 'section') throw new Error(`Item ${id} is a section, not a field`)
@@ -242,6 +264,7 @@ export class FormDefinitionEditor {
         if (!item) throw new Error(`Item with id ${id} not found`)
 
         if (item.type === 'section') throw new Error('Sections do not have validation')
+        if (item.type === 'static') throw new Error('Static fields do not have validation')
 
         const field = item as FieldContentItem
 
@@ -265,13 +288,14 @@ export class FormDefinitionEditor {
     }
 
     /**
-     * Sets the select options for a `select` field.
+     * Sets the options for a `select` or `multiselect` field.
      */
     setOptions(id: number, options: SelectOption[]): this {
         const item = this.findItem(id)
         if (!item) throw new Error(`Item with id ${id} not found`)
 
-        if (item.type !== 'select') throw new Error(`Field ${id} is not a select field`)
+        if (item.type !== 'select' && item.type !== 'multiselect')
+            throw new Error(`Field ${id} is not a select or multiselect field`)
 
         const field = item as FieldContentItem
         field.options = options
@@ -295,6 +319,106 @@ export class FormDefinitionEditor {
     }
 
     /**
+     * Replaces the whole sub-field list of an `array_obj` field.
+     *
+     * @throws If the id is not found or does not refer to an `array_obj` field.
+     */
+    setArrayItems(id: number, itemDefs: ArrayObjItemDef[]): this {
+        this.assertArrayObjField(id).items = itemDefs
+        return this
+    }
+
+    /**
+     * Returns the sub-field list of an `array_obj` field.
+     *
+     * @throws If the id is not found or does not refer to an `array_obj` field.
+     */
+    getArrayItems(id: number): ArrayObjItemDef[] {
+        return this.assertArrayObjField(id).items ?? []
+    }
+
+    /**
+     * Sets or clears the layout hint of an `array_obj` field.
+     *
+     * Presentation metadata only -- the engine never reads it. Passing
+     * `undefined` removes the key, which reads as `'list'`.
+     *
+     * @throws If the id is not found or does not refer to an `array_obj` field.
+     */
+    setArrayKind(id: number, kind: ArrayObjKind | undefined): this {
+        const field = this.assertArrayObjField(id)
+
+        if (kind === undefined) delete field.kind
+        else field.kind = kind
+
+        return this
+    }
+
+    /**
+     * Appends a sub-field to an `array_obj` field. The sub-field's `id` is
+     * auto-assigned when omitted.
+     *
+     * @returns The id of the sub-field that was added.
+     * @throws If the id is not found, does not refer to an `array_obj` field,
+     *   or the requested sub-field id is already taken.
+     */
+    addArrayItemField(id: number, subField: Omit<ArrayObjItemDef, 'id'> & { id?: number }): number {
+        const field = this.assertArrayObjField(id)
+        const subFieldId = subField.id ?? this.nextId()
+        this.assertIdAvailable(subFieldId)
+        // biome-ignore lint/suspicious/noExplicitAny: the union does not distribute over the spread
+        field.items?.push({ ...(subField as any), id: subFieldId })
+        return subFieldId
+    }
+
+    /**
+     * Merges properties into an existing `array_obj` sub-field.
+     *
+     * Like {@link updateField}, omitted properties are kept rather than
+     * removed -- pass a property explicitly as `undefined` to clear it.
+     *
+     * @throws If the field or the sub-field is not found.
+     */
+    updateArrayItemField(id: number, subFieldId: number, patch: Partial<ArrayObjItemDef>): this {
+        const field = this.assertArrayObjField(id)
+        const subField = field.items?.find((f) => f.id === subFieldId)
+        if (!subField) throw new Error(`Sub-field with id ${subFieldId} not found in field ${id}`)
+
+        Object.assign(subField, patch, { id: subFieldId })
+        return this
+    }
+
+    /**
+     * Removes a sub-field from an `array_obj` field.
+     *
+     * @throws If the field or the sub-field is not found.
+     */
+    removeArrayItemField(id: number, subFieldId: number): this {
+        const field = this.assertArrayObjField(id)
+        const index = field.items?.findIndex((f) => f.id === subFieldId) ?? -1
+        if (index < 0) throw new Error(`Sub-field with id ${subFieldId} not found in field ${id}`)
+
+        field.items?.splice(index, 1)
+        return this
+    }
+
+    /**
+     * Moves a sub-field of an `array_obj` field to another position.
+     *
+     * @throws If the field is not found or either index is out of range.
+     */
+    moveArrayItemField(id: number, fromIndex: number, toIndex: number): this {
+        const field = this.assertArrayObjField(id)
+        const items = field.items ?? []
+        if (fromIndex < 0 || fromIndex >= items.length) throw new Error(`Index ${fromIndex} out of range`)
+        if (toIndex < 0 || toIndex >= items.length) throw new Error(`Index ${toIndex} out of range`)
+
+        const [moved] = items.splice(fromIndex, 1)
+        if (moved) items.splice(toIndex, 0, moved)
+        return this
+    }
+
+    /**
      * Sets the label for a field.
      */
     setLabel(id: number, label: string): this {
@@ -303,8 +427,24 @@ export class FormDefinitionEditor {
 
         if (item.type === 'section') throw new Error('Sections use title, not label')
 
-        const field = item as FieldContentItem
+        const field = item as AnyFieldContentItem
         field.label = label
+
+        return this
+    }
+
+    /**
+     * Sets the displayed text of a `static` field.
+     *
+     * @throws If the id is not found or does not refer to a static field.
+     */
+    setText(id: number, text: string): this {
+        const item = this.findItem(id)
+        if (!item) throw new Error(`Item with id ${id} not found`)
+
+        if (item.type !== 'static') throw new Error(`Field ${id} is not a static field`)
+
+        item.text = text
 
         return this
     }
@@ -318,6 +458,51 @@ export class FormDefinitionEditor {
 
         if (description === undefined) delete item.description
         else item.description = description
+
+        return this
+    }
+
+    /**
+     * Sets the placeholder for a field or section.
+     *
+     * Passing `undefined` removes the property. Unlike {@link updateField},
+     * which merges and therefore cannot clear, this genuinely deletes the key.
+     */
+    setPlaceholder(id: number, placeholder: string | undefined): this {
+        return this.setMetadata(id, 'placeholder', placeholder)
+    }
+
+    /**
+     * Sets the answer guidelines for a field or section.
+     *
+     * Passing `undefined` removes the property.
+     */
+    setAnswerGuidelines(id: number, answerGuidelines: string | undefined): this {
+        return this.setMetadata(id, 'answer_guidelines', answerGuidelines)
+    }
+
+    /**
+     * Sets the external reference id for a field or section.
+     *
+     * Passing `undefined` removes the property.
+     */
+    setReferenceId(id: number, referenceId: string | undefined): this {
+        return this.setMetadata(id, 'reference_id', referenceId)
+    }
+
+    /**
+     * Assigns or deletes one optional string property on a field or section.
+     */
+    private setMetadata(
+        id: number,
+        property: 'placeholder' | 'answer_guidelines' | 'reference_id',
+        value: string | undefined,
+    ): this {
+        const item = this.findItem(id)
+        if (!item) throw new Error(`Item with id ${id} not found`)
+
+        if (value === undefined) delete item[property]
+        else item[property] = value
 
         return this
     }
@@ -341,6 +526,29 @@ export class FormDefinitionEditor {
 
     private assertIdAvailable(id: number): void {
         if (this.findItem(id)) throw new Error(`Item with id ${id} already exists`)
+        if (this.findArrayObjItem(id)) throw new Error(`Item with id ${id} already exists`)
+    }
+
+    /**
+     * Finds an `array_obj` sub-field anywhere in the definition by its id.
+     */
+    private findArrayObjItem(id: number): { field: FieldContentItem; subField: ArrayObjItemDef } | undefined {
+        let found: { field: FieldContentItem; subField: ArrayObjItemDef } | undefined
+        this.walkAll(this.definition.content, (item) => {
+            if (found || item.type !== 'array_obj') return
+            const subField = (item.items ?? []).find((f) => f.id === id)
+            if (subField) found = { field: item, subField }
+        })
+        return found
+    }
+
+    private assertArrayObjField(id: number): FieldContentItem {
+        const item = this.findItem(id)
+        if (!item) throw new Error(`Item with id ${id} not found`)
+        if (item.type !== 'array_obj') throw new Error(`Field ${id} is not an array_obj field`)
+        const field = item as FieldContentItem
+        if (!field.items) field.items = []
+        return field
     }
 
     private insertItem(item: ContentItem, parentId: number | undefined, index?: number): void {

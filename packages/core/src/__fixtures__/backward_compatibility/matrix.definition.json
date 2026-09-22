@@ -1,0 +1,409 @@
+{
+    "id": "legacy-matrix",
+    "version": "1.0.0",
+    "title": "Legacy 4.0.1 coverage matrix",
+    "description": "Hand-authored definition exercising the whole 4.0.1 surface: every field type, every validation rule, every condition operator, compound conditions, 3-level nesting, and conditions that reference non-scalar fields. Frozen - never edit to make a test pass.",
+    "content": [
+        {
+            "id": 100,
+            "type": "section",
+            "title": "Sources",
+            "description": "Fields referenced by the conditions below. None carry a condition themselves.",
+            "content": [
+                { "id": 1, "type": "string", "label": "Src string" },
+                { "id": 2, "type": "number", "label": "Src number" },
+                { "id": 3, "type": "boolean", "label": "Src boolean true" },
+                { "id": 4, "type": "date", "label": "Src date" },
+                {
+                    "id": 5,
+                    "type": "select",
+                    "label": "Src select",
+                    "options": [
+                        { "value": "a", "label": "A" },
+                        { "value": "b", "label": "B" },
+                        { "value": "c", "label": "C" }
+                    ]
+                },
+                { "id": 6, "type": "array", "label": "Src array", "item": { "type": "string", "label": "Entry" } },
+                { "id": 7, "type": "file", "label": "Src file" },
+                { "id": 8, "type": "string", "label": "Src unset" },
+                {
+                    "id": 9,
+                    "type": "array",
+                    "label": "Src empty array",
+                    "item": { "type": "string", "label": "Entry" }
+                },
+                { "id": 10, "type": "boolean", "label": "Src boolean false" }
+            ]
+        },
+        {
+            "id": 200,
+            "type": "section",
+            "title": "Operators - every one true",
+            "content": [
+                { "id": 201, "type": "string", "label": "op set", "condition": { "field": 1, "op": "set" } },
+                { "id": 202, "type": "string", "label": "op notset", "condition": { "field": 8, "op": "notset" } },
+                {
+                    "id": 203,
+                    "type": "string",
+                    "label": "op eq",
+                    "condition": { "field": 1, "op": "eq", "value": "hello" }
+                },
+                {
+                    "id": 204,
+                    "type": "string",
+                    "label": "op ne",
+                    "condition": { "field": 1, "op": "ne", "value": "world" }
+                },
+                {
+                    "id": 205,
+                    "type": "string",
+                    "label": "op lt",
+                    "condition": { "field": 2, "op": "lt", "value": 100 }
+                },
+                { "id": 206, "type": "string", "label": "op gt", "condition": { "field": 2, "op": "gt", "value": 10 } },
+                {
+                    "id": 207,
+                    "type": "string",
+                    "label": "op lte",
+                    "condition": { "field": 2, "op": "lte", "value": 42 }
+                },
+                {
+                    "id": 208,
+                    "type": "string",
+                    "label": "op gte",
+                    "condition": { "field": 2, "op": "gte", "value": 42 }
+                },
+                {
+                    "id": 209,
+                    "type": "string",
+                    "label": "op in",
+                    "condition": { "field": 5, "op": "in", "value": ["a", "b"] }
+                },
+                {
+                    "id": 210,
+                    "type": "string",
+                    "label": "op notin",
+                    "condition": { "field": 5, "op": "notin", "value": ["a", "c"] }
+                }
+            ]
+        },
+        {
+            "id": 220,
+            "type": "section",
+            "title": "Operators - every one false",
+            "content": [
+                { "id": 221, "type": "string", "label": "op set false", "condition": { "field": 8, "op": "set" } },
+                {
+                    "id": 222,
+                    "type": "string",
+                    "label": "op notset false",
+                    "condition": { "field": 1, "op": "notset" }
+                },
+                {
+                    "id": 223,
+                    "type": "string",
+                    "label": "op eq false",
+                    "condition": { "field": 1, "op": "eq", "value": "nope" }
+                },
+                {
+                    "id": 224,
+                    "type": "string",
+                    "label": "op ne false",
+                    "condition": { "field": 1, "op": "ne", "value": "hello" }
+                },
+                {
+                    "id": 225,
+                    "type": "string",
+                    "label": "op lt false",
+                    "condition": { "field": 2, "op": "lt", "value": 10 }
+                },
+                {
+                    "id": 226,
+                    "type": "string",
+                    "label": "op gt false",
+                    "condition": { "field": 2, "op": "gt", "value": 100 }
+                },
+                {
+                    "id": 227,
+                    "type": "string",
+                    "label": "op lte false",
+                    "condition": { "field": 2, "op": "lte", "value": 41 }
+                },
+                {
+                    "id": 228,
+                    "type": "string",
+                    "label": "op gte false",
+                    "condition": { "field": 2, "op": "gte", "value": 43 }
+                },
+                {
+                    "id": 229,
+                    "type": "string",
+                    "label": "op in false",
+                    "condition": { "field": 5, "op": "in", "value": ["a", "c"] }
+                },
+                {
+                    "id": 230,
+                    "type": "string",
+                    "label": "op notin false",
+                    "condition": { "field": 5, "op": "notin", "value": ["b", "c"] }
+                }
+            ]
+        },
+        {
+            "id": 240,
+            "type": "section",
+            "title": "Compound conditions",
+            "content": [
+                {
+                    "id": 241,
+                    "type": "string",
+                    "label": "and true",
+                    "condition": { "and": [{ "field": 1, "op": "set" }, { "field": 2, "op": "gt", "value": 10 }] }
+                },
+                {
+                    "id": 242,
+                    "type": "string",
+                    "label": "and false",
+                    "condition": { "and": [{ "field": 1, "op": "set" }, { "field": 2, "op": "gt", "value": 100 }] }
+                },
+                {
+                    "id": 243,
+                    "type": "string",
+                    "label": "or true",
+                    "condition": {
+                        "or": [{ "field": 1, "op": "eq", "value": "nope" }, { "field": 2, "op": "gte", "value": 42 }]
+                    }
+                },
+                {
+                    "id": 244,
+                    "type": "string",
+                    "label": "or false",
+                    "condition": {
+                        "or": [{ "field": 1, "op": "eq", "value": "nope" }, { "field": 2, "op": "gte", "value": 43 }]
+                    }
+                },
+                {
+                    "id": 245,
+                    "type": "string",
+                    "label": "nested compound true",
+                    "condition": {
+                        "and": [
+                            {
+                                "or": [
+                                    { "field": 3, "op": "eq", "value": true },
+                                    { "field": 10, "op": "eq", "value": true }
+                                ]
+                            },
+                            { "field": 5, "op": "in", "value": ["b"] }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": 260,
+            "type": "section",
+            "title": "Conditions referencing non-scalar fields",
+            "description": "Pins 4.0.1 SCALAR semantics for array- and file-valued fields. The starred ids are the ones that would flip if set-oriented (multiselect) semantics ever leaked onto a legacy type.",
+            "content": [
+                {
+                    "id": 261,
+                    "type": "string",
+                    "label": "array set (non-empty)",
+                    "condition": { "field": 6, "op": "set" }
+                },
+                {
+                    "id": 262,
+                    "type": "string",
+                    "label": "* array set (empty array counts as set)",
+                    "condition": { "field": 9, "op": "set" }
+                },
+                {
+                    "id": 263,
+                    "type": "string",
+                    "label": "* array notset (empty array is NOT notset)",
+                    "condition": { "field": 9, "op": "notset" }
+                },
+                {
+                    "id": 264,
+                    "type": "string",
+                    "label": "* array eq (compares by reference)",
+                    "condition": { "field": 6, "op": "eq", "value": ["x", "y"] }
+                },
+                {
+                    "id": 265,
+                    "type": "string",
+                    "label": "* array ne (compares by reference)",
+                    "condition": { "field": 6, "op": "ne", "value": ["x", "y"] }
+                },
+                {
+                    "id": 266,
+                    "type": "string",
+                    "label": "* array in (whole array, not members)",
+                    "condition": { "field": 6, "op": "in", "value": ["x", "z"] }
+                },
+                {
+                    "id": 267,
+                    "type": "string",
+                    "label": "* array notin (whole array, not members)",
+                    "condition": { "field": 6, "op": "notin", "value": ["x", "z"] }
+                },
+                { "id": 269, "type": "string", "label": "file set", "condition": { "field": 7, "op": "set" } },
+                { "id": 270, "type": "string", "label": "file notset", "condition": { "field": 7, "op": "notset" } },
+                {
+                    "id": 271,
+                    "type": "string",
+                    "label": "* file eq (compares by reference)",
+                    "condition": {
+                        "field": 7,
+                        "op": "eq",
+                        "value": {
+                            "name": "a.pdf",
+                            "mimeType": "application/pdf",
+                            "size": 1024,
+                            "url": "https://example.test/a.pdf"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "id": 300,
+            "type": "section",
+            "title": "Nesting - visible chain",
+            "content": [
+                { "id": 301, "type": "string", "label": "L1 field" },
+                {
+                    "id": 310,
+                    "type": "section",
+                    "title": "L2 (conditional, true)",
+                    "condition": { "field": 3, "op": "eq", "value": true },
+                    "content": [
+                        { "id": 311, "type": "string", "label": "L2 field" },
+                        {
+                            "id": 320,
+                            "type": "section",
+                            "title": "L3",
+                            "content": [{ "id": 321, "type": "string", "label": "L3 field" }]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": 330,
+            "type": "section",
+            "title": "Nesting - hidden chain (cascade)",
+            "condition": { "field": 10, "op": "eq", "value": true },
+            "content": [
+                { "id": 331, "type": "string", "label": "L1 field", "validation": { "required": true } },
+                {
+                    "id": 340,
+                    "type": "section",
+                    "title": "L2",
+                    "content": [
+                        { "id": 341, "type": "string", "label": "L2 field", "validation": { "required": true } }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": 400,
+            "type": "section",
+            "title": "Validation rules",
+            "content": [
+                { "id": 401, "type": "string", "label": "string required", "validation": { "required": true } },
+                { "id": 402, "type": "string", "label": "string minLength", "validation": { "minLength": 5 } },
+                { "id": 403, "type": "string", "label": "string maxLength", "validation": { "maxLength": 3 } },
+                { "id": 404, "type": "string", "label": "string pattern", "validation": { "pattern": "^[A-Z]+$" } },
+                { "id": 405, "type": "number", "label": "number required", "validation": { "required": true } },
+                { "id": 406, "type": "number", "label": "number min", "validation": { "min": 10 } },
+                { "id": 407, "type": "number", "label": "number max", "validation": { "max": 100 } },
+                { "id": 408, "type": "boolean", "label": "boolean required", "validation": { "required": true } },
+                { "id": 409, "type": "date", "label": "date required", "validation": { "required": true } },
+                {
+                    "id": 410,
+                    "type": "date",
+                    "label": "date minDate absolute",
+                    "validation": { "minDate": "2025-01-01T00:00:00.000Z" }
+                },
+                {
+                    "id": 411,
+                    "type": "date",
+                    "label": "date maxDate absolute",
+                    "validation": { "maxDate": "2025-12-31T00:00:00.000Z" }
+                },
+                {
+                    "id": 412,
+                    "type": "select",
+                    "label": "select required",
+                    "options": [{ "value": "a", "label": "A" }, { "value": "b", "label": "B" }],
+                    "validation": { "required": true }
+                },
+                {
+                    "id": 413,
+                    "type": "array",
+                    "label": "array minItems",
+                    "item": { "type": "string", "label": "Entry" },
+                    "validation": { "minItems": 2 }
+                },
+                {
+                    "id": 414,
+                    "type": "array",
+                    "label": "array maxItems",
+                    "item": { "type": "string", "label": "Entry" },
+                    "validation": { "maxItems": 2 }
+                },
+                { "id": 415, "type": "file", "label": "file required", "validation": { "required": true } },
+                { "id": 416, "type": "date", "label": "date minDate relative", "validation": { "minDate": "-1m" } },
+                { "id": 417, "type": "date", "label": "date maxDate relative", "validation": { "maxDate": "+7d" } },
+                { "id": 418, "type": "number", "label": "number for TYPE" },
+                { "id": 419, "type": "date", "label": "date for INVALID_DATE" },
+                {
+                    "id": 420,
+                    "type": "select",
+                    "label": "select for INVALID_OPTION",
+                    "options": [{ "value": "a", "label": "A" }, { "value": "b", "label": "B" }]
+                }
+            ]
+        },
+        {
+            "id": 500,
+            "type": "section",
+            "title": "Array item types",
+            "content": [
+                {
+                    "id": 501,
+                    "type": "array",
+                    "label": "array of string",
+                    "item": { "type": "string", "label": "Entry", "validation": { "required": true, "minLength": 2 } }
+                },
+                {
+                    "id": 502,
+                    "type": "array",
+                    "label": "array of number",
+                    "item": { "type": "number", "label": "Entry", "validation": { "min": 0 } }
+                },
+                {
+                    "id": 503,
+                    "type": "array",
+                    "label": "array of boolean",
+                    "item": { "type": "boolean", "label": "Entry" }
+                },
+                { "id": 504, "type": "array", "label": "array of date", "item": { "type": "date", "label": "Entry" } },
+                {
+                    "id": 505,
+                    "type": "array",
+                    "label": "array of select",
+                    "item": {
+                        "type": "select",
+                        "label": "Entry",
+                        "options": [{ "value": "a", "label": "A" }, { "value": "b", "label": "B" }]
+                    }
+                },
+                { "id": 506, "type": "array", "label": "array of file", "item": { "type": "file", "label": "Entry" } }
+            ]
+        }
+    ]
+}

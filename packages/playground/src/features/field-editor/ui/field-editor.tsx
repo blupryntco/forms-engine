@@ -51,31 +51,75 @@ const buildInitialValues = (item: ContentItem): EditorFormValues => {
             kind: 'section',
             type: 'string',
             label: '',
+            text: '',
             options: [],
             item: undefined,
+            items: undefined,
+            arrayKind: 'list',
             validation: undefined,
             title: section.title,
             description: section.description ?? '',
+            placeholder: section.placeholder ?? '',
+            answerGuidelines: section.answer_guidelines ?? '',
+            referenceId: section.reference_id ?? '',
             conditionText: section.condition ? JSON.stringify(section.condition, null, 2) : '',
         }
     }
+    if (item.type === 'static') {
+        return {
+            kind: 'field',
+            type: 'static',
+            label: item.label ?? '',
+            text: item.text,
+            options: [],
+            item: undefined,
+            items: undefined,
+            arrayKind: 'list',
+            validation: undefined,
+            title: '',
+            description: item.description ?? '',
+            placeholder: item.placeholder ?? '',
+            answerGuidelines: item.answer_guidelines ?? '',
+            referenceId: item.reference_id ?? '',
+            conditionText: item.condition ? JSON.stringify(item.condition, null, 2) : '',
+        }
+    }
+
     const field = item as FieldContentItem
     return {
         kind: 'field',
         type: field.type,
         label: field.label,
+        text: '',
         options: field.options ?? [],
         item: field.item,
+        items: field.items,
+        arrayKind: field.kind ?? 'list',
         validation: field.validation,
         title: '',
         description: field.description ?? '',
+        placeholder: field.placeholder ?? '',
+        answerGuidelines: field.answer_guidelines ?? '',
+        referenceId: field.reference_id ?? '',
         conditionText: field.condition ? JSON.stringify(field.condition, null, 2) : '',
     }
 }
 
+/**
+ * Writes the three optional metadata properties, clearing each one whose input
+ * was emptied. The dedicated setters are used rather than `updateField`, which
+ * merges and therefore cannot remove a property.
+ */
+const applyMetadata = (editor: FormDefinitionEditor, itemId: number, values: EditorFormValues): void => {
+    editor.setPlaceholder(itemId, values.placeholder || undefined)
+    editor.setAnswerGuidelines(itemId, values.answerGuidelines || undefined)
+    editor.setReferenceId(itemId, values.referenceId || undefined)
+}
+
 const validate = (values: EditorFormValues): Partial<Record<keyof EditorFormValues, string>> => {
     const errors: Partial<Record<keyof EditorFormValues, string>> = {}
-    if (values.kind === 'field' && !values.label.trim()) errors.label = 'Required'
+    if (values.kind === 'field' && values.type === 'static' && !values.text.trim()) errors.text = 'Required'
+    if (values.kind === 'field' && values.type !== 'static' && !values.label.trim()) errors.label = 'Required'
     if (values.kind === 'section' && !values.title.trim()) errors.title = 'Required'
     if (values.conditionText.trim()) {
         try {
@@ -110,35 +154,57 @@ const EditorBody: FC<{
             if (values.kind === 'section') {
                 editor.updateSection(item.id, { title: values.title })
                 editor.setFieldDescription(item.id, values.description || undefined)
+                applyMetadata(editor, item.id, values)
             } else {
-                const field = item as FieldContentItem
-                if (values.type !== field.type) {
+                if (values.type !== item.type) {
                     const location = findParentAndIndex(definition.content, item.id)
                     if (!location) return
                     editor.removeItem(item.id)
                     editor.addField(
-                        {
-                            id: item.id,
-                            type: values.type,
-                            label: values.label,
-                            description: values.description || undefined,
-                        },
+                        values.type === 'static'
+                            ? {
+                                  id: item.id,
+                                  type: 'static',
+                                  text: values.text,
+                                  description: values.description || undefined,
+                              }
+                            : {
+                                  id: item.id,
+                                  type: values.type,
+                                  label: values.label,
+                                  description: values.description || undefined,
+                              },
                         location.parentId,
                         location.index,
                     )
+                } else if (values.type === 'static') {
+                    editor.setText(item.id, values.text)
+                    // A static block's label is optional — leave the key off when blank.
+                    if (values.label.trim()) editor.setLabel(item.id, values.label)
+                    editor.setFieldDescription(item.id, values.description || undefined)
                 } else {
                     editor.setLabel(item.id, values.label)
                     editor.setFieldDescription(item.id, values.description || undefined)
                 }
 
-                if (values.type === 'select') {
+                applyMetadata(editor, item.id, values)
+
+                if (values.type === 'select' || values.type === 'multiselect') {
                     editor.setOptions(item.id, values.options)
                 }
                 if (values.type === 'array' && values.item) {
                     editor.setArrayItem(item.id, values.item)
                 }
+                if (values.type === 'array_obj') {
+                    editor.setArrayItems(item.id, values.items ?? [])
+                    // 'list' is the default, so leave the key off rather than serializing it.
+                    editor.setArrayKind(item.id, values.arrayKind === 'table' ? 'table' : undefined)
+                }
 
-                editor.setValidation(item.id, values.validation)
+                // Static blocks have no validation — core throws if we try to set it.
+                if (values.type !== 'static') {
+                    editor.setValidation(item.id, values.validation)
+                }
             }
 
             const conditionText = values.conditionText.trim()

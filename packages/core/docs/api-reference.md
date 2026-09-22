@@ -215,13 +215,42 @@ editor.moveItem(5, undefined, 0) // move field 5 to top-level, first position
 ```ts
 editor.setValidation(3, { required: true, minLength: 2 })
 editor.setCondition(5, { field: 3, op: 'set' })
-editor.setOptions(7, [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }])
-editor.setArrayItem(8, { type: 'string', label: 'Item' })
+editor.setOptions(7, [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }])   // select or multiselect
+editor.setArrayItem(8, { type: 'string', label: 'Item' })                      // array fields only
+editor.setArrayItems(12, [{ id: 121, type: 'string', label: 'Name' }])         // array_obj fields only
 editor.setLabel(3, 'New Label')
+editor.setText(9, 'Answers are checked against your filings.')   // static blocks only
 editor.setFieldDescription(3, 'Help text')
+editor.setPlaceholder(3, 'e.g. Acme Ltd')
+editor.setAnswerGuidelines(3, 'Use the name as registered')
+editor.setReferenceId(3, 'KYI-3.1.a')
 ```
 
 Pass `undefined` to `setValidation` or `setCondition` to clear the value.
+
+`setFieldDescription`, `setPlaceholder`, `setAnswerGuidelines` and `setReferenceId` work on both fields and
+sections, and also clear on `undefined`. Prefer them over `updateField` / `updateSection` when a property
+needs removing: those merge with `Object.assign` and cannot delete a key.
+
+#### `array_obj` Sub-Field Methods
+
+All five throw when the id is unknown or does not refer to an `array_obj` field.
+
+```ts
+editor.getArrayItems(12)                                          // ArrayObjItemDef[]
+editor.setArrayItems(12, [{ id: 121, type: 'string', label: 'Name' }])   // replaces the whole list
+editor.setArrayKind(12, 'table')                                        // 'list' | 'table' | undefined
+editor.addArrayItemField(12, { type: 'date', label: 'Appointed' }) // → the new sub-field id
+editor.updateArrayItemField(12, 121, { label: 'Full name' })       // merges; the id is never changed
+editor.removeArrayItemField(12, 121)
+editor.moveArrayItemField(12, 1, 0)
+editor.setArrayKind(12, 'table')                                   // undefined removes the key
+```
+
+`addArrayItemField` assigns the sub-field id from `nextId()` when one is not supplied, and rejects an
+explicit id that is already taken anywhere in the definition. `nextId()` itself counts sub-field ids, so a
+new top-level field can never collide with one. `updateArrayItemField` merges like `updateField`: a
+property left out is kept, so pass it explicitly as `undefined` to clear it.
 
 #### Listing Methods
 
@@ -290,9 +319,12 @@ editor.clearFieldValue(1)
 
 #### Array Methods
 
+These work on both `array` and `array_obj` fields; for an `array_obj` an "item" is a row object.
+
 ##### `addArrayItem(fieldId: number, value?: unknown): this`
 
-Appends an item to an array field. Initializes the field to `[]` if no value is currently set.
+Appends an item to an array field. Initializes the field to `[]` if no value is currently set. With no
+explicit value, appends `undefined` for an `array` field and an empty row (`{}`) for an `array_obj`.
 
 **Throws:** If `fieldId` is not an array field.
 
@@ -329,6 +361,56 @@ Sets the value of an item at a specific index in an array field.
 ```ts
 editor.setArrayItem(6, 0, 'Updated Value')
 ```
+
+#### Array-of-Rows Methods
+
+##### `getArrayObjValue(fieldId, index, subFieldId): unknown`
+##### `setArrayObjValue(fieldId, index, subFieldId, value): this`
+##### `clearArrayObjValue(fieldId, index, subFieldId): this`
+
+Read, write and remove one cell of one row of an `array_obj` field. A row that is absent or not an object
+is replaced with a fresh one before writing.
+
+**Throws:** If `fieldId` is not an `array_obj` field, the row index is out of bounds, or `subFieldId` does
+not belong to that field or is a `static` sub-field.
+
+```ts
+editor.addArrayItem(12).setArrayObjValue(12, 0, 121, 'Jane Roe')
+```
+
+#### Suggestions
+
+Machine-proposed answers carried in the document's optional `suggestions` block. A suggestion never affects
+validation or visibility.
+
+##### `getSuggestion(fieldId: number): FieldSuggestion | undefined`
+
+##### `getSuggestions(): FormSuggestions`
+
+Returns a copy of every suggestion, keyed by stringified field id. Empty when the document has none.
+
+##### `setSuggestion(fieldId: number, suggestion: FieldSuggestion): this`
+
+**Throws:** If `fieldId` is unknown, references a section, or `confidence` falls outside `0..1`.
+
+##### `clearSuggestion(fieldId: number): this`
+
+##### `acceptSuggestion(fieldId: number): this`
+
+Copies the suggested value into the field's value and **keeps** the suggestion. No-op when there is none.
+
+##### `rejectSuggestion(fieldId: number): this`
+
+Removes the suggestion, leaving the field's value untouched. No-op when there is none.
+
+```ts
+editor.setSuggestion(3, { value: 'Acme Ltd', confidence: 0.9, source: 'Certificate of incorporation, p.1' })
+editor.acceptSuggestion(3)   // values['3'] === 'Acme Ltd', suggestion still present
+editor.rejectSuggestion(3)   // suggestion gone, values['3'] unchanged
+```
+
+When the last suggestion is removed the `suggestions` key is dropped from the document, so a document that
+never had suggestions round-trips through `toJSON()` unchanged.
 
 #### Document Metadata
 
@@ -483,6 +565,27 @@ Performs semantic checks. Returns an array of errors. See [Schema Issue Codes](.
 
 ---
 
+## Suggestion Helpers
+
+Pure `FormDocument -> FormDocument` functions, exported from `@bluprynt/forms-core`. `FormValuesEditor`
+delegates to them, and consumers that hold a plain document (such as the viewer's editor handlers) can use
+them directly without constructing an engine.
+
+```ts
+import { applySuggestion, getSuggestion, getSuggestions, removeSuggestion, setSuggestion } from '@bluprynt/forms-core'
+```
+
+| Function | Description |
+|----------|-------------|
+| `getSuggestion(doc, fieldId)` | The field's suggestion, or `undefined`. |
+| `getSuggestions(doc)` | Copy of every suggestion; `{}` when the document has none. |
+| `setSuggestion(doc, fieldId, suggestion)` | New document carrying the suggestion. Throws when `confidence` is outside `0..1`. |
+| `removeSuggestion(doc, fieldId)` | New document without it; drops the `suggestions` key when it empties. Returns `doc` itself when there was nothing to remove. |
+| `applySuggestion(doc, fieldId)` | New document with the suggested value deep-copied into `values`, suggestion kept. Returns `doc` itself when the field has none. |
+
+None of these validate that `fieldId` refers to an existing, non-section field — that check belongs to
+`FormValuesEditor`, which calls it before delegating. Writers never mutate their input.
+
 ## Types
 
 ### Form Structure
@@ -490,14 +593,18 @@ Performs semantic checks. Returns an array of errors. See [Schema Issue Codes](.
 | Type | Description |
 |------|-------------|
 | `FormDefinition` | Top-level schema: `{ id, version, title, description?, content[] }` |
-| `ContentItem` | Union: `FieldContentItem \| SectionContentItem` |
-| `FieldContentItem` | Field node: `{ id, type, label, description?, condition?, validation?, options?, item? }` |
-| `SectionContentItem` | Section node: `{ id, type: 'section', title, description?, condition?, content[] }` |
-| `FieldType` | `'string' \| 'number' \| 'boolean' \| 'date' \| 'select' \| 'array' \| 'file'` |
+| `ContentItem` | Union: `AnyFieldContentItem \| SectionContentItem` |
+| `AnyFieldContentItem` | Union: `FieldContentItem \| StaticFieldContentItem` — every non-section node |
+| `FieldContentItem` | Value-producing field node: `{ id, type, label, description?, placeholder?, answer_guidelines?, reference_id?, condition?, validation?, options?, item? }`. `type` excludes `'static'`. |
+| `StaticFieldContentItem` | Display-only block: `{ id, type: 'static', text, label?, description?, placeholder?, answer_guidelines?, reference_id?, condition? }` — no value, no validation, no options |
+| `SectionContentItem` | Section node: `{ id, type: 'section', title, description?, placeholder?, answer_guidelines?, reference_id?, condition?, content[] }` |
+| `FieldType` | `'string' \| 'number' \| 'boolean' \| 'date' \| 'select' \| 'multiselect' \| 'array' \| 'array_obj' \| 'file' \| 'static' \| 'blockchain' \| 'sustainability'` |
 | `ContentItemType` | `FieldType \| 'section'` |
 | `FormValues` | `Record<string, unknown>` — flat map keyed by stringified field ID |
-| `FormDocument` | `{ form: { id, version, submittedAt }, values: FormValues }` |
+| `FormDocument` | `{ form: { id, version, submittedAt }, values: FormValues, suggestions?: FormSuggestions }` |
 | `FormSnapshot` | `{ definition: FormDefinition, document: FormDocument }` |
+| `FieldSuggestion` | `{ value: unknown, confidence: number, source: string }` — `confidence` is a `0..1` fraction |
+| `FormSuggestions` | `Record<string, FieldSuggestion>` — sparse, keyed like `FormValues` |
 
 ### Conditions
 
@@ -513,28 +620,35 @@ Performs semantic checks. Returns an array of errors. See [Schema Issue Codes](.
 |------|-------------|
 | `FormValidationResult` | `{ valid: boolean, fieldErrors: Map<number, FieldValidationError[]>, documentErrors?: DocumentValidationError[] }` |
 | `FieldValidationError` | `{ fieldId, rule, message, params?, itemIndex? }` |
-| `DocumentValidationErrorCode` | `'SCHEMA_INVALID' \| 'DUPLICATE_ID' \| 'NESTING_DEPTH' \| 'UNKNOWN_FIELD_REF' \| 'CONDITION_REFS_SECTION' \| 'INVALID_MIN_MAX' \| 'INVALID_REGEX' \| 'CIRCULAR_DEPENDENCY' \| 'FORM_ID_MISMATCH' \| 'FORM_VERSION_MISMATCH' \| 'FORM_SUBMITTED_AT_MISSING' \| 'FORM_SUBMITTED_AT_INVALID'` |
+| `DocumentValidationErrorCode` | `'SCHEMA_INVALID' \| 'DUPLICATE_ID' \| 'NESTING_DEPTH' \| 'UNKNOWN_FIELD_REF' \| 'CONDITION_REFS_SECTION' \| 'CONDITION_REFS_STATIC' \| 'INVALID_MIN_MAX' \| 'INVALID_REGEX' \| 'CIRCULAR_DEPENDENCY' \| 'FORM_ID_MISMATCH' \| 'FORM_VERSION_MISMATCH' \| 'FORM_SUBMITTED_AT_MISSING' \| 'FORM_SUBMITTED_AT_INVALID'` |
 | `DocumentValidationError` | `{ code: DocumentValidationErrorCode, message: string, params?: Record<string, unknown>, itemId?: number }` |
 | `StringValidation` | `{ required?, minLength?, maxLength?, pattern?, patternMessage? }` |
 | `NumberValidation` | `{ required?, min?, max? }` |
 | `BooleanValidation` | `{ required? }` |
 | `DateValidation` | `{ required?, minDate?, maxDate? }` |
 | `SelectValidation` | `{ required? }` |
+| `MultiselectValidation` | `{ required? }` — an absent value and an empty array both fail `required` |
 | `ArrayValidation` | `{ minItems?, maxItems? }` |
 | `FileValidation` | `{ required? }` |
-| `TypeSpecificValidation` | Union of all type-specific validation shapes: `StringValidation \| NumberValidation \| BooleanValidation \| DateValidation \| SelectValidation \| ArrayValidation \| FileValidation` |
+| `BlockchainValidation` | `{ required? }` — no format rule; a CAIP address is an opaque string |
+| `SustainabilityValidation` | `{ required? }` — satisfied by a non-empty `address`; `ccri` and `cmc` are always optional |
+| `TypeSpecificValidation` | Union of all type-specific validation shapes: `StringValidation \| NumberValidation \| BooleanValidation \| DateValidation \| SelectValidation \| MultiselectValidation \| ArrayValidation \| ArrayObjValidation \| FileValidation \| BlockchainValidation \| SustainabilityValidation` |
 | `FieldValidationRule` | `'REQUIRED' \| 'TYPE' \| 'MIN_LENGTH' \| 'MAX_LENGTH' \| 'PATTERN' \| 'MIN' \| 'MAX' \| 'MIN_DATE' \| 'MAX_DATE' \| 'INVALID_DATE' \| 'INVALID_OPTION' \| 'MIN_ITEMS' \| 'MAX_ITEMS'` |
 
 ### Other
 
 | Type | Description |
 |------|-------------|
-| `FieldEntry` | Flattened registry entry: `{ id, type, condition, validation, parentId, options, item, label, title }` |
+| `FieldEntry` | Flattened registry entry: `{ id, type, condition, validation, parentId, options, item, items, label, title }`. `array_obj` sub-fields are **not** registry entries — like `array` items, they never appear in the registry, `contentOrder`, the dependency graph or the visibility map |
 | `SelectOption` | `{ value: string \| number, label: string }` |
-| `ArrayItemDef` | `{ type, label, description?, validation?, options? }` — no `id`, no nested arrays |
+| `ArrayItemDef` | `ValueArrayItemDef \| StaticArrayItemDef` — no `id` and no `condition`; `type` excludes `'array'` and `'array_obj'`. The static member carries `text` and an optional `label` |
+| `ArrayObjItemDef` | `ValueArrayObjItemDef \| StaticArrayObjItemDef` — like `ArrayItemDef` but **with** a required `id`, drawn from the same globally unique id space as fields and sections |
+| `ArrayObjRow` | `Record<string, unknown>` — one row of an `array_obj` value, keyed by stringified sub-field id |
+| `ArrayObjKind` | `'list' \| 'table'` — an `array_obj` field's layout hint. Presentation metadata: the engine never reads it, and `'list'` applies when the key is absent |
 | `FileValue` | `{ name, mimeType, size, url }` |
+| `SustainabilityValue` | `{ address, ccri?, cmc? }` — the value of a `sustainability` field |
 | `DocumentError` | Error class with `.errors: DocumentValidationError[]` — thrown on definition validation failure or by `loadDocument()` on id/version mismatch |
 | `EvaluationContext` | `{ values, visibilityMap?, now }` |
-| `FieldDescriptor` | `Omit<FieldContentItem, 'id'> & { id?: number }` |
+| `FieldDescriptor` | `(Omit<FieldContentItem, 'id'> \| Omit<StaticFieldContentItem, 'id'>) & { id?: number }` — hand-written, because `Omit` does not distribute over a union |
 | `SectionDescriptor` | `Omit<SectionContentItem, 'id' \| 'content'> & { id?: number, content?: ContentItem[] }` |
 | `ContentItemInfo` | `{ id, type, label?, title?, parentId }` |

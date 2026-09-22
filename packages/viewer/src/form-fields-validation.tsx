@@ -46,7 +46,10 @@ export const FormFieldsValidation: FC<FormFieldsValidationProps> = ({
             {groups.map((group) => (
                 <FieldComponent key={group.field?.id} {...group}>
                     {group.errors.map((error) => (
-                        <ErrorComponent key={`${error.fieldId}-${error.rule}-${error.itemIndex ?? ''}`} {...error} />
+                        <ErrorComponent
+                            key={`${error.fieldId}-${error.rule}-${error.itemIndex ?? ''}-${error.itemFieldId ?? ''}`}
+                            {...error}
+                        />
                     ))}
                 </FieldComponent>
             ))}

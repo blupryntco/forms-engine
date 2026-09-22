@@ -2,6 +2,7 @@ import { FormValuesEditor } from './form-values-editor'
 import type { FileValue } from './types/file-value'
 import type { ContentItem, FormDefinition } from './types/form-definition'
 import type { FormDocument, FormValues } from './types/form-values'
+import type { SustainabilityValue } from './types/sustainability-value'
 
 const baseDef = (content: ContentItem[]): FormDefinition => ({
     id: 'test-form',
@@ -204,6 +205,100 @@ describe('FormValuesEditor', () => {
         it('removeArrayItem throws when array not yet initialized', () => {
             const editor = new FormValuesEditor(simpleDef)
             expect(() => editor.removeArrayItem(6, 0)).toThrow('does not currently hold an array')
+        })
+    })
+
+    describe('array_obj fields', () => {
+        const objDef = baseDef([
+            {
+                id: 10,
+                type: 'array_obj',
+                label: 'Directors',
+                items: [
+                    { id: 11, type: 'string', label: 'Name', validation: { required: true } },
+                    { id: 12, type: 'date', label: 'Appointed' },
+                    { id: 13, type: 'static', text: 'Checked against filings' },
+                ],
+                validation: { minItems: 1 },
+            },
+        ])
+
+        const rows = (editor: FormValuesEditor) => editor.getFieldValue(10) as Record<string, unknown>[]
+
+        it('addArrayItem appends an empty row object', () => {
+            const editor = new FormValuesEditor(objDef, doc())
+            editor.addArrayItem(10)
+            expect(rows(editor)).toEqual([{}])
+        })
+
+        it('addArrayItem still honours an explicit row value', () => {
+            const editor = new FormValuesEditor(objDef, doc())
+            editor.addArrayItem(10, { '11': 'Jane' })
+            expect(rows(editor)).toEqual([{ '11': 'Jane' }])
+        })
+
+        it('remove / move / set work on rows', () => {
+            const editor = new FormValuesEditor(objDef, doc({ '10': [{ '11': 'A' }, { '11': 'B' }, { '11': 'C' }] }))
+            editor.moveArrayItem(10, 2, 0).removeArrayItem(10, 2).setArrayItem(10, 1, { '11': 'Z' })
+            expect(rows(editor)).toEqual([{ '11': 'C' }, { '11': 'Z' }])
+        })
+
+        it('setArrayObjValue writes one cell', () => {
+            const editor = new FormValuesEditor(objDef, doc({ '10': [{}] }))
+            editor.setArrayObjValue(10, 0, 11, 'Jane').setArrayObjValue(10, 0, 12, '2024-01-05')
+            expect(rows(editor)).toEqual([{ '11': 'Jane', '12': '2024-01-05' }])
+        })
+
+        it('getArrayObjValue reads one cell', () => {
+            const editor = new FormValuesEditor(objDef, doc({ '10': [{ '11': 'Jane' }] }))
+            expect(editor.getArrayObjValue(10, 0, 11)).toBe('Jane')
+            expect(editor.getArrayObjValue(10, 0, 12)).toBeUndefined()
+        })
+
+        it('clearArrayObjValue removes one cell', () => {
+            const editor = new FormValuesEditor(objDef, doc({ '10': [{ '11': 'Jane', '12': '2024-01-05' }] }))
+            editor.clearArrayObjValue(10, 0, 11)
+            expect(rows(editor)).toEqual([{ '12': '2024-01-05' }])
+        })
+
+        it('replaces a row that is not an object before writing', () => {
+            const editor = new FormValuesEditor(objDef, doc({ '10': [null] }))
+            editor.setArrayObjValue(10, 0, 11, 'Jane')
+            expect(rows(editor)).toEqual([{ '11': 'Jane' }])
+        })
+
+        it('throws for a static sub-field', () => {
+            const editor = new FormValuesEditor(objDef, doc({ '10': [{}] }))
+            expect(() => editor.setArrayObjValue(10, 0, 13, 'x')).toThrow('static field')
+        })
+
+        it('throws for a sub-field of another field', () => {
+            const editor = new FormValuesEditor(objDef, doc({ '10': [{}] }))
+            expect(() => editor.setArrayObjValue(10, 0, 99, 'x')).toThrow('does not belong')
+        })
+
+        it('throws for an out-of-bounds row', () => {
+            const editor = new FormValuesEditor(objDef, doc({ '10': [] }))
+            expect(() => editor.setArrayObjValue(10, 0, 11, 'x')).toThrow('out of bounds')
+        })
+
+        it('throws when the field is not an array_obj', () => {
+            const editor = new FormValuesEditor(simpleDef, doc())
+            expect(() => editor.setArrayObjValue(1, 0, 2, 'x')).toThrow('not an array_obj')
+        })
+
+        it('validates sub-fields per row', () => {
+            const editor = new FormValuesEditor(objDef, doc({ '10': [{ '11': 'Jane' }, {}] }))
+            const result = editor.validate()
+            expect(result.valid).toBe(false)
+            expect(result.fieldErrors.get(10)).toEqual([
+                expect.objectContaining({ fieldId: 10, rule: 'REQUIRED', itemIndex: 1, itemFieldId: 11 }),
+            ])
+        })
+
+        it('round-trips a document through toJSON', () => {
+            const original = doc({ '10': [{ '11': 'Jane', '12': '2024-01-05' }] })
+            expect(new FormValuesEditor(objDef, original).toJSON()).toEqual(original)
         })
     })
 
@@ -691,6 +786,205 @@ describe('FormValuesEditor', () => {
             // mutate the snapshot's file object
             ;(snapshot.values['1'] as FileValue).name = 'tampered.pdf'
             expect((editor.getFieldValue(1) as FileValue).name).toBe('doc.pdf')
+        })
+    })
+
+    describe('suggestions', () => {
+        const suggestion = (value: unknown, confidence = 0.5, source = 'extracted from page 1') => ({
+            value,
+            confidence,
+            source,
+        })
+
+        it('sets and reads a suggestion', () => {
+            const editor = new FormValuesEditor(simpleDef)
+            editor.setSuggestion(1, suggestion('Acme Ltd'))
+            expect(editor.getSuggestion(1)).toEqual(suggestion('Acme Ltd'))
+        })
+
+        it('returns undefined for a field without a suggestion', () => {
+            expect(new FormValuesEditor(simpleDef).getSuggestion(1)).toBeUndefined()
+        })
+
+        it('returns every suggestion via getSuggestions', () => {
+            const editor = new FormValuesEditor(simpleDef)
+            editor.setSuggestion(1, suggestion('Acme Ltd')).setSuggestion(2, suggestion(42))
+            expect(editor.getSuggestions()).toEqual({ '1': suggestion('Acme Ltd'), '2': suggestion(42) })
+        })
+
+        it('returns an empty map for a document with no suggestions', () => {
+            expect(new FormValuesEditor(simpleDef).getSuggestions()).toEqual({})
+        })
+
+        it('throws when setting a suggestion on an unknown field', () => {
+            expect(() => new FormValuesEditor(simpleDef).setSuggestion(99, suggestion('x'))).toThrow(
+                'Field with id 99 not found',
+            )
+        })
+
+        it('throws when setting a suggestion on a section', () => {
+            const def = baseDef([
+                { id: 1, type: 'section', title: 'Details', content: [{ id: 2, type: 'string', label: 'Name' }] },
+            ])
+            expect(() => new FormValuesEditor(def).setSuggestion(1, suggestion('x'))).toThrow(
+                'Item 1 is a section, not a field',
+            )
+        })
+
+        it('throws when confidence is outside 0..1', () => {
+            expect(() => new FormValuesEditor(simpleDef).setSuggestion(1, suggestion('x', 1.5))).toThrow(
+                /confidence must be a number between 0 and 1/,
+            )
+        })
+
+        it('clears a suggestion', () => {
+            const editor = new FormValuesEditor(simpleDef)
+            editor.setSuggestion(1, suggestion('Acme Ltd')).clearSuggestion(1)
+            expect(editor.getSuggestion(1)).toBeUndefined()
+        })
+
+        it('accepts a suggestion into the value and keeps the suggestion', () => {
+            const editor = new FormValuesEditor(simpleDef)
+            editor.setSuggestion(1, suggestion('Acme Ltd')).acceptSuggestion(1)
+            expect(editor.getFieldValue(1)).toBe('Acme Ltd')
+            expect(editor.getSuggestion(1)).toEqual(suggestion('Acme Ltd'))
+        })
+
+        it('rejects a suggestion without touching the value', () => {
+            const editor = new FormValuesEditor(simpleDef)
+            editor.setFieldValue(1, 'typed').setSuggestion(1, suggestion('Acme Ltd')).rejectSuggestion(1)
+            expect(editor.getFieldValue(1)).toBe('typed')
+            expect(editor.getSuggestion(1)).toBeUndefined()
+        })
+
+        it('does not alias an accepted array value to the suggestion', () => {
+            const editor = new FormValuesEditor(simpleDef)
+            editor
+                .setSuggestion(6, suggestion(['a', 'b']))
+                .acceptSuggestion(6)
+                .addArrayItem(6, 'c')
+            expect(editor.getSuggestion(6)?.value).toEqual(['a', 'b'])
+            expect(editor.getFieldValue(6)).toEqual(['a', 'b', 'c'])
+        })
+
+        it('emits no suggestions key for a document that never had one', () => {
+            const snapshot = new FormValuesEditor(simpleDef, doc({ '1': 'typed' })).toJSON()
+            expect('suggestions' in snapshot).toBe(false)
+        })
+
+        it('drops the suggestions key again once the last suggestion is rejected', () => {
+            const editor = new FormValuesEditor(simpleDef, doc({ '1': 'typed' }))
+            editor.setSuggestion(1, suggestion('Acme Ltd')).rejectSuggestion(1)
+            expect('suggestions' in editor.toJSON()).toBe(false)
+        })
+
+        it('preserves existing suggestions from a loaded document', () => {
+            const existing = { ...doc({ '1': 'typed' }), suggestions: { '1': suggestion('Acme Ltd') } }
+            expect(new FormValuesEditor(simpleDef, existing).getSuggestion(1)).toEqual(suggestion('Acme Ltd'))
+        })
+    })
+    describe('static and multiselect fields', () => {
+        const def = baseDef([
+            { id: 1, type: 'static', text: 'Read this.' },
+            {
+                id: 2,
+                type: 'multiselect',
+                label: 'Programmes',
+                options: [
+                    { value: 'aml', label: 'AML' },
+                    { value: 'kyc', label: 'KYC' },
+                ],
+                validation: { required: true },
+            },
+        ])
+
+        it('setFieldValue throws for a static field', () => {
+            const editor = new FormValuesEditor(def, doc())
+            expect(() => editor.setFieldValue(1, 'anything')).toThrow('Item 1 is a static field and holds no value')
+        })
+
+        it('setSuggestion throws for a static field', () => {
+            const editor = new FormValuesEditor(def, doc())
+            expect(() => editor.setSuggestion(1, { value: 'x', confidence: 0.5, source: 'doc' })).toThrow(
+                'Item 1 is a static field and holds no value',
+            )
+        })
+
+        it('writes a multiselect value wholesale', () => {
+            const editor = new FormValuesEditor(def, doc())
+            editor.setFieldValue(2, ['aml', 'kyc'])
+            expect(editor.getFieldValue(2)).toEqual(['aml', 'kyc'])
+            expect(editor.validate().valid).toBe(true)
+        })
+
+        it('reports an empty multiselect as required', () => {
+            const editor = new FormValuesEditor(def, doc())
+            editor.setFieldValue(2, [])
+            expect(editor.validate().fieldErrors.get(2)?.[0]?.rule).toBe('REQUIRED')
+        })
+
+        it('rejects array item operations on a multiselect field', () => {
+            const editor = new FormValuesEditor(def, doc({ '2': ['aml'] }))
+            expect(() => editor.addArrayItem(2, 'kyc')).toThrow()
+            expect(() => editor.removeArrayItem(2, 0)).toThrow()
+            expect(() => editor.moveArrayItem(2, 0, 1)).toThrow()
+        })
+
+        it('never writes a key for a static field', () => {
+            const editor = new FormValuesEditor(def, doc())
+            editor.setFieldValue(2, ['aml'])
+            expect(Object.keys(editor.toJSON().values)).toEqual(['2'])
+        })
+
+        it('accepts a suggestion on a multiselect field as a whole array', () => {
+            const editor = new FormValuesEditor(def, doc())
+            editor.setSuggestion(2, { value: ['aml', 'kyc'], confidence: 0.9, source: 'Licence register' })
+            editor.acceptSuggestion(2)
+            expect(editor.getFieldValue(2)).toEqual(['aml', 'kyc'])
+        })
+    })
+
+    describe('blockchain and sustainability fields', () => {
+        const ADDRESS = 'eip155:1/erc20:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'
+        const def = baseDef([
+            { id: 1, type: 'blockchain', label: 'Token', validation: { required: true } },
+            { id: 2, type: 'sustainability', label: 'Footprint', validation: { required: true } },
+            { id: 3, type: 'array', label: 'Assets', item: { type: 'blockchain', label: 'Asset' } },
+        ])
+
+        it('writes and reads a blockchain address', () => {
+            const editor = new FormValuesEditor(def, doc())
+            editor.setFieldValue(1, ADDRESS)
+            expect(editor.getFieldValue(1)).toBe(ADDRESS)
+        })
+
+        it('writes a sustainability object wholesale', () => {
+            const editor = new FormValuesEditor(def, doc())
+            const value: SustainabilityValue = { address: ADDRESS, ccri: 'CCRI-1', cmc: '3408' }
+            editor.setFieldValue(2, value)
+            expect(editor.getFieldValue(2)).toEqual(value)
+        })
+
+        it('reports a sustainability value with a blank address as required', () => {
+            const editor = new FormValuesEditor(def, doc({ '1': ADDRESS }))
+            editor.setFieldValue(2, { address: '', ccri: 'CCRI-1', cmc: '' })
+            expect(editor.validate().fieldErrors.get(2)?.[0]?.rule).toBe('REQUIRED')
+        })
+
+        it('supports array item operations on a blockchain array', () => {
+            const editor = new FormValuesEditor(def, doc())
+            editor.addArrayItem(3, ADDRESS)
+            editor.addArrayItem(3, 'eip155:1/erc20:0xdead')
+            editor.moveArrayItem(3, 0, 1)
+            expect(editor.getFieldValue(3)).toEqual(['eip155:1/erc20:0xdead', ADDRESS])
+        })
+
+        it('accepts a suggestion on a sustainability field as a whole object', () => {
+            const editor = new FormValuesEditor(def, doc())
+            const value: SustainabilityValue = { address: ADDRESS, ccri: 'CCRI-1', cmc: '3408' }
+            editor.setSuggestion(2, { value, confidence: 0.75, source: 'prospectus.pdf, p.12' })
+            editor.acceptSuggestion(2)
+            expect(editor.getFieldValue(2)).toEqual(value)
         })
     })
 })

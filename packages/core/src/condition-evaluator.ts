@@ -1,5 +1,6 @@
 import { isRelativeDate, resolveRelativeDate } from './date-utils'
 import type { Condition, SimpleCondition } from './types/conditions'
+import type { ContentItemType } from './types/field-types'
 
 /**
  * Context passed to condition evaluation methods.
@@ -10,11 +11,15 @@ import type { Condition, SimpleCondition } from './types/conditions'
  *   actual value.
  * @property now - Reference date for resolving relative date expressions in
  *   condition values.
+ * @property fieldTypes - Type of each item by id. Optional: when omitted every
+ *   field is compared with the default scalar semantics. Supplying it enables
+ *   the set-oriented semantics used for `multiselect` fields.
  */
 export type EvaluationContext = {
     values: Record<string, unknown>
     visibilityMap?: Map<number, boolean>
     now: Date
+    fieldTypes?: Map<number, ContentItemType>
 }
 
 /**
@@ -34,6 +39,18 @@ export type EvaluationContext = {
  *
  * **Date handling**: condition values that are relative date expressions
  * (e.g. `"+7d"`) are resolved against `ctx.now` before comparison.
+ *
+ * **Multiselect handling**: when `ctx.fieldTypes` reports the referenced field
+ * as `multiselect`, its array value is compared as a set instead of a scalar:
+ * `set` means "at least one option chosen", `eq`/`ne` compare set membership
+ * ignoring order and duplicates, `in`/`notin` test whether *any* chosen option
+ * appears in the condition's list, and the ordering operators are always
+ * `false`. Fields of every other type -- including `array` -- keep the original
+ * scalar semantics.
+ *
+ * **Object-valued fields** (`file`, `sustainability`) go through the scalar path
+ * too, so only `set`/`notset` are meaningful: any object present counts as
+ * `set`, and `eq`/`ne`/`in`/`notin` compare by reference and so never match.
  */
 export class ConditionEvaluator {
     /**
@@ -55,6 +72,10 @@ export class ConditionEvaluator {
         if (ctx.visibilityMap && ctx.visibilityMap.get(cond.field) === false) return cond.op === 'notset'
 
         const fieldValue = ctx.values[String(cond.field)]
+
+        if (ctx.fieldTypes?.get(cond.field) === 'multiselect') {
+            return this.evalMultiselect(cond, fieldValue)
+        }
 
         switch (cond.op) {
             case 'set':
@@ -80,6 +101,46 @@ export class ConditionEvaluator {
             default:
                 return false
         }
+    }
+
+    private evalMultiselect(cond: SimpleCondition, fieldValue: unknown): boolean {
+        const selected = Array.isArray(fieldValue) ? fieldValue : []
+        const candidates = cond.value
+
+        switch (cond.op) {
+            case 'set':
+                return selected.length > 0
+            case 'notset':
+                return selected.length === 0
+            case 'eq':
+                return this.sameSet(selected, candidates)
+            case 'ne':
+                return !this.sameSet(selected, candidates)
+            case 'in':
+                return Array.isArray(candidates) && selected.some((item) => candidates.includes(item))
+            case 'notin':
+                return Array.isArray(candidates) && !selected.some((item) => candidates.includes(item))
+            default:
+                // Ordering operators have no meaning for a set of options.
+                return false
+        }
+    }
+
+    /**
+     * Compares the chosen options against a condition value as sets, ignoring
+     * order and duplicates. A scalar condition value is read as a one-element
+     * set, so `{ op: 'eq', value: 'a' }` means "`a` is the only option chosen".
+     */
+    private sameSet(selected: unknown[], expected: unknown): boolean {
+        const expectedItems = Array.isArray(expected) ? expected : [expected]
+        const selectedSet = new Set(selected)
+        const expectedSet = new Set(expectedItems)
+
+        if (selectedSet.size !== expectedSet.size) return false
+        for (const item of expectedSet) {
+            if (!selectedSet.has(item)) return false
+        }
+        return true
     }
 
     private resolveIfDate(value: unknown, now: Date): unknown {

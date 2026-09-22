@@ -83,6 +83,19 @@ Date boundaries support relative expressions (see [Relative Dates](#relative-dat
 | `required` | Value is `undefined` or `null` | `REQUIRED` |
 | invalid option | Value does not match any `options[].value` | `INVALID_OPTION` |
 
+#### Multiselect
+
+| Rule | Condition | Error rule name |
+|------|-----------|-----------------|
+| `required` | Value is `undefined`, `null` or an empty array | `REQUIRED` |
+| type check | Value is present but not an array | `TYPE` (`params.expectedType: 'multiselect'`) |
+| invalid option | Any selected value matches no `options[].value` | `INVALID_OPTION` (one field-level error, never per-entry) |
+
+#### Static
+
+Static blocks hold no value and have no validation rules. No validator is registered for them, so they
+never appear in `fieldErrors`.
+
 #### Array
 
 | Rule | Condition | Error rule name |
@@ -93,6 +106,23 @@ Date boundaries support relative expressions (see [Relative Dates](#relative-dat
 | item validation | Each item validated against `item` definition | varies (per-item rule) |
 
 Item validation errors include `itemIndex` (zero-based) so consumers can pinpoint which array element failed.
+A `static` item is skipped — it holds no value.
+
+#### Array of rows (`array_obj`)
+
+| Rule | Condition | Error rule name |
+|------|-----------|-----------------|
+| type check | Value is not an array | `TYPE` |
+| `minItems` | `value.length < minItems` | `MIN_ITEMS` |
+| `maxItems` | `value.length > maxItems` | `MAX_ITEMS` |
+| row shape | A row is present but is not an object | `TYPE` with `itemIndex` |
+| sub-field validation | Each sub-field in `items` validated in every row | varies (per-sub-field rule) |
+
+A sub-field error carries **both** `itemIndex` (the row) and `itemFieldId` (the sub-field), while its
+`fieldId` stays the `array_obj` field's own id — which is also the key the error is stored under in
+`fieldErrors`. Its `message` is prefixed with the sub-field's label, since every error for the field is
+listed under one id. An absent row (`null` / `undefined`) is read as an empty one, so its `required`
+sub-fields still report; a `static` sub-field is never validated.
 
 #### File
 
@@ -100,6 +130,27 @@ Item validation errors include `itemIndex` (zero-based) so consumers can pinpoin
 |------|-----------|-----------------|
 | `required` | Value is `undefined` or `null` | `REQUIRED` |
 | type check | Value is not an object with `name`, `mimeType`, `size`, `url` | `TYPE` |
+
+#### Blockchain
+
+| Rule | Condition | Error rule name |
+|------|-----------|-----------------|
+| `required` | Value is `undefined`, `null` or `''` | `REQUIRED` |
+| type check | Value is present but not a string | `TYPE` (`params.expectedType: 'blockchain'`) |
+
+There is no format rule. A CAIP address is an opaque string to the engine, so a malformed address never
+produces an error here — validate it at your own ingestion boundary if you need to.
+
+#### Sustainability
+
+| Rule | Condition | Error rule name |
+|------|-----------|-----------------|
+| `required` | Value is `undefined`/`null`, or its `address` is missing or `''` | `REQUIRED` |
+| type check | Value is not an object, or `address`/`ccri`/`cmc` is present but not a string | `TYPE` (`params.expectedType: 'sustainability'`) |
+
+`required` reads `address` alone — `ccri` and `cmc` are optional and never trigger it. A missing `address`
+key is treated as an empty address rather than a type error. There is no per-property error channel, so a
+sustainability field produces at most one field-level error.
 
 ### Error Shape
 
@@ -109,7 +160,8 @@ Item validation errors include `itemIndex` (zero-based) so consumers can pinpoin
   rule: FieldValidationRule  // e.g., "REQUIRED", "MIN_LENGTH", "MIN", "PATTERN"
   message: string     // human-readable description
   params?: Record<string, unknown>  // e.g., { minLength: 5, actual: 3 }
-  itemIndex?: number  // zero-based index for array items
+  itemIndex?: number  // zero-based index for array items / array_obj rows
+  itemFieldId?: number // array_obj only: the sub-field within that row
 }
 ```
 
@@ -141,6 +193,28 @@ A simple condition evaluates a single field:
 | `gte` | Greater than or equal | Yes |
 | `in` | Value is in array | Yes (array) |
 | `notin` | Value is not in array | Yes (array) |
+
+**Multiselect fields** are compared as sets rather than scalars — see the table below. Every other type,
+including `array` and `array_obj`, keeps the scalar behaviour described here.
+
+An `array_obj` **sub-field** id may not be referenced by a condition at all: its value is per-row, so a
+form-level condition cannot say which row it means. The engine rejects such a definition with
+`CONDITION_REFS_ARRAY_OBJ_ITEM`.
+
+**Object-valued fields** (`file`, `sustainability`) take the scalar path too, which makes only `set` and
+`notset` useful: any object present counts as set — including a half-filled
+`{ address: '', ccri: '', cmc: '' }` — while `eq`/`ne`/`in`/`notin` compare by reference and never match.
+A `blockchain` field is an ordinary string and keeps full scalar semantics.
+
+| Operator | Meaning against a `multiselect` |
+|----------|--------------------------------|
+| `set` / `notset` | At least one option chosen / nothing chosen. An empty array is **not** set. |
+| `eq` / `ne` | Set equality against `value`, ignoring order and duplicates. A scalar `value` is read as a one-element set. |
+| `in` / `notin` | Any chosen option appears in `value` / none does. Use `in` for "is `x` selected?". |
+| `lt` `gt` `lte` `gte` | Always `false`. |
+
+A condition may not reference a `section` (`CONDITION_REFS_SECTION`) or a `static` block
+(`CONDITION_REFS_STATIC`); neither holds a value.
 
 **Comparison behavior:**
 - Numbers are compared as numbers.

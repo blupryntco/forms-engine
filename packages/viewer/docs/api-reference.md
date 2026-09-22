@@ -260,9 +260,31 @@ const { definition, data, fieldErrors, visibilityMap } = useFormContext()
 
 | Type | Description |
 |------|-------------|
-| `BaseViewFieldProps` | Common props shared by all read-only field components: the field definition and its validation errors. |
-| `BaseEditFieldProps` | Extends `BaseViewFieldProps` with an `onChange` handler for editable fields. |
+| `BaseViewFieldProps` | Common props shared by all read-only field components: the field definition, its validation errors, and an optional `suggestion`. |
+| `BaseEditFieldProps` | Extends `BaseViewFieldProps` with an `onChange` handler plus optional `onAcceptSuggestion` / `onRejectSuggestion`. |
 | `ErrorProps` | Props for rendering validation errors associated with a specific field. |
+
+#### Authoring metadata
+
+`field` is the raw `FieldContentItem` from the definition, so `description`, `placeholder`,
+`answer_guidelines` and `reference_id` are readable directly off it in both modes — no extra prop. Array
+**item** components receive a synthetic field carrying the same four properties from the array's `item`
+definition.
+
+#### Suggestions
+
+`suggestion` is present only when the document has one for that field, so a component should treat it as
+optional. For an `array` field the suggestion is the whole array, and for an `array_obj` the whole list of
+rows; individual array items and `array_obj` cells never receive one.
+
+An `array_obj` field's errors are all stored under the container's id. A cell error carries `itemIndex`
+(the row) and `itemFieldId` (the sub-field) and is routed to that cell's component; the container's
+`errors` prop holds the field-level errors plus any row-level `TYPE` error, which has no cell to land on.
+
+In edit mode, `onAcceptSuggestion()` copies the suggested value into the field's value and keeps the
+suggestion, while `onRejectSuggestion()` removes the suggestion and leaves the value alone. Both are
+supplied for every field and both no-op when the field has no suggestion, so a component can render its
+buttons based on `suggestion` alone. Each emits the editor's normal `onChange(document, validation)`.
 
 ### Viewer Types
 
@@ -275,10 +297,15 @@ Props for read-only field components used in `ViewerComponentMap`. Each type pro
 | `BooleanViewProps` | Read-only boolean field. Value is the toggle state. |
 | `DateViewProps` | Read-only date field. Value is an ISO 8601 date string. |
 | `SelectViewProps` | Read-only select field. Includes the selected value and the list of available options. |
+| `MultiselectViewProps` | Read-only multi-select field. Value is `(string \| number)[]`; includes the list of available options. |
+| `StaticViewProps` | Display-only text block. Carries only `field: StaticFieldContentItem` — no `value`, `errors` or `suggestion`. |
+| `BlockchainViewProps` | Read-only CAIP address field. Value is a `string` the engine never format-checks. |
+| `SustainabilityViewProps` | Read-only sustainability field. Value is `SustainabilityValue` (`{ address, ccri?, cmc? }`). |
 | `ArrayViewProps` | Read-only array field. Includes the array values, the item schema definition, and pre-rendered children for each item. |
+| `ArrayObjViewProps` | Read-only `array_obj` field. Includes the row objects, the `itemsDef` sub-field list, the resolved `kind` layout hint (`'list'` when the definition omits it), and `children: ReactNode[][]` — indexed `children[rowIndex][subFieldIndex]`, the inner index aligned with `itemsDef`, so rows can be laid out as a table. |
 | `FileViewProps` | Read-only file field. Value contains file metadata (name, MIME type, size, URL). |
 | `SectionViewProps` | Read-only section wrapper. Receives the section definition and its children. |
-| `ViewerComponentMap` | A mapping from each field type to its read-only component. Passed to `FormViewer`. Optional `error` component for inline validation. |
+| `ViewerComponentMap` | A mapping from each field type to its read-only component. Passed to `FormViewer`. The `multiselect`, `static` and `error` keys are optional; a field with no component renders nothing. |
 
 ### Editor Types
 
@@ -291,12 +318,18 @@ Props for editable field components used in `EditorComponentMap`. Each type exte
 | `BooleanEditProps` | Editable boolean field with typed `onChange`. |
 | `DateEditProps` | Editable date field with typed `onChange`. |
 | `SelectEditProps` | Editable select field with typed `onChange` and available options. |
+| `MultiselectEditProps` | Editable multi-select field. `onChange((string \| number)[] \| undefined)` replaces the whole selection. |
+| `StaticEditProps` | Alias of `StaticViewProps` — a static block has nothing to edit and no `onChange`. |
+| `BlockchainEditProps` | Editable CAIP address field. `onChange(string \| undefined)`. |
+| `SustainabilityEditProps` | Editable sustainability field. `onChange(SustainabilityValue \| undefined)` replaces the whole object. |
 | `ArrayEditProps` | Editable array field with `onChange`, `onAddItem`, `onRemoveItem`, `onMoveItem`, and pre-rendered children. |
+| `ArrayObjEditProps` | Editable `array_obj` field. Adds the same three row handlers to `ArrayObjViewProps`; the per-cell `onChange` reaches each sub-field's own component instead. `onAddItem` appends an empty row (`{}`). |
 | `FileEditProps` | Editable file field with typed `onChange`. |
 | `SectionEditProps` | Editable section wrapper. Receives the section definition and its children. |
-| `EditorComponentMap` | A mapping from each field type to its editable component. Passed to `FormEditor`. Optional `error` component for inline validation. |
-| `EditorFieldProps` | Change handlers provided to each field by the editor: `onChange` plus optional array manipulation handlers. |
+| `EditorComponentMap` | A mapping from each field type to its editable component. Passed to `FormEditor`. The `multiselect`, `static` and `error` keys are optional; a field with no component renders nothing. |
+| `EditorFieldProps` | Change handlers provided to each field by the editor: `onChange`, `onAcceptSuggestion`, `onRejectSuggestion`, plus optional array manipulation handlers. |
 | `EditorArrayItemProps` | Change handler provided for a single array item. |
+| `EditorArrayObjItemProps` | Change handler provided for a single cell of a single `array_obj` row. |
 
 ### Section Types
 
@@ -315,18 +348,26 @@ Props for editable field components used in `EditorComponentMap`. Each type exte
 
 | Type | Description |
 |------|-------------|
-| `ArrayItemDef` | Schema describing items inside an array field. |
+| `ArrayItemDef` | Schema describing items inside an `array` field. |
+| `ArrayObjItemDef` | Schema describing one sub-field of an `array_obj` field. Carries its own `id`. |
+| `ArrayObjRow` | One row of an `array_obj` value: `Record<string, unknown>` keyed by stringified sub-field id. |
+| `ArrayObjKind` | `'list' \| 'table'` — the layout hint, delivered already resolved as the `kind` prop. |
 | `ContentItem` | A union of field and section nodes in a form definition. |
 | `DocumentValidationError` | A document-level validation error with code, message, and optional params. |
 | `DocumentValidationErrorCode` | Union of all possible document error codes. |
 | `FieldContentItem` | A field node in a form definition tree. |
 | `FieldEntry` | Flattened field registry entry produced by `FormEngine`. |
-| `FieldType` | Union of all supported field type identifiers. |
+| `FieldSuggestion` | A machine-proposed answer: `{ value, confidence (0..1), source }`. |
+| `FieldType` | Union of all supported field type identifiers (`string`, `number`, `boolean`, `date`, `select`, `multiselect`, `array`, `array_obj`, `file`, `static`, `blockchain`, `sustainability`). |
+| `StaticFieldContentItem` | A display-only block: `{ id, type: 'static', text, label?, … }`. Holds no value. |
+| `AnyFieldContentItem` | `FieldContentItem \| StaticFieldContentItem` — every non-section node. |
 | `FieldValidationError` | A field-level validation error with field ID, rule, message, and optional item index. |
 | `FileValue` | File metadata: name, MIME type, size, and URL. |
+| `SustainabilityValue` | Sustainability references: `{ address, ccri?, cmc? }`. |
 | `FormDefinition` | Top-level form schema describing the entire form structure. |
-| `FormDocument` | A submitted form: references the form schema and contains the user's values. |
+| `FormDocument` | A submitted form: references the form schema, contains the user's values, and may carry a `suggestions` block. |
 | `FormSnapshot` | A pair of form definition and document, used for serialization. |
+| `FormSuggestions` | Sparse map of suggestions keyed by stringified field id. |
 | `FormValidationResult` | Complete validation result: overall validity, field errors, and optional document errors. |
 | `FormValues` | A record mapping field names to their values. |
 | `SectionContentItem` | A section node in a form definition tree. |

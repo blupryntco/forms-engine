@@ -1,7 +1,9 @@
+import { FormDefinitionEditor } from './form-definition-editor'
 import { FormEngine } from './form-engine'
+import { FormValuesEditor } from './form-values-editor'
 import { SimpleCondition } from './types/conditions'
 import { DocumentError } from './types/errors'
-import type { ContentItem, FormDefinition } from './types/form-definition'
+import type { ContentItem, FieldContentItem, FormDefinition } from './types/form-definition'
 import type { FormSnapshot } from './types/form-snapshot'
 import type { FormDocument, FormValues } from './types/form-values'
 
@@ -2036,6 +2038,370 @@ describe('FormEngine', () => {
             }
             const resultOk = engine.validate(doc({ '1': fileValue }))
             expect(resultOk.valid).toBe(true)
+        })
+    })
+
+    describe('suggestions on the document', () => {
+        const def = baseDef([{ id: 1, type: 'string', label: 'Name', validation: { required: true } }])
+
+        it('validates a document carrying suggestions identically to one without', () => {
+            const plain = doc({ '1': 'Alice' })
+            const withSuggestions: FormDocument = {
+                ...plain,
+                suggestions: { '1': { value: 'Acme Ltd', confidence: 0.9, source: 'page 1' } },
+            }
+            const engine = new FormEngine(def)
+
+            expect(engine.validate(withSuggestions).valid).toBe(engine.validate(plain).valid)
+            expect(engine.validate(withSuggestions).fieldErrors.size).toBe(0)
+        })
+
+        it('does not let a suggestion satisfy a required field', () => {
+            const withSuggestions: FormDocument = {
+                ...doc(),
+                suggestions: { '1': { value: 'Acme Ltd', confidence: 0.9, source: 'page 1' } },
+            }
+            expect(new FormEngine(def).validate(withSuggestions).valid).toBe(false)
+        })
+
+        it('creates documents without a suggestions key', () => {
+            expect('suggestions' in new FormEngine(def).createFormDocument()).toBe(false)
+        })
+    })
+
+    describe('authoring metadata', () => {
+        it('compiles a definition carrying placeholder, answer_guidelines and reference_id', () => {
+            const def = baseDef([
+                {
+                    id: 1,
+                    type: 'section',
+                    title: 'Issuer',
+                    placeholder: 'n/a',
+                    answer_guidelines: 'Complete every field',
+                    reference_id: 'KYI-3',
+                    content: [
+                        {
+                            id: 2,
+                            type: 'string',
+                            label: 'Name',
+                            placeholder: 'Acme Ltd',
+                            answer_guidelines: 'Use the registered name',
+                            reference_id: 'KYI-3.1.a',
+                        },
+                    ],
+                },
+            ])
+            expect(() => new FormEngine(def)).not.toThrow()
+        })
+    })
+    describe('static fields', () => {
+        const withStatic = baseDef([
+            { id: 1, type: 'static', text: 'Answer truthfully.', label: 'Before you begin' },
+            { id: 2, type: 'string', label: 'Name', validation: { required: true } },
+        ])
+
+        it('registers a static field without validation or options', () => {
+            const engine = new FormEngine(withStatic)
+            const entry = engine.getFieldDef(1)
+            expect(entry).toMatchObject({ id: 1, type: 'static', label: 'Before you begin' })
+            expect(entry?.validation).toBeUndefined()
+            expect(entry?.options).toBeUndefined()
+        })
+
+        it('never produces validation errors for a static field', () => {
+            const engine = new FormEngine(withStatic)
+            const result = engine.validate(doc({ '2': 'Acme' }))
+            expect(result.valid).toBe(true)
+        })
+
+        it('registers a static field with no label', () => {
+            const engine = new FormEngine(baseDef([{ id: 1, type: 'static', text: 'Just prose.' }]))
+            expect(engine.getFieldDef(1)?.label).toBeUndefined()
+        })
+
+        it('honours a condition on a static field', () => {
+            const def = baseDef([
+                { id: 1, type: 'boolean', label: 'Agree' },
+                { id: 2, type: 'static', text: 'Thanks.', condition: { field: 1, op: 'eq', value: true } },
+            ])
+            const engine = new FormEngine(def)
+            expect(engine.isVisible(2, doc({ '1': true }))).toBe(true)
+            expect(engine.isVisible(2, doc({ '1': false }))).toBe(false)
+        })
+
+        it('rejects a definition whose condition references a static field', () => {
+            const def = baseDef([
+                { id: 1, type: 'static', text: 'Note' },
+                { id: 2, type: 'string', label: 'Name', condition: { field: 1, op: 'set' } },
+            ])
+            expect(() => new FormEngine(def)).toThrow(DocumentError)
+        })
+    })
+
+    describe('multiselect fields', () => {
+        const options = [
+            { value: 'aml', label: 'AML' },
+            { value: 'kyc', label: 'KYC' },
+            { value: 'cft', label: 'CFT' },
+        ]
+        const withMultiselect = baseDef([
+            { id: 1, type: 'multiselect', label: 'Programmes', options, validation: { required: true } },
+        ])
+
+        it('passes options through to the registry', () => {
+            expect(new FormEngine(withMultiselect).getFieldDef(1)?.options).toEqual(options)
+        })
+
+        it('accepts a valid selection', () => {
+            expect(new FormEngine(withMultiselect).validate(doc({ '1': ['aml', 'kyc'] })).valid).toBe(true)
+        })
+
+        it('reports REQUIRED for an empty selection', () => {
+            const result = new FormEngine(withMultiselect).validate(doc({ '1': [] }))
+            expect(result.fieldErrors.get(1)?.[0]?.rule).toBe('REQUIRED')
+        })
+
+        it('reports INVALID_OPTION for a value outside the options list', () => {
+            const result = new FormEngine(withMultiselect).validate(doc({ '1': ['aml', 'nope'] }))
+            expect(result.fieldErrors.get(1)?.[0]?.rule).toBe('INVALID_OPTION')
+        })
+
+        it('drives conditions with set semantics', () => {
+            const def = baseDef([
+                { id: 1, type: 'multiselect', label: 'Programmes', options },
+                { id: 2, type: 'string', label: 'Details', condition: { field: 1, op: 'in', value: ['cft'] } },
+            ])
+            const engine = new FormEngine(def)
+            expect(engine.isVisible(2, doc({ '1': ['aml'] }))).toBe(false)
+            expect(engine.isVisible(2, doc({ '1': ['aml', 'cft'] }))).toBe(true)
+        })
+
+        it('treats an empty selection as not set in conditions', () => {
+            const def = baseDef([
+                { id: 1, type: 'multiselect', label: 'Programmes', options },
+                { id: 2, type: 'string', label: 'Details', condition: { field: 1, op: 'set' } },
+            ])
+            const engine = new FormEngine(def)
+            expect(engine.isVisible(2, doc({ '1': [] }))).toBe(false)
+            expect(engine.isVisible(2, doc({ '1': ['aml'] }))).toBe(true)
+        })
+
+        it('skips validation for a hidden multiselect', () => {
+            const def = baseDef([
+                { id: 1, type: 'boolean', label: 'Regulated' },
+                {
+                    id: 2,
+                    type: 'multiselect',
+                    label: 'Programmes',
+                    options,
+                    validation: { required: true },
+                    condition: { field: 1, op: 'eq', value: true },
+                },
+            ])
+            expect(new FormEngine(def).validate(doc({ '1': false })).valid).toBe(true)
+        })
+    })
+
+    describe('blockchain and sustainability fields', () => {
+        const ADDRESS = 'eip155:1/erc20:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'
+
+        it('validates a required blockchain field', () => {
+            const def = baseDef([{ id: 1, type: 'blockchain', label: 'Token', validation: { required: true } }])
+            const engine = new FormEngine(def)
+            expect(engine.validate(doc({})).valid).toBe(false)
+            expect(engine.validate(doc({ '1': ADDRESS })).valid).toBe(true)
+        })
+
+        it('accepts a malformed address -- the CAIP format is never checked', () => {
+            const def = baseDef([{ id: 1, type: 'blockchain', label: 'Token', validation: { required: true } }])
+            expect(new FormEngine(def).validate(doc({ '1': 'whatever' })).valid).toBe(true)
+        })
+
+        it('validates a required sustainability field on its address alone', () => {
+            const def = baseDef([{ id: 1, type: 'sustainability', label: 'Footprint', validation: { required: true } }])
+            const engine = new FormEngine(def)
+            expect(engine.validate(doc({ '1': { address: '', ccri: 'CCRI-1', cmc: '' } })).valid).toBe(false)
+            expect(engine.validate(doc({ '1': { address: ADDRESS } })).valid).toBe(true)
+        })
+
+        it('drives a condition from a blockchain field with scalar semantics', () => {
+            const def = baseDef([
+                { id: 1, type: 'blockchain', label: 'Token' },
+                { id: 2, type: 'string', label: 'Notes', condition: { field: 1, op: 'eq', value: ADDRESS } },
+            ])
+            const engine = new FormEngine(def)
+            expect(engine.isVisible(2, doc({ '1': 'eip155:1/erc20:0xdead' }))).toBe(false)
+            expect(engine.isVisible(2, doc({ '1': ADDRESS }))).toBe(true)
+        })
+
+        it('treats any sustainability object as set, even a blank one', () => {
+            const def = baseDef([
+                { id: 1, type: 'sustainability', label: 'Footprint' },
+                { id: 2, type: 'string', label: 'Notes', condition: { field: 1, op: 'set' } },
+            ])
+            const engine = new FormEngine(def)
+            expect(engine.isVisible(2, doc({}))).toBe(false)
+            expect(engine.isVisible(2, doc({ '1': { address: '', ccri: '', cmc: '' } }))).toBe(true)
+        })
+
+        it('validates both as array item types', () => {
+            const def = baseDef([
+                {
+                    id: 1,
+                    type: 'array',
+                    label: 'Assets',
+                    item: { type: 'blockchain', label: 'Asset', validation: { required: true } },
+                },
+            ])
+            const engine = new FormEngine(def)
+            expect(engine.validate(doc({ '1': [ADDRESS, ''] })).valid).toBe(false)
+            expect(engine.validate(doc({ '1': [ADDRESS] })).valid).toBe(true)
+        })
+
+        it('skips validation for a hidden sustainability field', () => {
+            const def = baseDef([
+                { id: 1, type: 'boolean', label: 'Regulated' },
+                {
+                    id: 2,
+                    type: 'sustainability',
+                    label: 'Footprint',
+                    validation: { required: true },
+                    condition: { field: 1, op: 'eq', value: true },
+                },
+            ])
+            expect(new FormEngine(def).validate(doc({ '1': false })).valid).toBe(true)
+        })
+    })
+
+    describe('backward compatibility', () => {
+        // A definition using every field type that existed before `blockchain`
+        // and `sustainability`, plus a document written against it that predates
+        // the `suggestions` block.
+        const legacyDef = baseDef([
+            { id: 1, type: 'static', text: 'Please read carefully.' },
+            { id: 2, type: 'string', label: 'Name', validation: { required: true, minLength: 2 } },
+            { id: 3, type: 'number', label: 'Age', validation: { min: 18 } },
+            { id: 4, type: 'boolean', label: 'Agreed', validation: { required: true } },
+            { id: 5, type: 'date', label: 'Signed on' },
+            {
+                id: 6,
+                type: 'select',
+                label: 'Kind',
+                options: [
+                    { value: 'a', label: 'A' },
+                    { value: 'b', label: 'B' },
+                ],
+            },
+            {
+                id: 7,
+                type: 'multiselect',
+                label: 'Programmes',
+                options: [
+                    { value: 'aml', label: 'AML' },
+                    { value: 'kyc', label: 'KYC' },
+                ],
+            },
+            { id: 8, type: 'array', label: 'Tags', item: { type: 'string', label: 'Tag' } },
+            { id: 9, type: 'file', label: 'Evidence' },
+            { id: 10, type: 'string', label: 'Why B?', condition: { field: 6, op: 'eq', value: 'b' } },
+        ])
+
+        const legacyDoc: FormDocument = {
+            form: { id: 'test-form', version: '1.0.0', submittedAt: SUBMITTED_AT },
+            values: {
+                '2': 'Acme Ltd',
+                '3': 42,
+                '4': true,
+                '5': '2025-01-01T00:00:00.000Z',
+                '6': 'a',
+                '7': ['aml'],
+                '8': ['one', 'two'],
+                '9': { name: 'd.pdf', mimeType: 'application/pdf', size: 12, url: 'https://example.com/d.pdf' },
+            },
+        }
+
+        it('still validates clean with no version bump', () => {
+            const result = new FormEngine(legacyDef).validate(legacyDoc)
+            expect(result.valid).toBe(true)
+            expect(result.fieldErrors.size).toBe(0)
+        })
+
+        it('still resolves visibility unchanged', () => {
+            const engine = new FormEngine(legacyDef)
+            expect(engine.isVisible(10, legacyDoc)).toBe(false)
+            expect(engine.isVisible(2, legacyDoc)).toBe(true)
+        })
+
+        it('does not introduce a suggestions key', () => {
+            new FormEngine(legacyDef).validate(legacyDoc)
+            expect('suggestions' in legacyDoc).toBe(false)
+        })
+
+        it('round-trips through FormValuesEditor byte-identically', () => {
+            const roundTripped = new FormValuesEditor(legacyDef, legacyDoc).toJSON()
+            expect(JSON.stringify(roundTripped)).toBe(JSON.stringify(legacyDoc))
+        })
+
+        it('gains no `items` key on an existing array field', () => {
+            const definition = new FormDefinitionEditor(legacyDef).toJSON()
+            const tags = definition.content.find((item) => item.id === 8) as FieldContentItem
+            expect('items' in tags).toBe(false)
+        })
+    })
+
+    describe('array_obj fields', () => {
+        const objDef = baseDef([
+            {
+                id: 10,
+                type: 'array_obj',
+                label: 'Directors',
+                items: [
+                    { id: 11, type: 'string', label: 'Name', validation: { required: true } },
+                    { id: 12, type: 'date', label: 'Appointed' },
+                ],
+                validation: { minItems: 1 },
+            },
+            { id: 20, type: 'string', label: 'Notes', condition: { field: 10, op: 'set' } },
+        ])
+
+        const objDoc = (rows: unknown): FormDocument => ({
+            form: { id: 'test-form', version: '1.0.0', submittedAt: SUBMITTED_AT },
+            values: { '10': rows },
+        })
+
+        it('compiles and registers the field without registering its sub-fields', () => {
+            const engine = new FormEngine(objDef)
+            expect(engine.getFieldDef(10)?.items).toHaveLength(2)
+            expect(engine.getFieldDef(11)).toBeUndefined()
+            expect(engine.contentOrder).toEqual([10, 20])
+        })
+
+        it('validates sub-fields per row', () => {
+            const result = new FormEngine(objDef).validate(objDoc([{ '11': 'Jane' }, {}]))
+            expect(result.valid).toBe(false)
+            expect(result.fieldErrors.get(10)).toEqual([
+                expect.objectContaining({ fieldId: 10, rule: 'REQUIRED', itemIndex: 1, itemFieldId: 11 }),
+            ])
+        })
+
+        it('keeps scalar condition semantics -- an empty list still counts as set', () => {
+            const engine = new FormEngine(objDef)
+            expect(engine.isVisible(20, objDoc([]))).toBe(true)
+            expect(engine.isVisible(20, objDoc(undefined))).toBe(false)
+        })
+
+        it('rejects a condition that references a sub-field', () => {
+            const broken = baseDef([
+                {
+                    id: 10,
+                    type: 'array_obj',
+                    label: 'Directors',
+                    items: [{ id: 11, type: 'string', label: 'Name' }],
+                },
+                { id: 20, type: 'string', label: 'Notes', condition: { field: 11, op: 'set' } },
+            ])
+
+            expect(() => new FormEngine(broken)).toThrow(DocumentError)
         })
     })
 })

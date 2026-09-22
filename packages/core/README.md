@@ -71,10 +71,21 @@ editor
   .addArrayItem(6, 'React')
   .setSubmittedAt('2025-01-01T00:00:00Z')
 
-// 3. Validate and extract the document
+// 3. Optionally record and resolve machine-proposed answers
+editor
+  .setSuggestion(1, { value: 'Alice Smith', confidence: 0.8, source: 'Passport MRZ, line 2' })
+  .acceptSuggestion(1)   // copies the value across, keeps the suggestion
+  .rejectSuggestion(2)   // removes a suggestion, leaves the value untouched
+
+// 4. Validate and extract the document
 const result = editor.validate()
 const doc = editor.toJSON()
 ```
+
+Suggestions live in the document's optional `suggestions` block and never affect validation or
+visibility. `confidence` is a `0..1` fraction. Both the block and the three metadata properties
+(`placeholder`, `answer_guidelines`, `reference_id`) on fields and sections are optional, so existing
+definitions and documents keep working unchanged.
 
 ## Documentation
 

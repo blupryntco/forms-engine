@@ -1,0 +1,34 @@
+{
+    "form": {
+        "id": "2cf77b35-b1c0-45ae-8cac-6694e49b99d8",
+        "version": "1.0.0",
+        "submittedAt": "2025-11-05T09:15:00.000Z"
+    },
+    "values": {
+        "1": "CA-2025-0047",
+        "3": "Fireblocks Ltd.",
+        "4": 4200000000,
+        "6": "Michael Torres",
+        "7": "m.torres@fireblocks.example.com",
+        "9": "mpc",
+        "10": 3,
+        "11": true,
+        "12": ["secp256k1", "ed25519", "BLS12-381"],
+        "14": "full",
+        "15": 500000000,
+        "17": true,
+        "18": 95,
+        "19": "Zurich, Switzerland (primary); Singapore (secondary)",
+        "21": true,
+        "22": 3,
+        "23": "1h",
+        "24": "2025-09-15T00:00:00.000Z",
+        "26": true,
+        "27": "2025-06-30T00:00:00.000Z",
+        "28": "real-time",
+        "29": true,
+        "30": "Deloitte",
+        "31": "2025-08-01T00:00:00.000Z",
+        "32": true
+    }
+}

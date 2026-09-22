@@ -589,4 +589,119 @@ describe('FormViewer', () => {
 
         expect(container.innerHTML).toBe('')
     })
+
+    describe('authoring metadata', () => {
+        it('passes placeholder, answer_guidelines and reference_id through on the field', () => {
+            const definition = baseDef([
+                {
+                    id: 1,
+                    type: 'string',
+                    label: 'Name',
+                    description: 'Legal entity name',
+                    placeholder: 'Acme Ltd',
+                    answer_guidelines: 'Use the registered name',
+                    reference_id: 'KYI-3.1.a',
+                },
+            ])
+            renderViewer({ definition, data: doc() }, makeComponents())
+
+            expect(MockString).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    field: expect.objectContaining({
+                        description: 'Legal entity name',
+                        placeholder: 'Acme Ltd',
+                        answer_guidelines: 'Use the registered name',
+                        reference_id: 'KYI-3.1.a',
+                    }),
+                }),
+                undefined,
+            )
+        })
+
+        it('passes section metadata through on the section', () => {
+            const definition = baseDef([
+                {
+                    id: 1,
+                    type: 'section',
+                    title: 'Issuer',
+                    answer_guidelines: 'Complete every field',
+                    reference_id: 'KYI-3',
+                    content: [{ id: 2, type: 'string', label: 'Name' }],
+                },
+            ])
+            renderViewer({ definition, data: doc() }, makeComponents())
+
+            expect(MockSection).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    section: expect.objectContaining({
+                        answer_guidelines: 'Complete every field',
+                        reference_id: 'KYI-3',
+                    }),
+                }),
+                undefined,
+            )
+        })
+    })
+
+    describe('suggestions', () => {
+        const suggestion = { value: 'Acme Ltd', confidence: 0.9, source: 'certificate of incorporation, p.1' }
+
+        it('passes the suggestion to the matching field component', () => {
+            const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
+            const data: FormDocument = { ...doc(), suggestions: { '1': suggestion } }
+            renderViewer({ definition, data }, makeComponents())
+
+            expect(MockString).toHaveBeenCalledWith(expect.objectContaining({ suggestion }), undefined)
+        })
+
+        it('omits the suggestion prop for fields without one', () => {
+            const definition = baseDef([
+                { id: 1, type: 'string', label: 'Name' },
+                { id: 2, type: 'number', label: 'Age' },
+            ])
+            const data: FormDocument = { ...doc(), suggestions: { '1': suggestion } }
+            renderViewer({ definition, data }, makeComponents())
+
+            expect(MockNumber).toHaveBeenCalledWith(
+                expect.not.objectContaining({ suggestion: expect.anything() }),
+                undefined,
+            )
+        })
+
+        it('omits the suggestion prop entirely on a legacy document', () => {
+            const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
+            renderViewer({ definition, data: doc({ '1': 'typed' }) }, makeComponents())
+
+            expect(MockString).toHaveBeenCalledWith(
+                expect.not.objectContaining({ suggestion: expect.anything() }),
+                undefined,
+            )
+        })
+
+        it('passes an array field its suggestion', () => {
+            const arraySuggestion = { value: ['a', 'b'], confidence: 0.4, source: 'inferred' }
+            const definition = baseDef([
+                { id: 1, type: 'array', label: 'Tags', item: { type: 'string', label: 'Tag' } },
+            ])
+            const data: FormDocument = { ...doc({ '1': [] }), suggestions: { '1': arraySuggestion } }
+            renderViewer({ definition, data }, makeComponents())
+
+            expect(MockArray).toHaveBeenCalledWith(expect.objectContaining({ suggestion: arraySuggestion }), undefined)
+        })
+
+        it('reaches fields nested inside a section', () => {
+            const definition = baseDef([
+                {
+                    id: 1,
+                    type: 'section',
+                    title: 'Issuer',
+                    content: [{ id: 2, type: 'string', label: 'Name' }],
+                },
+            ])
+            const data: FormDocument = { ...doc(), suggestions: { '2': suggestion } }
+            renderViewer({ definition, data }, makeComponents())
+
+            expect(MockString).toHaveBeenCalledWith(expect.objectContaining({ suggestion }), undefined)
+        })
+    })
 })

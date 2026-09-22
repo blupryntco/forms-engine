@@ -212,4 +212,61 @@ describe('FormBuilder', () => {
         expect(screen.getByTestId('field-1').dataset.selected).toBe('true')
         expect(screen.getByTestId('field-2').dataset.selected).toBe('false')
     })
+    it('renders static and multiselect fields through the field render prop', () => {
+        const def: FormDefinition = {
+            ...emptyDef,
+            content: [
+                { id: 1, type: 'static', text: 'Read this first.' },
+                { id: 2, type: 'multiselect', label: 'Tags', options: [{ value: 'a', label: 'A' }] },
+            ],
+        }
+
+        const FieldWithText: FC<FieldRenderProps> = ({ id, type, item }) => (
+            <div
+                data-testid={`field-${id}`}
+                data-type={type}
+                data-label={item.label ?? ''}
+                data-text={item.type === 'static' ? item.text : ''}
+            />
+        )
+
+        render(
+            <FormBuilder
+                definition={def}
+                container={Container}
+                field={FieldWithText}
+                section={MockSection}
+                addPlaceholder={MockPlaceholder}
+            />,
+        )
+
+        expect(screen.getByTestId('field-1').dataset.type).toBe('static')
+        expect(screen.getByTestId('field-1').dataset.text).toBe('Read this first.')
+        expect(screen.getByTestId('field-1').dataset.label).toBe('')
+        expect(screen.getByTestId('field-2').dataset.type).toBe('multiselect')
+        expect(screen.getByTestId('field-2').dataset.label).toBe('Tags')
+    })
+
+    it('renders blockchain and sustainability fields through the field render prop', () => {
+        const def: FormDefinition = {
+            ...emptyDef,
+            content: [
+                { id: 1, type: 'blockchain', label: 'Token' },
+                { id: 2, type: 'sustainability', label: 'Footprint' },
+            ],
+        }
+
+        render(
+            <FormBuilder
+                definition={def}
+                container={Container}
+                field={MockField}
+                section={MockSection}
+                addPlaceholder={MockPlaceholder}
+            />,
+        )
+
+        expect(screen.getByTestId('field-1').dataset.type).toBe('blockchain')
+        expect(screen.getByTestId('field-2').dataset.type).toBe('sustainability')
+    })
 })

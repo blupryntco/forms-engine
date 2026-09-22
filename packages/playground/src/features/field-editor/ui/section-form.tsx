@@ -4,6 +4,7 @@ import type { Condition, ContentItem, FormDefinition, SectionContentItem } from 
 
 import type { EditorFormik } from '../model/editor-form'
 import { ConditionalEditor, collectFields } from './conditional-editor'
+import { MetadataFields } from './metadata-fields'
 import { Label, TextInput } from './primitives'
 
 const findItemById = (content: ContentItem[], id: number): ContentItem | undefined => {
@@ -59,6 +60,8 @@ export const SectionForm: FC<{
                     />
                 </div>
             </div>
+
+            <MetadataFields formik={formik} />
 
             <div>
                 <span className="text-xs font-medium text-gray-500 uppercase">Children</span>

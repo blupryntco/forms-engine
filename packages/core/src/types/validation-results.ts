@@ -14,8 +14,11 @@
  * | `MAX_DATE` | `date` |
  * | `INVALID_DATE` | `date` (unparseable value) |
  * | `INVALID_OPTION` | `select` (value not in options list) |
- * | `MIN_ITEMS` | `array` |
- * | `MAX_ITEMS` | `array` |
+ * | `MIN_ITEMS` | `array`, `array_obj` |
+ * | `MAX_ITEMS` | `array`, `array_obj` |
+ *
+ * On a `sustainability` field `REQUIRED` means the value's `address` is missing
+ * or empty -- `ccri` and `cmc` never trigger it.
  */
 export type FieldValidationRule =
     | 'REQUIRED'
@@ -39,8 +42,13 @@ export type FieldValidationRule =
  * @property rule - Machine-readable rule code from {@link FieldValidationRule}.
  * @property message - Human-readable error description.
  * @property params - Optional parameters providing context (e.g. `{ minLength: 5, actual: 3 }`).
- * @property itemIndex - For array fields, the zero-based index of the item
- *   that failed validation. `undefined` for non-array fields.
+ * @property itemIndex - For `array` and `array_obj` fields, the zero-based index
+ *   of the item or row that failed validation. `undefined` for other fields.
+ * @property itemFieldId - For `array_obj` fields, the id of the sub-field within
+ *   the row identified by {@link itemIndex}. `undefined` everywhere else,
+ *   including on a row-level `TYPE` error. Note that `fieldId` stays the
+ *   `array_obj` container's id, so it always matches the key this error is
+ *   stored under in {@link FormValidationResult.fieldErrors}.
  */
 export type FieldValidationError = {
     fieldId: number
@@ -48,6 +56,7 @@ export type FieldValidationError = {
     message: string
     params?: Record<string, unknown>
     itemIndex?: number
+    itemFieldId?: number
 }
 
 /**
@@ -60,6 +69,8 @@ export type FieldValidationError = {
  * | `NESTING_DEPTH` | A section is nested deeper than the allowed 3 levels. |
  * | `UNKNOWN_FIELD_REF` | A condition references a field id that does not exist in the form. |
  * | `CONDITION_REFS_SECTION` | A condition references a section id; sections have no value to compare. |
+ * | `CONDITION_REFS_STATIC` | A condition references a static field id; static blocks have no value to compare. |
+ * | `CONDITION_REFS_ARRAY_OBJ_ITEM` | A condition references an `array_obj` sub-field id; its value is per-row and not addressable. |
  * | `INVALID_MIN_MAX` | A field's minimum constraint exceeds its maximum constraint. |
  * | `INVALID_REGEX` | String field `pattern` is not a valid regular expression. |
  * | `CIRCULAR_DEPENDENCY` | Condition dependencies form a cycle (A depends on B depends on A). |
@@ -74,6 +85,8 @@ export type DocumentValidationErrorCode =
     | 'NESTING_DEPTH'
     | 'UNKNOWN_FIELD_REF'
     | 'CONDITION_REFS_SECTION'
+    | 'CONDITION_REFS_STATIC'
+    | 'CONDITION_REFS_ARRAY_OBJ_ITEM'
     | 'INVALID_MIN_MAX'
     | 'INVALID_REGEX'
     | 'CIRCULAR_DEPENDENCY'

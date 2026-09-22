@@ -310,14 +310,17 @@ export class FormEngine {
         contentOrder: number[],
     ): void {
         for (const item of content) {
+            const isValueField = item.type !== 'section' && item.type !== 'static'
+
             const entry: FieldEntry = {
                 id: item.id,
                 type: item.type,
                 condition: item.condition,
-                validation: item.type !== 'section' ? item.validation : undefined,
+                validation: isValueField ? item.validation : undefined,
                 parentId,
-                options: item.type === 'select' ? item.options : undefined,
+                options: item.type === 'select' || item.type === 'multiselect' ? item.options : undefined,
                 item: item.type === 'array' ? item.item : undefined,
+                items: item.type === 'array_obj' ? item.items : undefined,
                 label: item.type !== 'section' ? item.label : undefined,
                 title: item.type === 'section' ? item.title : undefined,
             }

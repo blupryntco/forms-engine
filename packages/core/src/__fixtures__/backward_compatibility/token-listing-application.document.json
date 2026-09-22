@@ -1,0 +1,32 @@
+{
+    "form": {
+        "id": "3d64b5aa-a181-4a27-a99f-29383daa33d8",
+        "version": "1.0.0",
+        "submittedAt": "2025-12-15T10:45:00.000Z"
+    },
+    "values": {
+        "2": "Nexus Protocol",
+        "3": "NXP",
+        "4": "2024-03-15T00:00:00.000Z",
+        "5": "0x1a2b3c4d5e6f7890abcdef1234567890abcdef12",
+        "6": "ethereum",
+        "8": "erc20",
+        "10": "Nexus Labs AG",
+        "11": "Switzerland",
+        "12": "compliance@nexuslabs.example.com",
+        "13": true,
+        "14": "CHE-123.456.789",
+        "16": "governance",
+        "17": true,
+        "20": true,
+        "21": ["United States", "European Union", "Singapore", "Japan", "Australia"],
+        "23": 1000000000,
+        "24": 350000000,
+        "25": false,
+        "26": true,
+        "27": "audited",
+        "28": "Trail of Bits",
+        "30": true,
+        "31": true
+    }
+}

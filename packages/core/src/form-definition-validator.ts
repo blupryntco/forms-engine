@@ -28,20 +28,204 @@ const itemRequiredProperties = new Map<string, Set<string>>([
     ['boolean', new Set(['id', 'type', 'label'])],
     ['date', new Set(['id', 'type', 'label'])],
     ['select', new Set(['id', 'type', 'label', 'options'])],
+    ['multiselect', new Set(['id', 'type', 'label', 'options'])],
     ['array', new Set(['id', 'type', 'label', 'item'])],
+    ['array_obj', new Set(['id', 'type', 'label', 'items'])],
     ['file', new Set(['id', 'type', 'label'])],
+    ['blockchain', new Set(['id', 'type', 'label'])],
+    ['sustainability', new Set(['id', 'type', 'label'])],
+    ['static', new Set(['id', 'type', 'text'])],
     ['section', new Set(['id', 'type', 'title', 'content'])],
 ])
 
 const itemAllowedProperties = new Map<string, Set<string>>([
-    ['string', new Set(['id', 'type', 'label', 'description', 'condition', 'validation'])],
-    ['number', new Set(['id', 'type', 'label', 'description', 'condition', 'validation'])],
-    ['boolean', new Set(['id', 'type', 'label', 'description', 'condition', 'validation'])],
-    ['date', new Set(['id', 'type', 'label', 'description', 'condition', 'validation'])],
-    ['select', new Set(['id', 'type', 'label', 'description', 'condition', 'options', 'validation'])],
-    ['array', new Set(['id', 'type', 'label', 'description', 'condition', 'item', 'validation'])],
-    ['file', new Set(['id', 'type', 'label', 'description', 'condition', 'validation'])],
-    ['section', new Set(['id', 'type', 'title', 'description', 'condition', 'content'])],
+    [
+        'string',
+        new Set([
+            'id',
+            'type',
+            'label',
+            'description',
+            'placeholder',
+            'answer_guidelines',
+            'reference_id',
+            'condition',
+            'validation',
+        ]),
+    ],
+    [
+        'number',
+        new Set([
+            'id',
+            'type',
+            'label',
+            'description',
+            'placeholder',
+            'answer_guidelines',
+            'reference_id',
+            'condition',
+            'validation',
+        ]),
+    ],
+    [
+        'boolean',
+        new Set([
+            'id',
+            'type',
+            'label',
+            'description',
+            'placeholder',
+            'answer_guidelines',
+            'reference_id',
+            'condition',
+            'validation',
+        ]),
+    ],
+    [
+        'date',
+        new Set([
+            'id',
+            'type',
+            'label',
+            'description',
+            'placeholder',
+            'answer_guidelines',
+            'reference_id',
+            'condition',
+            'validation',
+        ]),
+    ],
+    [
+        'select',
+        new Set([
+            'id',
+            'type',
+            'label',
+            'description',
+            'placeholder',
+            'answer_guidelines',
+            'reference_id',
+            'condition',
+            'options',
+            'validation',
+        ]),
+    ],
+    [
+        'multiselect',
+        new Set([
+            'id',
+            'type',
+            'label',
+            'description',
+            'placeholder',
+            'answer_guidelines',
+            'reference_id',
+            'condition',
+            'options',
+            'validation',
+        ]),
+    ],
+    [
+        'array',
+        new Set([
+            'id',
+            'type',
+            'label',
+            'description',
+            'placeholder',
+            'answer_guidelines',
+            'reference_id',
+            'condition',
+            'item',
+            'validation',
+        ]),
+    ],
+    [
+        'array_obj',
+        new Set([
+            'id',
+            'type',
+            'label',
+            'description',
+            'placeholder',
+            'answer_guidelines',
+            'reference_id',
+            'condition',
+            'items',
+            'kind',
+            'validation',
+        ]),
+    ],
+    [
+        'file',
+        new Set([
+            'id',
+            'type',
+            'label',
+            'description',
+            'placeholder',
+            'answer_guidelines',
+            'reference_id',
+            'condition',
+            'validation',
+        ]),
+    ],
+    [
+        'blockchain',
+        new Set([
+            'id',
+            'type',
+            'label',
+            'description',
+            'placeholder',
+            'answer_guidelines',
+            'reference_id',
+            'condition',
+            'validation',
+        ]),
+    ],
+    [
+        'sustainability',
+        new Set([
+            'id',
+            'type',
+            'label',
+            'description',
+            'placeholder',
+            'answer_guidelines',
+            'reference_id',
+            'condition',
+            'validation',
+        ]),
+    ],
+    [
+        'static',
+        new Set([
+            'id',
+            'type',
+            'text',
+            'label',
+            'description',
+            'placeholder',
+            'answer_guidelines',
+            'reference_id',
+            'condition',
+        ]),
+    ],
+    [
+        'section',
+        new Set([
+            'id',
+            'type',
+            'title',
+            'description',
+            'placeholder',
+            'answer_guidelines',
+            'reference_id',
+            'condition',
+            'content',
+        ]),
+    ],
 ])
 
 /**
@@ -57,12 +241,17 @@ const itemAllowedProperties = new Map<string, Set<string>>([
  * ### Semantic validation (`validate`)
  * Checks for logical issues that go beyond JSON schema validity:
  * 1. **Duplicate IDs** (`DUPLICATE_ID`) -- every content item id must be unique.
+ *    `array_obj` sub-field ids share that id space and are checked with it.
  * 2. **Nesting depth** (`NESTING_DEPTH`) -- sections may not be nested more
  *    than 3 levels deep.
  * 3. **Unknown field references** (`UNKNOWN_FIELD_REF`) -- conditions must
  *    only reference field ids that exist in the registry.
- * 4. **Condition references section** (`CONDITION_REFS_SECTION`) -- conditions
- *    must not reference section ids, because sections have no values.
+ * 4. **Condition references a valueless item** (`CONDITION_REFS_SECTION`,
+ *    `CONDITION_REFS_STATIC`) -- conditions must not reference section or
+ *    static ids, because neither holds a value.
+ * 4b. **Condition references an `array_obj` sub-field** (`CONDITION_REFS_ARRAY_OBJ_ITEM`)
+ *    -- a sub-field holds one value per row, so a form-level condition cannot
+ *    say which row it means.
  * 5. **Constraint contradictions** (`INVALID_MIN_MAX`) -- e.g. `minLength > maxLength`,
  *    `min > max`, `minDate > maxDate` (absolute dates only), `minItems > maxItems`.
  * 6. **Invalid regex** (`INVALID_REGEX`) -- string field `pattern` values must
@@ -322,8 +511,10 @@ export class FormDefinitionValidator {
 
         this.checkDuplicateIds(definition.content, issues)
         this.checkNestingDepth(definition.content, 0, issues)
-        this.checkConditionRefs(registry, issues)
-        this.checkConditionRefsSection(registry, issues)
+        const arrayObjItemIds = this.collectArrayObjItemIds(definition.content)
+        this.checkConditionRefsArrayObjItem(registry, arrayObjItemIds, issues)
+        this.checkConditionRefs(registry, arrayObjItemIds, issues)
+        this.checkConditionRefsValueless(registry, issues)
         this.checkConstraintContradictions(registry, issues)
         this.checkInvalidRegex(registry, issues)
 
@@ -332,13 +523,56 @@ export class FormDefinitionValidator {
 
     private checkDuplicateIds(content: ContentItem[], issues: DocumentValidationError[]): void {
         const seen = new Set<number>()
-        this.walkItems(content, (item) => {
-            if (seen.has(item.id)) {
-                issues.push({ code: 'DUPLICATE_ID', message: `Duplicate id: ${item.id}`, itemId: item.id })
+        const record = (id: number): void => {
+            if (seen.has(id)) {
+                issues.push({ code: 'DUPLICATE_ID', message: `Duplicate id: ${id}`, itemId: id })
             } else {
-                seen.add(item.id)
+                seen.add(id)
+            }
+        }
+
+        this.walkItems(content, (item) => {
+            record(item.id)
+            // `array_obj` sub-fields are not registry entries, but their ids key
+            // the row objects in `values` and so must be unique form-wide too.
+            if (item.type === 'array_obj') {
+                for (const subField of item.items ?? []) record(subField.id)
             }
         })
+    }
+
+    private collectArrayObjItemIds(content: ContentItem[]): Map<number, number> {
+        const ids = new Map<number, number>()
+        this.walkItems(content, (item) => {
+            if (item.type !== 'array_obj') return
+            for (const subField of item.items ?? []) {
+                if (!ids.has(subField.id)) ids.set(subField.id, item.id)
+            }
+        })
+        return ids
+    }
+
+    private checkConditionRefsArrayObjItem(
+        registry: Map<number, FieldEntry>,
+        arrayObjItemIds: Map<number, number>,
+        issues: DocumentValidationError[],
+    ): void {
+        if (arrayObjItemIds.size === 0) return
+
+        for (const [id, entry] of registry) {
+            if (!entry.condition) continue
+            for (const ref of DependencyGraph.extractFieldRefs(entry.condition)) {
+                const containerId = arrayObjItemIds.get(ref)
+                if (containerId === undefined) continue
+                issues.push({
+                    code: 'CONDITION_REFS_ARRAY_OBJ_ITEM',
+                    message:
+                        `Condition references sub-field ${ref} of array_obj field ${containerId}, ` +
+                        `whose value is per-row and not addressable (in item ${id})`,
+                    itemId: id,
+                })
+            }
+        }
     }
 
     private checkNestingDepth(content: ContentItem[], depth: number, issues: DocumentValidationError[]): void {
@@ -357,11 +591,16 @@ export class FormDefinitionValidator {
         }
     }
 
-    private checkConditionRefs(registry: Map<number, FieldEntry>, issues: DocumentValidationError[]): void {
+    private checkConditionRefs(
+        registry: Map<number, FieldEntry>,
+        arrayObjItemIds: Map<number, number>,
+        issues: DocumentValidationError[],
+    ): void {
         for (const [id, entry] of registry) {
             if (!entry.condition) continue
             const refs = DependencyGraph.extractFieldRefs(entry.condition)
             for (const ref of refs) {
+                if (arrayObjItemIds.has(ref)) continue
                 if (!registry.has(ref)) {
                     issues.push({
                         code: 'UNKNOWN_FIELD_REF',
@@ -373,16 +612,26 @@ export class FormDefinitionValidator {
         }
     }
 
-    private checkConditionRefsSection(registry: Map<number, FieldEntry>, issues: DocumentValidationError[]): void {
+    private checkConditionRefsValueless(registry: Map<number, FieldEntry>, issues: DocumentValidationError[]): void {
         for (const [id, entry] of registry) {
             if (!entry.condition) continue
             const refs = DependencyGraph.extractFieldRefs(entry.condition)
             for (const ref of refs) {
                 const refEntry = registry.get(ref)
-                if (refEntry && refEntry.type === 'section') {
+                if (!refEntry) continue
+
+                if (refEntry.type === 'section') {
                     issues.push({
                         code: 'CONDITION_REFS_SECTION',
                         message: `Condition references section ${ref}, which has no value (in item ${id})`,
+                        itemId: id,
+                    })
+                }
+
+                if (refEntry.type === 'static') {
+                    issues.push({
+                        code: 'CONDITION_REFS_STATIC',
+                        message: `Condition references static field ${ref}, which has no value (in item ${id})`,
                         itemId: id,
                     })
                 }
@@ -434,7 +683,8 @@ export class FormDefinitionValidator {
                     }
                     break
                 }
-                case 'array': {
+                case 'array':
+                case 'array_obj': {
                     const v = entry.validation as ArrayValidation
                     if (v.minItems !== undefined && v.maxItems !== undefined && v.maxItems < v.minItems) {
                         issues.push({

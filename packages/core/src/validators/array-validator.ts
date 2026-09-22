@@ -42,7 +42,8 @@ export class ArrayValidator implements TypeValidator {
             })
         }
 
-        if (item) {
+        // A static item holds no value, so there is nothing to validate per item.
+        if (item && item.type !== 'static') {
             for (let i = 0; i < value.length; i++) {
                 const fakeEntry: FieldEntry = {
                     id: fieldId,
@@ -52,6 +53,7 @@ export class ArrayValidator implements TypeValidator {
                     parentId: undefined,
                     options: item.options,
                     item: undefined,
+                    items: undefined,
                     label: item.label,
                     title: undefined,
                 }

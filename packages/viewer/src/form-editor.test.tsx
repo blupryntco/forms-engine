@@ -8,6 +8,8 @@ import type {
     FormValidationResult,
     FormValues,
     SectionContentItem,
+    StaticFieldContentItem,
+    SustainabilityValue,
 } from '@bluprynt/forms-core'
 import { render, screen } from '@testing-library/react'
 
@@ -40,9 +42,45 @@ const MockArray: FC<Record<string, unknown>> = jest.fn((props) => (
     <div data-testid={`array-${(props.field as FieldContentItem).id}`}>{props.children as ReactNode}</div>
 ))
 
+const MockArrayObj: FC<Record<string, unknown>> = jest.fn((props) => {
+    const rows = (props.children as ReactNode[][]) ?? []
+    return (
+        <div data-testid={`array-obj-${(props.field as FieldContentItem).id}`} data-rows={rows.length}>
+            {rows.map((cells, index) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: index is unique in the row list
+                <div key={index} data-testid={`row-${index}`}>
+                    {cells}
+                </div>
+            ))}
+        </div>
+    )
+})
+
 const MockFile: FC<Record<string, unknown>> = jest.fn((props) => (
     <div data-testid={`file-${(props.field as FieldContentItem).id}`}>
         {(props.value as { name?: string })?.name ?? ''}
+    </div>
+))
+
+const MockMultiselect: FC<Record<string, unknown>> = jest.fn((props) => (
+    <div data-testid={`multiselect-${(props.field as FieldContentItem).id}`}>
+        {((props.value as (string | number)[] | undefined) ?? []).join(',')}
+    </div>
+))
+
+const MockStatic: FC<Record<string, unknown>> = jest.fn((props) => (
+    <div data-testid={`static-${(props.field as StaticFieldContentItem).id}`}>
+        {(props.field as StaticFieldContentItem).text}
+    </div>
+))
+
+const MockBlockchain: FC<Record<string, unknown>> = jest.fn((props) => (
+    <div data-testid={`blockchain-${(props.field as FieldContentItem).id}`}>{String(props.value ?? '')}</div>
+))
+
+const MockSustainability: FC<Record<string, unknown>> = jest.fn((props) => (
+    <div data-testid={`sustainability-${(props.field as FieldContentItem).id}`}>
+        {(props.value as SustainabilityValue | undefined)?.address ?? ''}
     </div>
 ))
 
@@ -66,6 +104,16 @@ const makeComponents = (withError = false): EditorComponentMap => ({
     file: MockFile as EditorComponentMap['file'],
     section: MockSection as EditorComponentMap['section'],
     ...(withError ? { error: MockError as EditorComponentMap['error'] } : {}),
+})
+
+/** The same map plus every optional key, for the newer field types. */
+const makeComponentsWithNewTypes = (withError = false): EditorComponentMap => ({
+    ...makeComponents(withError),
+    array_obj: MockArrayObj as EditorComponentMap['array_obj'],
+    multiselect: MockMultiselect as EditorComponentMap['multiselect'],
+    static: MockStatic as EditorComponentMap['static'],
+    blockchain: MockBlockchain as EditorComponentMap['blockchain'],
+    sustainability: MockSustainability as EditorComponentMap['sustainability'],
 })
 
 const baseDef = (content: FormDefinition['content']): FormDefinition => ({
@@ -258,6 +306,99 @@ describe('FormEditor', () => {
             expect(onChange).toHaveBeenCalledTimes(1)
             const [newDoc] = onChange.mock.calls[0] as [FormDocument]
             expect(newDoc.values['1']).toEqual([undefined])
+        })
+    })
+
+    describe('array_obj row handlers', () => {
+        const directorsDef = () =>
+            baseDef([
+                {
+                    id: 10,
+                    type: 'array_obj',
+                    label: 'Directors',
+                    items: [
+                        { id: 11, type: 'string', label: 'Name' },
+                        { id: 12, type: 'date', label: 'Appointed' },
+                    ],
+                },
+            ])
+
+        const renderWith = (values: FormValues, onChange: jest.Mock) =>
+            renderEditor(
+                { definition: directorsDef(), data: doc(values) },
+                { components: makeComponentsWithNewTypes(), onChange },
+            )
+
+        it('onAddItem appends an empty row, not undefined', () => {
+            const onChange = jest.fn()
+            renderWith({ '10': [{ '11': 'Jane' }] }, onChange)
+
+            const props = lastCallProps(MockArrayObj as unknown as jest.Mock)
+            ;(props.onAddItem as () => void)()
+
+            const [newDoc] = onChange.mock.calls[0] as [FormDocument]
+            expect(newDoc.values['10']).toEqual([{ '11': 'Jane' }, {}])
+        })
+
+        it('onAddItem creates the list when no prior value exists', () => {
+            const onChange = jest.fn()
+            renderWith({}, onChange)
+            ;(lastCallProps(MockArrayObj as unknown as jest.Mock).onAddItem as () => void)()
+
+            const [newDoc] = onChange.mock.calls[0] as [FormDocument]
+            expect(newDoc.values['10']).toEqual([{}])
+        })
+
+        it('onRemoveItem drops the row at the given index', () => {
+            const onChange = jest.fn()
+            renderWith({ '10': [{ '11': 'A' }, { '11': 'B' }] }, onChange)
+            ;(lastCallProps(MockArrayObj as unknown as jest.Mock).onRemoveItem as (i: number) => void)(0)
+
+            const [newDoc] = onChange.mock.calls[0] as [FormDocument]
+            expect(newDoc.values['10']).toEqual([{ '11': 'B' }])
+        })
+
+        it('onMoveItem reorders rows', () => {
+            const onChange = jest.fn()
+            renderWith({ '10': [{ '11': 'A' }, { '11': 'B' }] }, onChange)
+            ;(lastCallProps(MockArrayObj as unknown as jest.Mock).onMoveItem as (f: number, t: number) => void)(1, 0)
+
+            const [newDoc] = onChange.mock.calls[0] as [FormDocument]
+            expect(newDoc.values['10']).toEqual([{ '11': 'B' }, { '11': 'A' }])
+        })
+
+        it('a cell onChange writes only that cell of that row', () => {
+            const onChange = jest.fn()
+            renderWith({ '10': [{ '11': 'Jane', '12': '2024-01-05' }, { '11': 'John' }] }, onChange)
+
+            const cellProps = lastCallProps(MockString as jest.Mock)
+            ;(cellProps.onChange as (v: unknown) => void)('Joan')
+
+            const [newDoc] = onChange.mock.calls[0] as [FormDocument]
+            expect(newDoc.values['10']).toEqual([{ '11': 'Jane', '12': '2024-01-05' }, { '11': 'Joan' }])
+        })
+
+        it('a cell onChange replaces a row that is not an object', () => {
+            const onChange = jest.fn()
+            renderWith({ '10': [{}] }, onChange)
+            ;(lastCallProps(MockString as jest.Mock).onChange as (v: unknown) => void)('Jane')
+
+            const [newDoc] = onChange.mock.calls[0] as [FormDocument]
+            expect(newDoc.values['10']).toEqual([{ '11': 'Jane' }])
+        })
+
+        it('cell handlers are referentially stable across renders', () => {
+            const onChange = jest.fn()
+            const tree = (
+                <Form definition={directorsDef()} data={doc({ '10': [{ '11': 'Jane' }] })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={onChange} />
+                </Form>
+            )
+            const { rerender } = render(tree)
+
+            const first = lastCallProps(MockString as jest.Mock).onChange
+            rerender(tree)
+            expect(lastCallProps(MockString as jest.Mock).onChange).toBe(first)
         })
     })
 
@@ -702,5 +843,320 @@ describe('FormEditor', () => {
         )
 
         expect(container.innerHTML).toBe('')
+    })
+
+    describe('suggestions', () => {
+        const suggestion = { value: 'Acme Ltd', confidence: 0.9, source: 'certificate of incorporation, p.1' }
+        const definition = baseDef([{ id: 1, type: 'string', label: 'Name' }])
+
+        const lastCall = (mock: jest.Mock) => mock.mock.calls.at(-1)?.[0] as Record<string, unknown>
+
+        const withSuggestion = (values: FormValues = {}): FormDocument => ({
+            ...doc(values),
+            suggestions: { '1': suggestion },
+        })
+
+        it('passes accept and reject handlers to every field', () => {
+            renderEditor({ definition, data: doc() }, { components: makeComponents(), onChange: noop })
+
+            expect(MockString).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    onAcceptSuggestion: expect.any(Function),
+                    onRejectSuggestion: expect.any(Function),
+                }),
+                undefined,
+            )
+        })
+
+        it('accept copies the suggested value into values and keeps the suggestion', () => {
+            const onChange = jest.fn()
+            renderEditor({ definition, data: withSuggestion() }, { components: makeComponents(), onChange })
+            ;(lastCall(MockString as jest.Mock).onAcceptSuggestion as () => void)()
+
+            expect(onChange).toHaveBeenCalledTimes(1)
+            const [document, validation] = onChange.mock.calls[0] as [FormDocument, FormValidationResult]
+            expect(document.values['1']).toBe('Acme Ltd')
+            expect(document.suggestions).toEqual({ '1': suggestion })
+            expect(validation.valid).toBe(true)
+        })
+
+        it('accept overwrites an existing value', () => {
+            const onChange = jest.fn()
+            renderEditor(
+                { definition, data: withSuggestion({ '1': 'typed' }) },
+                { components: makeComponents(), onChange },
+            )
+            ;(lastCall(MockString as jest.Mock).onAcceptSuggestion as () => void)()
+
+            expect((onChange.mock.calls[0]?.[0] as FormDocument).values['1']).toBe('Acme Ltd')
+        })
+
+        it('reject removes the suggestion and leaves the value alone', () => {
+            const onChange = jest.fn()
+            renderEditor(
+                { definition, data: withSuggestion({ '1': 'typed' }) },
+                { components: makeComponents(), onChange },
+            )
+            ;(lastCall(MockString as jest.Mock).onRejectSuggestion as () => void)()
+
+            const document = onChange.mock.calls[0]?.[0] as FormDocument
+            expect(document.values['1']).toBe('typed')
+            expect('suggestions' in document).toBe(false)
+        })
+
+        it('does not fire onChange when the field has no suggestion', () => {
+            const onChange = jest.fn()
+            renderEditor({ definition, data: doc() }, { components: makeComponents(), onChange })
+            ;(lastCall(MockString as jest.Mock).onAcceptSuggestion as () => void)()
+            ;(lastCall(MockString as jest.Mock).onRejectSuggestion as () => void)()
+
+            expect(onChange).not.toHaveBeenCalled()
+        })
+
+        it('does not mutate the document it was given', () => {
+            const data = withSuggestion({ '1': 'typed' })
+            renderEditor({ definition, data }, { components: makeComponents(), onChange: noop })
+            ;(lastCall(MockString as jest.Mock).onAcceptSuggestion as () => void)()
+
+            expect(data.values['1']).toBe('typed')
+        })
+
+        it('keeps handlers referentially stable across re-renders', () => {
+            const { rerender } = render(
+                <Form definition={definition} data={withSuggestion()}>
+                    <FormEditor components={makeComponents()} onChange={noop} />
+                </Form>,
+            )
+            const first = lastCall(MockString as jest.Mock)
+
+            rerender(
+                <Form definition={definition} data={withSuggestion({ '1': 'typed' })}>
+                    <FormEditor components={makeComponents()} onChange={noop} />
+                </Form>,
+            )
+            const second = lastCall(MockString as jest.Mock)
+
+            expect(second.onAcceptSuggestion).toBe(first.onAcceptSuggestion)
+            expect(second.onRejectSuggestion).toBe(first.onRejectSuggestion)
+        })
+
+        it('supplies accept and reject to array fields alongside the array handlers', () => {
+            const arrayDef = baseDef([{ id: 1, type: 'array', label: 'Tags', item: { type: 'string', label: 'Tag' } }])
+            renderEditor(
+                { definition: arrayDef, data: doc({ '1': [] }) },
+                { components: makeComponents(), onChange: noop },
+            )
+
+            expect(MockArray).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    onAddItem: expect.any(Function),
+                    onAcceptSuggestion: expect.any(Function),
+                    onRejectSuggestion: expect.any(Function),
+                }),
+                undefined,
+            )
+        })
+    })
+    describe('static and multiselect fields', () => {
+        const options = [
+            { value: 'a', label: 'A' },
+            { value: 'b', label: 'B' },
+        ]
+
+        const def = baseDef([
+            { id: 1, type: 'static', text: 'Read this first.' },
+            { id: 2, type: 'multiselect', label: 'Tags', options, validation: { required: true } },
+        ])
+
+        it('renders a static block without value or change handlers', () => {
+            render(
+                <Form definition={def} data={doc({ '2': ['a'] })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={noop} />
+                </Form>,
+            )
+
+            expect(screen.getByTestId('static-1').textContent).toBe('Read this first.')
+            expect(Object.keys(lastCallProps(MockStatic as unknown as jest.Mock))).toEqual(['field'])
+        })
+
+        it('writes a whole array through the multiselect onChange', () => {
+            const onChange = jest.fn()
+            render(
+                <Form definition={def} data={doc({ '2': ['a'] })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={onChange} />
+                </Form>,
+            )
+
+            const props = lastCallProps(MockMultiselect as unknown as jest.Mock)
+            ;(props.onChange as (value: unknown) => void)(['a', 'b'])
+
+            const [document, validation] = onChange.mock.calls[0] as [FormDocument, FormValidationResult]
+            expect(document.values['2']).toEqual(['a', 'b'])
+            expect(validation.valid).toBe(true)
+        })
+
+        it('reports a required error when the selection is cleared to undefined', () => {
+            const onChange = jest.fn()
+            render(
+                <Form definition={def} data={doc({ '2': ['a'] })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={onChange} />
+                </Form>,
+            )
+
+            const props = lastCallProps(MockMultiselect as unknown as jest.Mock)
+            ;(props.onChange as (value: unknown) => void)(undefined)
+
+            const [, validation] = onChange.mock.calls[0] as [FormDocument, FormValidationResult]
+            expect(validation.fieldErrors.get(2)?.[0]?.rule).toBe('REQUIRED')
+        })
+
+        it('reports a required error for an empty array too', () => {
+            const onChange = jest.fn()
+            render(
+                <Form definition={def} data={doc({ '2': ['a'] })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={onChange} />
+                </Form>,
+            )
+
+            const props = lastCallProps(MockMultiselect as unknown as jest.Mock)
+            ;(props.onChange as (value: unknown) => void)([])
+
+            const [, validation] = onChange.mock.calls[0] as [FormDocument, FormValidationResult]
+            expect(validation.fieldErrors.get(2)?.[0]?.rule).toBe('REQUIRED')
+        })
+
+        it('hides a field whose condition no longer matches the selection', () => {
+            const conditional = baseDef([
+                { id: 1, type: 'multiselect', label: 'Tags', options },
+                { id: 2, type: 'string', label: 'Details', condition: { field: 1, op: 'in', value: ['b'] } },
+            ])
+
+            const { rerender } = render(
+                <Form definition={conditional} data={doc({ '1': ['a', 'b'] })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={noop} />
+                </Form>,
+            )
+            expect(screen.getByTestId('string-2')).toBeTruthy()
+
+            rerender(
+                <Form definition={conditional} data={doc({ '1': ['a'] })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={noop} />
+                </Form>,
+            )
+            expect(screen.queryByTestId('string-2')).toBeNull()
+        })
+
+        it('keeps working when the optional components are not supplied', () => {
+            expect(() =>
+                render(
+                    <Form definition={def} data={doc({ '2': ['a'] })}>
+                        <FormEditor components={makeComponents()} onChange={noop} />
+                    </Form>,
+                ),
+            ).not.toThrow()
+            expect(screen.queryByTestId('static-1')).toBeNull()
+            expect(screen.queryByTestId('multiselect-2')).toBeNull()
+        })
+    })
+
+    describe('blockchain and sustainability fields', () => {
+        const ADDRESS = 'eip155:1/erc20:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'
+
+        const def = baseDef([
+            { id: 1, type: 'blockchain', label: 'Token', validation: { required: true } },
+            { id: 2, type: 'sustainability', label: 'Footprint', validation: { required: true } },
+        ])
+
+        it('renders both with their values', () => {
+            render(
+                <Form definition={def} data={doc({ '1': ADDRESS, '2': { address: ADDRESS } })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={noop} />
+                </Form>,
+            )
+
+            expect(screen.getByTestId('blockchain-1').textContent).toBe(ADDRESS)
+            expect(screen.getByTestId('sustainability-2').textContent).toBe(ADDRESS)
+        })
+
+        it('writes a blockchain address through onChange', () => {
+            const onChange = jest.fn()
+            render(
+                <Form definition={def} data={doc({ '2': { address: ADDRESS } })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={onChange} />
+                </Form>,
+            )
+
+            const props = lastCallProps(MockBlockchain as unknown as jest.Mock)
+            ;(props.onChange as (value: unknown) => void)(ADDRESS)
+
+            const [document, validation] = onChange.mock.calls[0] as [FormDocument, FormValidationResult]
+            expect(document.values['1']).toBe(ADDRESS)
+            expect(validation.valid).toBe(true)
+        })
+
+        it('writes a sustainability object wholesale through onChange', () => {
+            const onChange = jest.fn()
+            render(
+                <Form definition={def} data={doc({ '1': ADDRESS })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={onChange} />
+                </Form>,
+            )
+
+            const value = { address: ADDRESS, ccri: 'CCRI-1', cmc: '3408' }
+            const props = lastCallProps(MockSustainability as unknown as jest.Mock)
+            ;(props.onChange as (value: unknown) => void)(value)
+
+            const [document, validation] = onChange.mock.calls[0] as [FormDocument, FormValidationResult]
+            expect(document.values['2']).toEqual(value)
+            expect(validation.valid).toBe(true)
+        })
+
+        it('reports a required error when only the address is cleared', () => {
+            const onChange = jest.fn()
+            render(
+                <Form definition={def} data={doc({ '1': ADDRESS, '2': { address: ADDRESS } })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={onChange} />
+                </Form>,
+            )
+
+            const props = lastCallProps(MockSustainability as unknown as jest.Mock)
+            ;(props.onChange as (value: unknown) => void)({ address: '', ccri: 'CCRI-1', cmc: '' })
+
+            const [, validation] = onChange.mock.calls[0] as [FormDocument, FormValidationResult]
+            expect(validation.fieldErrors.get(2)?.[0]?.rule).toBe('REQUIRED')
+        })
+
+        it('re-evaluates a condition driven by a blockchain field', () => {
+            const conditional = baseDef([
+                { id: 1, type: 'blockchain', label: 'Token' },
+                { id: 2, type: 'string', label: 'Notes', condition: { field: 1, op: 'set' } },
+            ])
+
+            const { rerender } = render(
+                <Form definition={conditional} data={doc({})}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={noop} />
+                </Form>,
+            )
+            expect(screen.queryByTestId('string-2')).toBeNull()
+
+            rerender(
+                <Form definition={conditional} data={doc({ '1': ADDRESS })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={noop} />
+                </Form>,
+            )
+            expect(screen.getByTestId('string-2')).toBeTruthy()
+        })
+
+        it('renders nothing instead of crashing when their components are absent', () => {
+            expect(() =>
+                render(
+                    <Form definition={def} data={doc({ '1': ADDRESS, '2': { address: ADDRESS } })}>
+                        <FormEditor components={makeComponents()} onChange={noop} />
+                    </Form>,
+                ),
+            ).not.toThrow()
+            expect(screen.queryByTestId('blockchain-1')).toBeNull()
+            expect(screen.queryByTestId('sustainability-2')).toBeNull()
+        })
     })
 })

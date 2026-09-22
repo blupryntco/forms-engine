@@ -580,6 +580,111 @@ describe('FormDefinitionEditor', () => {
         })
     })
 
+    describe('array_obj sub-fields', () => {
+        const directors = (): FormDefinition =>
+            defWith([
+                {
+                    id: 10,
+                    type: 'array_obj',
+                    label: 'Directors',
+                    items: [
+                        { id: 11, type: 'string', label: 'Name' },
+                        { id: 12, type: 'date', label: 'Appointed' },
+                    ],
+                },
+            ])
+
+        const itemsOf = (editor: FormDefinitionEditor) => (editor.toJSON().content[0] as FieldContentItem).items
+
+        it('nextId counts sub-field ids', () => {
+            expect(new FormDefinitionEditor(directors()).nextId()).toBe(13)
+        })
+
+        it('addField does not mint an id that collides with a sub-field', () => {
+            const editor = new FormDefinitionEditor(directors())
+            editor.addField({ type: 'string', label: 'Company' })
+            expect(editor.toJSON().content[1]?.id).toBe(13)
+        })
+
+        it('addField rejects an explicit id already used by a sub-field', () => {
+            const editor = new FormDefinitionEditor(directors())
+            expect(() => editor.addField({ id: 11, type: 'string', label: 'Company' })).toThrow('already exists')
+        })
+
+        it('setArrayItems replaces the whole list', () => {
+            const editor = new FormDefinitionEditor(directors())
+            editor.setArrayItems(10, [{ id: 21, type: 'string', label: 'Role' }])
+            expect(itemsOf(editor)).toEqual([{ id: 21, type: 'string', label: 'Role' }])
+        })
+
+        it('getArrayItems returns the current list', () => {
+            expect(new FormDefinitionEditor(directors()).getArrayItems(10)).toHaveLength(2)
+        })
+
+        it('addArrayItemField appends with an auto-assigned id', () => {
+            const editor = new FormDefinitionEditor(directors())
+            const id = editor.addArrayItemField(10, { type: 'number', label: 'Share' })
+            expect(id).toBe(13)
+            expect(itemsOf(editor)?.[2]).toEqual({ id: 13, type: 'number', label: 'Share' })
+        })
+
+        it('addArrayItemField rejects a taken id', () => {
+            const editor = new FormDefinitionEditor(directors())
+            expect(() => editor.addArrayItemField(10, { id: 12, type: 'number', label: 'Share' })).toThrow(
+                'already exists',
+            )
+        })
+
+        it('updateArrayItemField merges and keeps the id', () => {
+            const editor = new FormDefinitionEditor(directors())
+            editor.updateArrayItemField(10, 11, { label: 'Full name', validation: { required: true } })
+            expect(itemsOf(editor)?.[0]).toEqual({
+                id: 11,
+                type: 'string',
+                label: 'Full name',
+                validation: { required: true },
+            })
+        })
+
+        it('removeArrayItemField removes one sub-field', () => {
+            const editor = new FormDefinitionEditor(directors())
+            editor.removeArrayItemField(10, 11)
+            expect(itemsOf(editor)).toEqual([{ id: 12, type: 'date', label: 'Appointed' }])
+        })
+
+        it('moveArrayItemField reorders', () => {
+            const editor = new FormDefinitionEditor(directors())
+            editor.moveArrayItemField(10, 1, 0)
+            expect(itemsOf(editor)?.map((f) => f.id)).toEqual([12, 11])
+        })
+
+        it('setArrayKind sets and clears the layout hint', () => {
+            const editor = new FormDefinitionEditor(directors())
+            editor.setArrayKind(10, 'table')
+            expect((editor.toJSON().content[0] as FieldContentItem).kind).toBe('table')
+
+            editor.setArrayKind(10, undefined)
+            expect('kind' in (editor.toJSON().content[0] as FieldContentItem)).toBe(false)
+        })
+
+        it('throws for a field that is not an array_obj', () => {
+            const editor = new FormDefinitionEditor(defWith([{ id: 1, type: 'string', label: 'A' }]))
+            expect(() => editor.setArrayItems(1, [])).toThrow('not an array_obj')
+            expect(() => editor.setArrayKind(1, 'table')).toThrow('not an array_obj')
+        })
+
+        it('throws for an unknown sub-field', () => {
+            const editor = new FormDefinitionEditor(directors())
+            expect(() => editor.updateArrayItemField(10, 99, { label: 'X' })).toThrow('not found')
+            expect(() => editor.removeArrayItemField(10, 99)).toThrow('not found')
+        })
+
+        it('throws for an out-of-range move', () => {
+            const editor = new FormDefinitionEditor(directors())
+            expect(() => editor.moveArrayItemField(10, 5, 0)).toThrow('out of range')
+        })
+    })
+
     describe('setLabel', () => {
         it('sets label on a field', () => {
             const editor = new FormDefinitionEditor(defWith([{ id: 1, type: 'string', label: 'Old' }]))
@@ -1072,11 +1177,15 @@ describe('FormDefinitionEditor', () => {
 
         it('sets validation on a date field', () => {
             const editor = new FormDefinitionEditor(defWith([{ id: 1, type: 'date', label: 'DOB' }]))
-            editor.setValidation(1, { required: true, min: '2000-01-01', max: '2025-12-31' })
+            editor.setValidation(1, {
+                required: true,
+                minDate: '2000-01-01T00:00:00.000Z',
+                maxDate: '2025-12-31T00:00:00.000Z',
+            })
             expect((editor.toJSON().content[0] as FieldContentItem).validation).toEqual({
                 required: true,
-                min: '2000-01-01',
-                max: '2025-12-31',
+                minDate: '2000-01-01T00:00:00.000Z',
+                maxDate: '2025-12-31T00:00:00.000Z',
             })
         })
 
@@ -1095,6 +1204,159 @@ describe('FormDefinitionEditor', () => {
                 minItems: 1,
                 maxItems: 10,
             })
+        })
+    })
+
+    describe('metadata setters', () => {
+        const defWithBoth = (): FormDefinition => ({
+            id: 'f',
+            version: '1.0.0',
+            title: 'F',
+            content: [
+                { id: 1, type: 'string', label: 'Name' },
+                { id: 2, type: 'section', title: 'Details', content: [{ id: 3, type: 'string', label: 'Note' }] },
+            ],
+        })
+
+        const cases = [
+            ['setPlaceholder', 'placeholder', 'Acme Ltd'],
+            ['setAnswerGuidelines', 'answer_guidelines', 'Use the registered name'],
+            ['setReferenceId', 'reference_id', 'KYI-3.1.a'],
+        ] as const
+
+        it.each(cases)('%s sets %s on a field', (method, property, value) => {
+            const editor = new FormDefinitionEditor(defWithBoth())
+            editor[method](1, value)
+            expect((editor.toJSON().content[0] as FieldContentItem)[property]).toBe(value)
+        })
+
+        it.each(cases)('%s sets %s on a section', (method, property, value) => {
+            const editor = new FormDefinitionEditor(defWithBoth())
+            editor[method](2, value)
+            expect((editor.toJSON().content[1] as SectionContentItem)[property]).toBe(value)
+        })
+
+        it.each(cases)('%s removes %s when passed undefined', (method, property, value) => {
+            const editor = new FormDefinitionEditor(defWithBoth())
+            editor[method](1, value)
+            editor[method](1, undefined)
+            expect(property in (editor.toJSON().content[0] as FieldContentItem)).toBe(false)
+        })
+
+        it.each(cases)('%s throws for an unknown id', (method) => {
+            expect(() => new FormDefinitionEditor(defWithBoth())[method](99, 'x')).toThrow('Item with id 99 not found')
+        })
+
+        it('returns this for chaining', () => {
+            const editor = new FormDefinitionEditor(defWithBoth())
+            expect(editor.setPlaceholder(1, 'a').setAnswerGuidelines(1, 'b').setReferenceId(1, 'c')).toBe(editor)
+        })
+
+        it('carries metadata through addField and updateField', () => {
+            const editor = new FormDefinitionEditor(defWithBoth())
+            editor.addField({ id: 4, type: 'string', label: 'Extra', placeholder: 'hint' })
+            editor.updateField(4, { answer_guidelines: 'guide', reference_id: 'REF-1' })
+
+            const field = editor.toJSON().content[2] as FieldContentItem
+            expect(field.placeholder).toBe('hint')
+            expect(field.answer_guidelines).toBe('guide')
+            expect(field.reference_id).toBe('REF-1')
+        })
+    })
+    describe('static fields', () => {
+        const defWithStatic = () => defWith([{ id: 1, type: 'static', text: 'Read this.' }])
+
+        it('adds a static field without a label', () => {
+            const editor = new FormDefinitionEditor(emptyDef())
+            editor.addField({ type: 'static', text: 'Read this.' })
+            expect(editor.toJSON().content[0]).toEqual({ id: 1, type: 'static', text: 'Read this.' })
+        })
+
+        it('adds a static field with an optional label', () => {
+            const editor = new FormDefinitionEditor(emptyDef())
+            editor.addField({ type: 'static', text: 'Read this.', label: 'Notice' })
+            expect(editor.toJSON().content[0]).toMatchObject({ type: 'static', label: 'Notice' })
+        })
+
+        it('setText updates the text', () => {
+            const editor = new FormDefinitionEditor(defWithStatic())
+            editor.setText(1, 'Updated.')
+            expect((editor.toJSON().content[0] as { text: string }).text).toBe('Updated.')
+        })
+
+        it('setText returns this for chaining', () => {
+            const editor = new FormDefinitionEditor(defWithStatic())
+            expect(editor.setText(1, 'x')).toBe(editor)
+        })
+
+        it('setText throws for an unknown id', () => {
+            expect(() => new FormDefinitionEditor(defWithStatic()).setText(99, 'x')).toThrow(
+                'Item with id 99 not found',
+            )
+        })
+
+        it('setText throws for a non-static field', () => {
+            const editor = new FormDefinitionEditor(defWith([{ id: 1, type: 'string', label: 'Name' }]))
+            expect(() => editor.setText(1, 'x')).toThrow('Field 1 is not a static field')
+        })
+
+        it('setValidation throws for a static field', () => {
+            const editor = new FormDefinitionEditor(defWithStatic())
+            expect(() => editor.setValidation(1, { required: true })).toThrow('Static fields do not have validation')
+        })
+
+        it('updateField can change the text', () => {
+            const editor = new FormDefinitionEditor(defWithStatic())
+            editor.updateField(1, { text: 'Updated.' })
+            expect((editor.toJSON().content[0] as { text: string }).text).toBe('Updated.')
+        })
+
+        it('setCondition works on a static field', () => {
+            const editor = new FormDefinitionEditor(defWithStatic())
+            editor.setCondition(1, { field: 2, op: 'set' })
+            expect(editor.toJSON().content[0]?.condition).toEqual({ field: 2, op: 'set' })
+        })
+
+        it('listFields includes static fields', () => {
+            const editor = new FormDefinitionEditor(
+                defWith([
+                    { id: 1, type: 'static', text: 'Note' },
+                    { id: 2, type: 'string', label: 'Name' },
+                ]),
+            )
+            expect(editor.listFields().map((f) => f.id)).toEqual([1, 2])
+        })
+    })
+
+    describe('multiselect fields', () => {
+        const options = [
+            { value: 'a', label: 'A' },
+            { value: 'b', label: 'B' },
+        ]
+        const defWithMultiselect = () => defWith([{ id: 1, type: 'multiselect', label: 'Tags', options }])
+
+        it('setOptions works on a multiselect field', () => {
+            const editor = new FormDefinitionEditor(defWithMultiselect())
+            const next = [{ value: 'c', label: 'C' }]
+            editor.setOptions(1, next)
+            expect((editor.toJSON().content[0] as FieldContentItem).options).toEqual(next)
+        })
+
+        it('setOptions still works on a select field', () => {
+            const editor = new FormDefinitionEditor(defWith([{ id: 1, type: 'select', label: 'Colour', options }]))
+            editor.setOptions(1, [{ value: 'c', label: 'C' }])
+            expect((editor.toJSON().content[0] as FieldContentItem).options).toHaveLength(1)
+        })
+
+        it('setOptions throws for any other field type', () => {
+            const editor = new FormDefinitionEditor(defWith([{ id: 1, type: 'string', label: 'Name' }]))
+            expect(() => editor.setOptions(1, options)).toThrow('Field 1 is not a select or multiselect field')
+        })
+
+        it('setValidation accepts required on a multiselect field', () => {
+            const editor = new FormDefinitionEditor(defWithMultiselect())
+            editor.setValidation(1, { required: true })
+            expect((editor.toJSON().content[0] as FieldContentItem).validation).toEqual({ required: true })
         })
     })
 })

@@ -1,10 +1,17 @@
 import { type FC, useCallback, useRef } from 'react'
 
-import { FieldContentItem, FormDocument, FormEngine, FormValidationResult } from '@bluprynt/forms-core'
+import {
+    applySuggestion,
+    FieldContentItem,
+    FormDocument,
+    FormEngine,
+    FormValidationResult,
+    removeSuggestion,
+} from '@bluprynt/forms-core'
 
 import { FormContent } from './form'
 import { useFormContext } from './form-context'
-import type { EditorArrayItemProps, EditorComponentMap, EditorFieldProps } from './types'
+import type { EditorArrayItemProps, EditorArrayObjItemProps, EditorComponentMap, EditorFieldProps } from './types'
 
 type FormEditorProps = {
     components: EditorComponentMap
@@ -15,7 +22,11 @@ export const FormEditor: FC<FormEditorProps> = ({ components, onChange }) => {
     const { definition, data, visibilityMap, fieldErrors, section, engine, showInlineValidation, documentErrors } =
         useFormContext()
 
-    const { renderFieldProps, renderArrayItemProps } = useEditorHandlers(engine, data, onChange)
+    const { renderFieldProps, renderArrayItemProps, renderArrayObjItemProps } = useEditorHandlers(
+        engine,
+        data,
+        onChange,
+    )
 
     if (!definition || !data || (documentErrors && documentErrors.length > 0)) return null
 
@@ -25,12 +36,14 @@ export const FormEditor: FC<FormEditorProps> = ({ components, onChange }) => {
             items={definition.content}
             visibilityMap={visibilityMap}
             values={data.values}
+            suggestions={data.suggestions}
             fieldErrors={fieldErrors}
             components={components}
             section={section}
             showInlineValidation={showInlineValidation}
             renderFieldProps={renderFieldProps}
             renderArrayItemProps={renderArrayItemProps}
+            renderArrayObjItemProps={renderArrayObjItemProps}
         />
     )
 }
@@ -42,6 +55,7 @@ export const useEditorHandlers = (
 ): {
     renderFieldProps: (field: FieldContentItem) => EditorFieldProps
     renderArrayItemProps: (field: FieldContentItem, index: number) => EditorArrayItemProps
+    renderArrayObjItemProps: (field: FieldContentItem, index: number, subFieldId: number) => EditorArrayObjItemProps
 } => {
     // Latest ref pattern
     const stateRef = useRef({ data, onChange, engine })
@@ -80,7 +94,7 @@ export const useEditorHandlers = (
             }
         >(),
     )
-    const getArrayHandlers = useCallback((fieldId: number) => {
+    const getArrayHandlers = useCallback((fieldId: number, newItem: () => unknown) => {
         const key = String(fieldId)
 
         let handlers = arrayHandlersMap.current.get(key)
@@ -98,7 +112,7 @@ export const useEditorHandlers = (
             handlers = {
                 onAddItem: () =>
                     fire((values) => {
-                        values.push(undefined)
+                        values.push(newItem())
                         return values
                     }),
                 onRemoveItem: (index: number) =>
@@ -114,6 +128,37 @@ export const useEditorHandlers = (
                     }),
             }
             arrayHandlersMap.current.set(key, handlers)
+        }
+        return handlers
+    }, [])
+
+    // Suggestion accept/reject handlers
+
+    const suggestionHandlersMap = useRef(
+        new Map<string, { onAcceptSuggestion: () => void; onRejectSuggestion: () => void }>(),
+    )
+    const getSuggestionHandlers = useCallback((fieldId: number) => {
+        const key = String(fieldId)
+
+        let handlers = suggestionHandlersMap.current.get(key)
+        if (!handlers) {
+            // Both helpers return the same document when the field has no
+            // suggestion, which makes each handler a no-op in that case.
+            const fire = (next: (document: FormDocument) => FormDocument) => {
+                const { data, onChange, engine } = stateRef.current
+                if (!data || !engine) return
+
+                const document = next(data)
+                if (document === data) return
+
+                onChange(document, engine.validate(document))
+            }
+
+            handlers = {
+                onAcceptSuggestion: () => fire((document) => applySuggestion(document, fieldId)),
+                onRejectSuggestion: () => fire((document) => removeSuggestion(document, fieldId)),
+            }
+            suggestionHandlersMap.current.set(key, handlers)
         }
         return handlers
     }, [])
@@ -143,18 +188,61 @@ export const useEditorHandlers = (
         return handler
     }, [])
 
+    // `array_obj` cell onChange handler
+
+    const arrayObjItemOnChangeMap = useRef(new Map<string, (value: unknown) => void>())
+    const getArrayObjItemOnChange = useCallback(
+        (fieldId: number, index: number, subFieldId: number): ((value: unknown) => void) => {
+            const mapKey = `${fieldId}-${index}-${subFieldId}`
+
+            let handler = arrayObjItemOnChangeMap.current.get(mapKey)
+            if (!handler) {
+                handler = (newValue: unknown) => {
+                    const fieldKey = String(fieldId)
+
+                    const { data, onChange, engine } = stateRef.current
+                    if (!data || !engine) return
+
+                    const rows = [...((data.values[fieldKey] as unknown[] | undefined) ?? [])]
+                    const current = rows[index]
+                    const row =
+                        typeof current === 'object' && current !== null && !Array.isArray(current)
+                            ? (current as Record<string, unknown>)
+                            : {}
+
+                    rows[index] = { ...row, [String(subFieldId)]: newValue }
+
+                    const document: FormDocument = { ...data, values: { ...data.values, [fieldKey]: rows } }
+                    onChange(document, engine.validate(document))
+                }
+                arrayObjItemOnChangeMap.current.set(mapKey, handler)
+            }
+            return handler
+        },
+        [],
+    )
+
     return {
         renderFieldProps: (field: FieldContentItem): EditorFieldProps => {
-            if (field.type === 'array') {
+            if (field.type === 'array' || field.type === 'array_obj') {
+                const newItem = field.type === 'array_obj' ? () => ({}) : () => undefined
                 return {
                     onChange: getFieldOnChange(field.id),
-                    ...getArrayHandlers(field.id),
+                    ...getArrayHandlers(field.id, newItem),
+                    ...getSuggestionHandlers(field.id),
                 }
             }
-            return { onChange: getFieldOnChange(field.id) }
+            return { onChange: getFieldOnChange(field.id), ...getSuggestionHandlers(field.id) }
         },
         renderArrayItemProps: (field: FieldContentItem, index: number): EditorArrayItemProps => ({
             onChange: getArrayItemOnChange(field.id, index),
+        }),
+        renderArrayObjItemProps: (
+            field: FieldContentItem,
+            index: number,
+            subFieldId: number,
+        ): EditorArrayObjItemProps => ({
+            onChange: getArrayObjItemOnChange(field.id, index, subFieldId),
         }),
     } as const
 }

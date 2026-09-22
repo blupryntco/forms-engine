@@ -22,25 +22,49 @@
 
 ## 2. Content Items
 
-Every item in `content` has a `type`. Types are: `"string"`, `"number"`, `"boolean"`, `"date"`, `"select"`, `"array"`, `"file"`, `"section"`.
+Every item in `content` has a `type`. Types are: `"string"`, `"number"`, `"boolean"`, `"date"`, `"select"`, `"multiselect"`, `"array"`, `"array_obj"`, `"file"`, `"static"`, `"section"`.
 
-Types `"string"` through `"array"` are **fields** — they produce values. Type `"section"` is a **grouping container** — it holds nested content items.
+Most types are **fields** — they produce values. Two are different:
+
+- `"section"` is a **grouping container** — it holds nested content items and has no value of its own.
+- `"static"` is a **display-only block** — it renders text inside the form but produces no value. It never appears in `values`, carries no `validation`, and cannot be referenced by another item's `condition`.
 
 ### 2.1 Common Properties (all types)
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `id` | `number` | yes | Unique numeric identifier across the entire schema. Must be a positive integer. |
-| `type` | `string` | yes | One of: `"string"`, `"number"`, `"boolean"`, `"date"`, `"select"`, `"array"`, `"file"`, `"section"`. |
+| `type` | `string` | yes | One of: `"string"`, `"number"`, `"boolean"`, `"date"`, `"select"`, `"multiselect"`, `"array"`, `"array_obj"`, `"file"`, `"static"`, `"blockchain"`, `"sustainability"`, `"section"`. |
 | `condition` | `Condition` | no | Visibility condition. When present, the item is only visible (and validated) when the condition evaluates to `true`. See §5. |
 
-### 2.2 Common Field Properties (all types except `"section"`)
+### 2.2 Common Field Properties (all types except `"section"` and `"static"`)
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `label` | `string` | yes | Human-readable field label. |
 | `description` | `string` | no | Help text or hint for the field. |
+| `placeholder` | `string` | no | Placeholder shown inside the empty input control. |
+| `answer_guidelines` | `string` | no | Guidance on how the field should be answered. Free text, not enforced. |
+| `reference_id` | `string` | no | External reference, e.g. the regulation or questionnaire item this field came from. Opaque to the engine. |
 | `validation` | `object` | no | Type-specific validation rules. Shape depends on `type`. See §3. |
+
+`placeholder`, `answer_guidelines` and `reference_id` are presentation/authoring metadata: the engine never
+reads them, they do not participate in validation or conditions, and they are all optional, so definitions
+written before they existed remain valid.
+
+### 2.2.1 Static Block Properties (`type: "static"`)
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `text` | `string` | yes | The text displayed inside the form. This is the block's content. |
+| `label` | `string` | no | Optional heading rendered above `text`. Unlike every other field type, `label` is **not** required. |
+| `description` | `string` | no | Optional secondary text. |
+| `placeholder` | `string` | no | Presentation metadata. Opaque to the engine. |
+| `answer_guidelines` | `string` | no | Presentation metadata. Opaque to the engine. |
+| `reference_id` | `string` | no | External reference, e.g. the regulation this notice comes from. |
+
+A static block accepts no `validation` and no `options`. It does accept a `condition`, so a notice can be
+shown only when it applies. It produces no key in `values` and no validation errors.
 
 ### 2.3 Section Properties (`type: "section"`)
 
@@ -48,6 +72,9 @@ Types `"string"` through `"array"` are **fields** — they produce values. Type 
 |----------|------|----------|-------------|
 | `title` | `string` | yes | Human-readable section title. |
 | `description` | `string` | no | Section description or instructions. |
+| `placeholder` | `string` | no | Placeholder shown inside the empty input control. |
+| `answer_guidelines` | `string` | no | Guidance on how the field should be answered. Free text, not enforced. |
+| `reference_id` | `string` | no | External reference, e.g. the regulation or questionnaire item this field came from. Opaque to the engine. |
 | `content` | `ContentItem[]` | yes | Nested content items (fields and/or sections). At least one item required. |
 
 When a section's condition evaluates to `false`, all items within (including nested sections' fields) are hidden and excluded from validation.
@@ -212,6 +239,61 @@ Relative dates are resolved to absolute ISO 8601 values at evaluation time (vali
 
 The engine does not handle actual file upload — the consumer handles upload and produces the file value object.
 
+### 3.8.1 Blockchain Validation
+
+```json
+{
+  "id": 19,
+  "type": "blockchain",
+  "label": "CAIP-19 asset identifier",
+  "placeholder": "eip155:1/erc20:0x…",
+  "validation": {
+    "required": true
+  }
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `required` | `boolean` | An address must be provided. Default: `false`. |
+
+**Value type:** `string` — a CAIP address, stored verbatim.
+
+The address format is **deliberately not validated**. There is no `pattern` rule and no CAIP-specific
+error code: a `blockchain` field is an opaque string to the engine, so a malformed address is caught by
+the consumer, not here. An empty string counts as absent, exactly as for `string`.
+
+### 3.8.2 Sustainability Validation
+
+```json
+{
+  "id": 20,
+  "type": "sustainability",
+  "label": "Sustainability references",
+  "validation": {
+    "required": true
+  }
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `required` | `boolean` | The value's `address` must be a non-empty string. Default: `false`. |
+
+**Value type:** `object` with properties:
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `address` | `string` | yes | CAIP address of the asset the data describes. Opaque to the engine, like a `blockchain` value. |
+| `ccri` | `string` | no | CCRI (Crypto Carbon Ratings Institute) reference. |
+| `cmc` | `string` | no | CoinMarketCap reference. |
+
+`required` is satisfied by `address` alone: `{ "address": "eip155:1/erc20:0x…", "ccri": "", "cmc": "" }`
+passes, while `{ "address": "", "ccri": "CCRI-1", "cmc": "" }` fails with `REQUIRED`. A missing `address`
+key reads as an empty address rather than a type error, the same tolerance that makes `ccri` and `cmc`
+optional. A value that is not an object, or whose properties are not strings, produces `TYPE`. There is no
+per-property error channel — a sustainability field produces at most one field-level error.
+
 ### 3.5 Select Validation
 
 ```json
@@ -237,6 +319,39 @@ The engine does not handle actual file upload — the consumer handles upload an
 The `options` property is defined on the field itself (not inside `validation`). See §4.
 
 **Value type:** matches the `value` type of the selected option.
+
+### 3.5.1 Multiselect Validation
+
+```json
+{
+  "id": 20,
+  "type": "multiselect",
+  "label": "Compliance programmes in place",
+  "options": [
+    { "value": "aml", "label": "Anti-Money Laundering" },
+    { "value": "kyc", "label": "Know Your Customer" },
+    { "value": "sanctions", "label": "Sanctions screening" }
+  ],
+  "validation": {
+    "required": true
+  }
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `required` | `boolean` | At least one option must be selected. An absent value **and an empty array** both fail. Default: `false`. |
+
+`options` is defined on the field itself and is required, exactly as for `select` (§4.1). Every selected
+value must appear in `options`; a value that does not produces a single field-level `INVALID_OPTION` error
+for the field, not one error per offending entry.
+
+**Value type:** `Array<string | number>` — the `value`s of the selected options. Order is not significant.
+
+### 3.5.2 Static
+
+A `static` block has no `validation` property; supplying one is a schema error. It never produces
+validation errors.
 
 ### 3.6 Array Validation
 
@@ -269,17 +384,46 @@ Array-level `validation` covers the array itself. Item-level validation lives in
 
 **Value type:** `Array<T>` where T corresponds to `item.type`.
 
+### 3.6.1 Array-of-Rows Validation (`array_obj`)
+
+```json
+{
+  "id": 12,
+  "type": "array_obj",
+  "label": "Directors",
+  "items": [
+    { "id": 121, "type": "string", "label": "Name", "validation": { "required": true } },
+    { "id": 122, "type": "date", "label": "Appointed" }
+  ],
+  "validation": {
+    "minItems": 1,
+    "maxItems": 20
+  }
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `minItems` | `integer >= 0` | Minimum number of rows. |
+| `maxItems` | `integer >= 1` | Maximum number of rows. Must be >= `minItems` if both set. |
+
+Identical to `array` validation, but counted in rows. Per-sub-field rules live inside each entry of `items`
+(see §4.3) and are applied to **every** row. A sub-field error carries both `itemIndex` (the row) and
+`itemFieldId` (the sub-field), while its `fieldId` stays the `array_obj` field's own id.
+
+**Value type:** `Array<Record<string, unknown>>` — see §6.
+
 ---
 
 ## 4. Type-Specific Configuration
 
 Some field types have configuration properties beyond `validation`.
 
-### 4.1 Select — `options`
+### 4.1 Select and Multiselect — `options`
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `options` | `SelectOption[]` | yes | List of selectable options. At least 1 required. |
+| `options` | `SelectOption[]` | yes | List of selectable options. At least 1 required. Required for both `select` and `multiselect`. |
 
 **SelectOption:**
 
@@ -292,9 +436,14 @@ Some field types have configuration properties beyond `validation`.
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `item` | `object` | yes | Field definition for each array item. Same shape as any field (§2.2), excluding `id` and `type: "array"` (no nested arrays). |
+| `item` | `object` | yes | Field definition for each array item. Same shape as any field (§2.2), excluding `id`. Neither list type is allowed: `"array"` and `"array_obj"` cannot nest. |
 
-The `item` object supports all field properties (`type`, `label`, `description`, `validation`, `options` for select) except `id` and `condition`.
+The `item` object supports all field properties (`type`, `label`, `description`, `placeholder`, `answer_guidelines`, `reference_id`, `validation`, `options` for select and multiselect, `text` for static) except `id` and `condition`. Its `type` must be one of `"string"`, `"number"`, `"boolean"`, `"date"`, `"select"`, `"multiselect"`, `"file"`, `"static"`, `"blockchain"` or `"sustainability"`.
+
+> **`item.type: "static"` is degenerate.** A static block holds no value, so an array of static items
+> renders one block per stored entry and contributes nothing to `values`; the row count is driven purely by
+> the array's length. It is accepted for symmetry with `array_obj`, where a static sub-field is genuinely
+> useful as a per-row caption. Prefer a top-level `static` block outside the array.
 
 **Array of numbers with item validation:**
 
@@ -361,6 +510,62 @@ The `item` object supports all field properties (`type`, `label`, `description`,
 }
 ```
 
+### 4.3 Array of Rows — `items`
+
+An `array_obj` field is a list of **rows**, where every row holds one value per sub-field. It carries
+`items` instead of `item`; the two properties are mutually exclusive and `array` is unchanged.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `items` | `object[]` | yes | Ordered sub-field definitions, at least one. Same shape as any field (§2.2) **including `id`**, excluding `condition`. Neither `"array"` nor `"array_obj"` is allowed — lists do not nest. |
+| `kind` | `string` | no | Layout hint: `"list"` or `"table"`. Defaults to `"list"` when absent. |
+
+`kind` is **presentation metadata**, like `placeholder` and `answer_guidelines`: the engine never reads it,
+and it affects neither values, validation nor visibility. `"list"` renders each row as its own stacked
+block of labelled controls; `"table"` shares one header across all rows and gives each sub-field a column.
+It is a hint — honouring it is up to the renderer, and a viewer that ignores it is still correct.
+
+Each sub-field carries its own `id`, drawn from the **same globally unique id space** as top-level fields
+(§7). That id is the key its value is stored under inside every row object, which is what keeps `values`
+addressable and keeps duplicate-id detection meaningful. Sub-fields have no `condition`: they inherit the
+`array_obj` field's visibility, and the field itself may still be conditional. A sub-field's allowed types
+are `"string"`, `"number"`, `"boolean"`, `"date"`, `"select"`, `"multiselect"`, `"file"`, `"static"`,
+`"blockchain"` and `"sustainability"`.
+
+```json
+{
+  "id": 12,
+  "type": "array_obj",
+  "label": "Directors",
+  "description": "One row per person with a controlling interest.",
+  "kind": "table",
+  "items": [
+    {
+      "id": 121,
+      "type": "string",
+      "label": "Full name",
+      "placeholder": "As registered",
+      "validation": { "required": true, "minLength": 2 }
+    },
+    {
+      "id": 122,
+      "type": "select",
+      "label": "Role",
+      "options": [
+        { "value": "director", "label": "Director" },
+        { "value": "ubo", "label": "Ultimate beneficial owner" }
+      ],
+      "validation": { "required": true }
+    },
+    { "id": 123, "type": "date", "label": "Appointed on" },
+    { "id": 124, "type": "static", "text": "Names must match the register extract." }
+  ],
+  "validation": { "minItems": 1, "maxItems": 25 }
+}
+```
+
+A `static` sub-field occupies a position in every row but never holds a value and is never validated.
+
 ---
 
 ## 5. Conditions
@@ -393,10 +598,45 @@ A leaf condition that evaluates a single field:
 | `gt` | Field value is greater than `value` | yes | number, date |
 | `lte` | Field value is less than or equal to `value` | yes | number, date |
 | `gte` | Field value is greater than or equal to `value` | yes | number, date |
-| `in` | Field value is contained in `value` (array) | yes (array) | string, number, date, select |
-| `notin` | Field value is not contained in `value` (array) | yes (array) | string, number, date, select |
+| `in` | Field value is contained in `value` (array) | yes (array) | string, number, date, select, multiselect, blockchain |
+| `notin` | Field value is not contained in `value` (array) | yes (array) | string, number, date, select, multiselect, blockchain |
+
+Conditions may only reference items that hold a value. Referencing a `section` produces a
+`CONDITION_REFS_SECTION` error and referencing a `static` block a `CONDITION_REFS_STATIC` error (§8).
+A `blockchain` and a `sustainability` field both hold a value, so both are legal condition targets.
+
+An `array_obj` **sub-field** id may not be referenced either: its value is per-row, so a form-level
+condition cannot say which row it means. Doing so produces a `CONDITION_REFS_ARRAY_OBJ_ITEM` error (§8).
+The `array_obj` field itself is a legal target and behaves like an `array`.
+
+**Object-valued fields** (`file`, `sustainability`) use the scalar rules, which means only `set` and
+`notset` say anything useful: any object present counts as set — including a half-filled
+`{ "address": "", "ccri": "", "cmc": "" }` — and `eq`/`ne`/`in`/`notin` compare by reference, so they
+never match. A `blockchain` field is an ordinary string and keeps full scalar semantics.
 
 **Type coercion:** No implicit coercion. The `value` in the condition must match the referenced field's value type. Date comparisons parse ISO 8601 strings to timestamps before comparing. Condition `value` for date fields can use absolute ISO 8601 or relative date formats (see §3.7).
+
+### 5.2.1 Multiselect Operators
+
+A `multiselect` field's value is a set, so the operators are interpreted as set operations rather than
+scalar comparisons. No other type is affected — in particular `array` and `array_obj` fields keep the
+original scalar behaviour, including `set` returning `true` for an empty list.
+
+| Operator | Meaning against a multiselect |
+|----------|-------------------------------|
+| `set` | At least one option is chosen. An empty array counts as **not** set. |
+| `notset` | Nothing is chosen (absent value or empty array). |
+| `eq` | The selection equals `value` as a set — same members, ignoring order and duplicates. A scalar `value` is read as a one-element set, so `{ "op": "eq", "value": "aml" }` means "`aml` is the *only* option chosen". |
+| `ne` | Negation of `eq`. |
+| `in` | **Any** chosen option appears in `value`. This is the operator for "is `x` selected?": `{ "op": "in", "value": ["x"] }`. |
+| `notin` | No chosen option appears in `value`. |
+| `lt` `gt` `lte` `gte` | Always `false` — ordering has no meaning for a set. |
+
+```json
+{ "field": 33, "op": "in", "value": ["travel-rule"] }
+```
+
+shows the dependent item whenever *Travel Rule* is among the chosen programmes.
 
 ### 5.3 Compound Conditions
 
@@ -472,7 +712,16 @@ Form values document links to its form definition via `form` and contains field 
     "4": "2025-03-01T00:00:00.000Z",
     "5": "contract",
     "6": ["TypeScript", "React"],
-    "18": {"name": "document.pdf", "mimeType": "application/pdf", "size": 1048576, "url": "https://storage.example.com/files/abc123/document.pdf"}
+    "18": {"name": "document.pdf", "mimeType": "application/pdf", "size": 1048576, "url": "https://storage.example.com/files/abc123/document.pdf"},
+    "19": "eip155:1/erc20:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+    "20": {"address": "eip155:1/erc20:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", "ccri": "CCRI-ETH-2025-04", "cmc": "3408"}
+  },
+  "suggestions": {
+    "1": {
+      "value": "Jonathan Doe",
+      "confidence": 0.8,
+      "source": "Passport MRZ, line 2."
+    }
   }
 }
 ```
@@ -484,8 +733,62 @@ Form values document links to its form definition via `form` and contains field 
 | `form.version` | `string` | yes | Must match the `version` of the form schema (semver). Validated by `FormEngine.validate()` — mismatch produces a `FORM_VERSION_MISMATCH` document error. |
 | `form.submittedAt` | `string` | yes | ISO 8601 timestamp of when the form was submitted. Used as the sole reference time for relative date resolution. Auto-populated by `createFormDocument()`. Missing `submittedAt` produces a `FORM_SUBMITTED_AT_MISSING` document error; malformed values produce a `FORM_SUBMITTED_AT_INVALID` document error. |
 | `values` | `object` | yes | Flat key-value map. Keys are stringified field IDs, values match field types. |
+| `suggestions` | `object` | no | Sparse map of machine-proposed answers, keyed like `values`. See §6.1. |
 
 Field IDs are globally unique, so `values` is always flat regardless of section nesting. Sections affect only presentation/grouping — not the data structure.
+
+Sections and `static` blocks never appear in `values` — neither holds a value. `FormValuesEditor.setFieldValue()` throws when given either id. A stray key left in a stored document is ignored rather than rejected, so documents written against an older schema keep loading.
+
+A `multiselect` value is the array of chosen option values, e.g. `"33": ["aml", "kyc"]`. It is written wholesale: the array-item helpers (`addArrayItem` / `removeArrayItem` / `moveArrayItem`) apply to `array` and `array_obj` fields and throw for a multiselect.
+
+An `array_obj` value is an array of **row objects**, each keyed by the stringified id of a sub-field
+declared in the field's `items` list:
+
+```json
+"12": [
+  { "121": "Jane Roe", "122": "director", "123": "2024-01-05T00:00:00.000Z" },
+  { "121": "John Doe", "122": "ubo" }
+]
+```
+
+Rows are sparse — a sub-field with no answer simply has no key — and a static sub-field never appears at
+all. An absent row (`null` / `undefined`) is read as an empty one, so its `required` sub-fields still
+report; a row that is present but is not an object produces a single row-level `TYPE` error carrying
+`itemIndex` and no `itemFieldId`. `addArrayItem` appends `{}` for an `array_obj` field rather than
+`undefined`, and `FormValuesEditor.setArrayObjValue(fieldId, index, subFieldId, value)` writes one cell.
+A suggestion on an `array_obj` field is the **whole array of rows**; there are no per-row or per-cell
+suggestions.
+
+A `blockchain` value is a plain string and behaves exactly like a `string` value in storage. A
+`sustainability` value is an object written wholesale, like a `file` value; `ccri` and `cmc` may be blank
+or absent, and a UI that clears every input should emit `undefined` rather than an all-blank object so
+that `required` behaves the way it does for every other type.
+
+### 6.1 Suggestions
+
+`suggestions` is optional and sparse: it may be absent entirely (documents written before suggestions
+existed), and when present only some fields have an entry. Keys are stringified field IDs, in the same key
+space as `values`. Sections never have suggestions — they hold no value.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `value` | any | yes | The proposed value, shaped like the field's own value. For an `array` field this is the whole array, not a single item. |
+| `confidence` | `number` | yes | How confident the producer is, as a `0..1` fraction (`0.3` means 30%). |
+| `source` | `string` | yes | Human-readable explanation of why the value was proposed. |
+
+Suggestions never affect validation or visibility: a suggestion cannot satisfy a `required` rule, and
+`FormEngine.validate()` returns the same result whether or not the block is present.
+
+`confidence` is range-checked only on write — `FormValuesEditor.setSuggestion()` and the core
+`setSuggestion()` helper throw outside `0..1`. There is **no** JSON schema for form values, so a stored
+document with `confidence: 1.5` loads and renders without complaint.
+
+Two operations are defined on a suggestion:
+
+- **Accept** copies `value` into `values` under the same key and **keeps** the suggestion, so the origin of
+  the answer stays visible.
+- **Reject** removes the suggestion and leaves the field's value untouched. When the last entry is removed,
+  the `suggestions` key is dropped from the document rather than left as `{}`.
 
 ---
 
@@ -496,8 +799,18 @@ Field IDs are globally unique, so `values` is always flat regardless of section 
 | Section nesting depth | 3 levels |
 | ID format | Positive integer |
 | ID uniqueness | Global across entire schema (all fields and sections) |
-| Select options minimum | 1 |
-| Select option values | Unique within the field's options list |
+| Select / multiselect options minimum | 1 |
+| Select / multiselect option values | Unique within the field's options list |
+| Array item types | `string`, `number`, `boolean`, `date`, `select`, `multiselect`, `file`, `static`, `blockchain`, `sustainability` (not `array` or `array_obj`) |
+| `array_obj` sub-field types | The same set — lists do not nest |
+| `array_obj` sub-field minimum | 1 |
+| `array_obj` sub-field required properties | `id`, plus whatever the chosen type requires |
+| `array_obj` sub-field ids | Globally unique, in the same id space as fields and sections |
+| `array_obj` `kind` | `"list"` or `"table"` — `"list"` when absent |
+| Static block required properties | `id`, `type`, `text` (`label` is optional) |
+| Suggestion `confidence` | `0..1` (checked on write only) |
+| Blockchain address format | Not validated — an opaque string |
+| Sustainability required properties | `address` only (`ccri` and `cmc` are optional) |
 
 ---
 
@@ -514,13 +827,22 @@ The engine must validate the schema itself before use. Invalid schemas must be r
 | `max` < `min` | `max must be >= min for field "{id}"` |
 | `maxDate` < `minDate` | `maxDate must be >= minDate for field "{id}"` |
 | `maxItems` < `minItems` | `maxItems must be >= minItems for field "{id}"` |
-| Select field with no options | `Select field "{id}" must have at least one option` |
+| Select or multiselect field with no options | `Select field "{id}" must have at least one option` |
+| Static field with no `text` | Schema error: missing required property `"text"` |
+| Static field with `validation` or `options` | Schema error: unsupported property |
 | Array field with missing `item` | `Array field "{id}" must specify item` |
-| Array item with `type: "array"` | `Array field "{id}" item cannot be of type "array"` |
+| Array item with `type: "array"` or `"array_obj"` | Schema error: the item does not match any allowed array item type |
 | Array item with `id` | `Array field "{id}" item must not have an id` |
+| `array_obj` field with missing or empty `items` | Schema error: missing required property `"items"` / `minItems` |
+| `array_obj` sub-field without `id`, or carrying a `condition` | Schema error: unsupported / missing property |
+| `array_obj` sub-field id duplicated anywhere in the schema | `Duplicate id: "{id}"` |
+| `array_obj` `kind` other than `"list"` or `"table"` | Schema error: value not in enum |
+| Condition references an `array_obj` sub-field | `CONDITION_REFS_ARRAY_OBJ_ITEM` — a sub-field's value is per-row |
 | Invalid field type | `Unknown field type: "{type}" for field "{id}"` |
 | Invalid operator | `Unknown operator: "{op}" in condition for "{id}"` |
 | Condition `value` missing when required | `Condition operator "{op}" requires a value` |
+| Condition references a section | `CONDITION_REFS_SECTION` — sections have no value |
+| Condition references a static field | `CONDITION_REFS_STATIC` — static blocks have no value |
 | Circular condition dependency | `Circular condition dependency detected: {path}` |
 | Empty section (no content) | `Section "{id}" must have at least one content item` |
 | `pattern` is invalid regex | `Invalid regex pattern for field "{id}": {error}` |

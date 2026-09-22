@@ -1,0 +1,71 @@
+{
+    "form": {
+        "id": "e4a7c1b2-3d5f-4890-abef-1234567890ab",
+        "version": "1.0.0",
+        "submittedAt": "2025-12-31T23:59:00.000Z"
+    },
+    "values": {
+        "2": "Apex Digital Exchange Pte. Ltd.",
+        "3": "PD-2025-Q4-0012",
+        "4": "2025-12-31T00:00:00.000Z",
+        "5": "periodic",
+        "8": [
+            "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18",
+            "0xDEAD000000000000000000000000000000000001",
+            "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq",
+            "0xABCDEF1234567890ABCDEF1234567890ABCDEF12"
+        ],
+        "9": "multi",
+        "10": ["Ethereum", "Bitcoin", "Polygon"],
+        "12": [1250000, 890000, 425000, 75000],
+        "13": 2640000,
+        "15": ["low", "low", "medium", "high"],
+        "17": [
+            "2025-12-15T00:00:00.000Z",
+            "2025-12-15T00:00:00.000Z",
+            "2025-12-01T00:00:00.000Z",
+            "2025-11-20T00:00:00.000Z"
+        ],
+        "18": "2026-03-31T00:00:00.000Z",
+        "20": [true, true, true, false],
+        "21": false,
+        "22": "Position 4 flagged for indirect exposure to sanctioned mixer contract. Funds frozen pending investigation; SAR filed 2025-11-22.",
+        "24": [
+            {
+                "name": "position-1-evidence.pdf",
+                "mimeType": "application/pdf",
+                "size": 245760,
+                "url": "https://storage.example.com/compliance/portfolio/position-1-evidence.pdf"
+            },
+            {
+                "name": "position-2-evidence.pdf",
+                "mimeType": "application/pdf",
+                "size": 198400,
+                "url": "https://storage.example.com/compliance/portfolio/position-2-evidence.pdf"
+            },
+            {
+                "name": "position-3-chainalysis.pdf",
+                "mimeType": "application/pdf",
+                "size": 153600,
+                "url": "https://storage.example.com/compliance/portfolio/position-3-chainalysis.pdf"
+            },
+            {
+                "name": "position-4-investigation.pdf",
+                "mimeType": "application/pdf",
+                "size": 512000,
+                "url": "https://storage.example.com/compliance/portfolio/position-4-investigation.pdf"
+            }
+        ],
+        "25": {
+            "name": "q4-2025-portfolio-report.pdf",
+            "mimeType": "application/pdf",
+            "size": 1048576,
+            "url": "https://storage.example.com/compliance/portfolio/q4-2025-portfolio-report.pdf"
+        },
+        "26": "Q4 periodic declaration. Position 4 under active investigation — see SAR PD-SAR-2025-0047.",
+        "28": "Rachel Tan",
+        "29": "2025-12-31T00:00:00.000Z",
+        "30": true,
+        "31": true
+    }
+}

@@ -10,7 +10,13 @@ import type {
 import { render, screen } from '@testing-library/react'
 
 import { DEFAULT, ROOT } from '../constants'
-import type { EditorArrayItemProps, EditorComponentMap, EditorFieldProps, ViewerComponentMap } from '../types'
+import type {
+    EditorArrayItemProps,
+    EditorArrayObjItemProps,
+    EditorComponentMap,
+    EditorFieldProps,
+    ViewerComponentMap,
+} from '../types'
 import { FormContent, type FormContentProps } from './form-content'
 
 const MockString: FC<Record<string, unknown>> = jest.fn((props) => (
@@ -107,6 +113,12 @@ const renderArrayItemProps = jest.fn(
     }),
 )
 
+const renderArrayObjItemProps = jest.fn(
+    (_field: FieldContentItem, _index: number, _subFieldId: number): EditorArrayObjItemProps => ({
+        onChange: jest.fn(),
+    }),
+)
+
 beforeEach(() => {
     jest.clearAllMocks()
 })
@@ -143,6 +155,7 @@ describe('FormContent', () => {
                 components: makeEditorComponents(),
                 renderFieldProps,
                 renderArrayItemProps,
+                renderArrayObjItemProps,
             }
 
             render(<FormContent {...props} />)
@@ -187,6 +200,7 @@ describe('FormContent', () => {
                 components: makeEditorComponents(),
                 renderFieldProps,
                 renderArrayItemProps,
+                renderArrayObjItemProps,
             }
 
             render(<FormContent {...props} />)
@@ -272,6 +286,7 @@ describe('FormContent', () => {
                 components: makeEditorComponents(),
                 renderFieldProps,
                 renderArrayItemProps,
+                renderArrayObjItemProps,
             }
 
             render(<FormContent {...props} />)
@@ -299,6 +314,7 @@ describe('FormContent', () => {
                 components: makeEditorComponents(),
                 renderFieldProps,
                 renderArrayItemProps,
+                renderArrayObjItemProps,
             }
 
             render(<FormContent {...props} />)
@@ -340,6 +356,7 @@ describe('FormContent', () => {
                 components: makeEditorComponents(),
                 renderFieldProps,
                 renderArrayItemProps,
+                renderArrayObjItemProps,
             }
 
             render(<FormContent {...props} />)
