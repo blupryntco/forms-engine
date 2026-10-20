@@ -1133,18 +1133,14 @@ describe('FormDefinitionValidator.validateSchema', () => {
             expect(schemaValid({ ...minimal, content })).toBe(true)
         })
 
-        it.each([
-            'string',
-            'number',
-            'boolean',
-            'date',
-            'select',
-            'file',
-        ])('accepts the metadata on a %s array item', (type) => {
-            const item: Record<string, unknown> = { type, label: 'Item', ...METADATA }
-            if (type === 'select') item.options = [{ value: 'a', label: 'A' }]
-            expect(schemaValid({ ...minimal, content: [{ id: 1, type: 'array', label: 'Tags', item }] })).toBe(true)
-        })
+        it.each(['string', 'number', 'boolean', 'date', 'select', 'file'])(
+            'accepts the metadata on a %s array item',
+            (type) => {
+                const item: Record<string, unknown> = { type, label: 'Item', ...METADATA }
+                if (type === 'select') item.options = [{ value: 'a', label: 'A' }]
+                expect(schemaValid({ ...minimal, content: [{ id: 1, type: 'array', label: 'Tags', item }] })).toBe(true)
+            },
+        )
 
         it('still rejects an unknown property on a field', () => {
             const issues = schemaIssues({ ...minimal, content: [{ id: 1, type: 'string', label: 'Name', nope: 'x' }] })
@@ -1377,19 +1373,19 @@ describe('FormDefinitionValidator.validateSchema', () => {
             }
         })
 
-        it.each([
-            'blockchain',
-            'sustainability',
-        ] as const)('accepts a condition referencing a %s field -- neither is valueless', (type) => {
-            const def = minimalDef([
-                { id: 1, type, label: 'Asset' },
-                { id: 2, type: 'string', label: 'Notes', condition: { field: 1, op: 'set' } },
-            ])
-            const registry = new Map<number, FieldEntry>([
-                [1, makeEntry(1, { type })],
-                [2, makeEntry(2, { condition: { field: 1, op: 'set' } })],
-            ])
-            expect(validator.validate(def, registry)).toEqual([])
-        })
+        it.each(['blockchain', 'sustainability'] as const)(
+            'accepts a condition referencing a %s field -- neither is valueless',
+            (type) => {
+                const def = minimalDef([
+                    { id: 1, type, label: 'Asset' },
+                    { id: 2, type: 'string', label: 'Notes', condition: { field: 1, op: 'set' } },
+                ])
+                const registry = new Map<number, FieldEntry>([
+                    [1, makeEntry(1, { type })],
+                    [2, makeEntry(2, { condition: { field: 1, op: 'set' } })],
+                ])
+                expect(validator.validate(def, registry)).toEqual([])
+            },
+        )
     })
 })

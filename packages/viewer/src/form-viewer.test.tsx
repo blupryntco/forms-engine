@@ -438,7 +438,8 @@ describe('FormViewer', () => {
             (call: unknown[]) => (call[0] as Record<string, unknown>).value === 'A',
         )
         expect(secondItemProps).toBeDefined()
-        const secondErrors = (secondItemProps?.[0] as Record<string, unknown>).errors as FieldValidationError[]
+        const secondItemArgs = secondItemProps?.[0] as Record<string, unknown> | undefined
+        const secondErrors = secondItemArgs?.errors as FieldValidationError[]
         expect(secondErrors.length).toBeGreaterThan(0)
         expect(secondErrors[0]).toMatchObject({ rule: 'MIN_LENGTH' })
     })

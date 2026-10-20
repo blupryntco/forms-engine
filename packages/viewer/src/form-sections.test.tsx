@@ -140,7 +140,7 @@ describe('FormSections', () => {
         const itemCalls = (MockItem as jest.Mock).mock.calls
         const rootCall = itemCalls.find((c: unknown[]) => (c[0] as FormSectionItemProps).section.id === ROOT)
         expect(rootCall).toBeDefined()
-        expect((rootCall?.[0] as FormSectionItemProps).section.description).toBe('Main fields')
+        expect((rootCall?.[0] as FormSectionItemProps | undefined)?.section.description).toBe('Main fields')
     })
 
     it('calls onSelect callback', () => {
@@ -164,7 +164,7 @@ describe('FormSections', () => {
         expect(sectionCall).toBeDefined()
 
         // Call the select prop
-        ;(sectionCall?.[0] as FormSectionItemProps).select()
+        ;(sectionCall?.[0] as FormSectionItemProps | undefined)?.select()
 
         expect(onSelect).toHaveBeenCalledWith(10)
     })

@@ -211,4 +211,4 @@ const breakFive: CurrentFieldEntry = {
 }
 
 export type { LegacyFormDefinition, LegacyFormDocument }
-export { breakOne, breakTwo, breakThree, breakFour, breakFive, walk }
+export { breakFive, breakFour, breakOne, breakThree, breakTwo, walk }

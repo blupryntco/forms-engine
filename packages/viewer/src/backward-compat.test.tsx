@@ -268,7 +268,7 @@ describe('backward compatibility -- prop-shape deltas introduced by this release
             .find((props) => (props.field as FieldContentItem).id === 8)
 
         expect(arrayProps).toBeDefined()
-        expect((arrayProps?.field as FieldContentItem).type).toBe('array')
+        expect((arrayProps?.field as FieldContentItem | undefined)?.type).toBe('array')
 
         // getArrayField() synthesises the per-item field: it keeps the array's
         // own id but takes the item definition's label.

@@ -26,5 +26,5 @@ const Badge = ({ className, variant, ...props }: BadgeProps) => (
     <span className={twMerge(badgeVariants({ variant }), className)} {...props} />
 )
 
-export { Badge, badgeVariants }
 export type { BadgeProps }
+export { Badge, badgeVariants }
