@@ -33,5 +33,5 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(({ className, variant,
 ))
 Button.displayName = 'Button'
 
-export { Button, buttonVariants }
 export type { ButtonProps }
+export { Button, buttonVariants }

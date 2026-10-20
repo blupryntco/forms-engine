@@ -769,7 +769,8 @@ describe('FormEditor', () => {
             const secondItemCall = stringCalls.find((c: unknown[]) => (c[0] as Record<string, unknown>).value === 'bar')
             expect(secondItemCall).toBeDefined()
 
-            const itemOnChange = (secondItemCall?.[0] as Record<string, unknown>).onChange as (value: unknown) => void
+            const secondItemProps = secondItemCall?.[0] as Record<string, unknown> | undefined
+            const itemOnChange = secondItemProps?.onChange as (value: unknown) => void
             itemOnChange('baz')
 
             expect(onChange).toHaveBeenCalledTimes(1)
@@ -888,7 +889,7 @@ describe('FormEditor', () => {
             )
             ;(lastCall(MockString as jest.Mock).onAcceptSuggestion as () => void)()
 
-            expect((onChange.mock.calls[0]?.[0] as FormDocument).values['1']).toBe('Acme Ltd')
+            expect((onChange.mock.calls[0]?.[0] as FormDocument | undefined)?.values['1']).toBe('Acme Ltd')
         })
 
         it('reject removes the suggestion and leaves the value alone', () => {

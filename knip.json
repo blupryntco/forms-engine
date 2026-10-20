@@ -1,5 +1,5 @@
 {
-    "$schema": "https://unpkg.com/knip@5/schema.json",
+    "$schema": "https://unpkg.com/knip@6/schema.json",
     "ignore": ["wip/**", "packages/core/src/backward-compat-types.ts"],
     "workspaces": {
         "packages/typescript-config": {
