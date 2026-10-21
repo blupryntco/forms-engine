@@ -79,6 +79,8 @@ shown only when it applies. It produces no key in `values` and no validation err
 
 When a section's condition evaluates to `false`, all items within (including nested sections' fields) are hidden and excluded from validation.
 
+A section is also hidden when no visible value field remains beneath it, even if its own condition is `true` or absent (§5.4, rule 7).
+
 ---
 
 ## 3. Validation
@@ -686,11 +688,12 @@ A condition is either a **simple condition** (has `field` + `op`) or a **compoun
 ### 5.4 Condition Behavior
 
 1. When a condition evaluates to `false`, the associated field or section is **hidden**.
-2. When a condition evaluates to `true` (or no condition is set), the field or section is **visible**.
+2. When a condition evaluates to `true` (or no condition is set), the field or section is **visible** — a section only if rule 7 also holds.
 3. Hidden fields are **excluded from validation** entirely.
 4. Hidden fields **retain their values** in the form values output. The consumer decides whether to strip them.
 5. Conditions are **evaluated dynamically** as values change.
 6. If a condition references a field that is itself hidden (due to its own condition), the referenced field's value is treated as **not set** (`notset` returns `true`, `set` returns `false`, all comparison operators return `false`).
+7. A section is visible only while at least one **value field** (any type except `static`) beneath it, at any depth, is visible. A section that is empty, holds only `static` blocks, or whose fields and nested sections are all hidden is **hidden** itself, and so is everything inside it, `static` blocks included. Validation is unaffected: such a section holds no visible field to validate.
 
 ---
 

@@ -176,7 +176,8 @@ export class FormEngine {
      * Determines whether a field or section is visible given the current form document.
      *
      * Evaluates the item's own condition and walks up the parent chain --
-     * an item is hidden if any ancestor is hidden.
+     * an item is hidden if any ancestor is hidden. A section is also hidden
+     * when no value field (any type except `section` and `static`) beneath it is visible.
      *
      * @param id - Numeric id of the field or section.
      * @param doc - Current form document.
@@ -191,7 +192,8 @@ export class FormEngine {
      *
      * The resulting map is keyed by item id. Items whose conditions depend on
      * other items are evaluated after their dependencies, ensuring correct
-     * cascading visibility (e.g. a hidden parent hides all children).
+     * cascading visibility (e.g. a hidden parent hides all children). A section
+     * with no visible value field beneath it is hidden along with its descendants.
      *
      * @param doc - Current form document.
      * @returns Map from item id to visibility boolean.
@@ -205,8 +207,9 @@ export class FormEngine {
      * specified field's value changes.
      *
      * Includes transitive dependents -- if field A controls field B, and
-     * field B controls field C, changing A returns `{B, C}`.
-     * Results are cached for the lifetime of the engine.
+     * field B controls field C, changing A returns `{B, C}`. The ancestor
+     * sections of those items are included too, since a section's visibility
+     * follows its content. Results are cached for the lifetime of the engine.
      *
      * @param fieldId - Id of the field that changed.
      * @returns Set of affected item ids (does not include `fieldId` itself unless

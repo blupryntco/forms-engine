@@ -181,3 +181,10 @@ export const findSection = (items: ContentItem[], sectionId: number): SectionCon
     }
     return undefined
 }
+
+/**
+ * Whether any of the given items is a visible value field -- anything but a `section`
+ * or a `static` block. Decides whether the top-level `ROOT` group has anything to fill.
+ */
+export const hasVisibleValueItem = (items: ContentItem[], visibilityMap: Map<number, boolean>): boolean =>
+    items.some((item) => item.type !== 'section' && item.type !== 'static' && visibilityMap.get(item.id) === true)

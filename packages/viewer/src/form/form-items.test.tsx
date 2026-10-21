@@ -1,13 +1,14 @@
 import { type FC, type ReactNode } from 'react'
 
-import type {
-    ContentItem,
-    FieldContentItem,
-    FieldValidationError,
-    FormValues,
-    SectionContentItem,
-    StaticFieldContentItem,
-    SustainabilityValue,
+import {
+    type ContentItem,
+    type FieldContentItem,
+    type FieldValidationError,
+    FormEngine,
+    type FormValues,
+    type SectionContentItem,
+    type StaticFieldContentItem,
+    type SustainabilityValue,
 } from '@bluprynt/forms-core'
 import { render, screen } from '@testing-library/react'
 
@@ -284,6 +285,38 @@ describe('FormItems', () => {
             )
 
             expect(MockSection).toHaveBeenCalledWith(expect.objectContaining({ section: sectionItem }), undefined)
+        })
+        it('renders no section component for a section whose fields are all hidden', () => {
+            const sectionItem: ContentItem = {
+                id: 10,
+                type: 'section',
+                title: 'Conditional',
+                content: [
+                    { id: 11, type: 'static', text: 'Intro' },
+                    { id: 12, type: 'string', label: 'Detail', condition: { field: 1, op: 'eq', value: true } },
+                ],
+            }
+            const toggle: ContentItem = { id: 1, type: 'boolean', label: 'Toggle' }
+            const engine = new FormEngine({ id: 'f', version: '1.0.0', title: 'F', content: [toggle, sectionItem] })
+            const values = { '1': false }
+
+            render(
+                <FormItems
+                    items={[toggle, sectionItem]}
+                    visibilityMap={engine.getVisibilityMap({
+                        form: { id: 'f', version: '1.0.0', submittedAt: '2025-06-15T00:00:00.000Z' },
+                        values,
+                    })}
+                    values={values}
+                    fieldErrors={new Map()}
+                    components={makeComponentsWithNewTypes()}
+                    showInlineValidation={false}
+                />,
+            )
+
+            expect(screen.getByTestId('boolean-1')).toBeTruthy()
+            expect(screen.queryByTestId('section-10')).toBeNull()
+            expect(MockSection).not.toHaveBeenCalled()
         })
     })
 

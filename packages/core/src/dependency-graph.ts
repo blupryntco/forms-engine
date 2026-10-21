@@ -13,7 +13,8 @@ type DfsVisitState = (typeof DfsVisitState)[keyof typeof DfsVisitState]
  * - Topological ordering (`topologicalOrder`): guarantees that when computing
  *   visibility, every item is evaluated after the fields it depends on.
  * - Affected-ids lookup (`getAffectedIds`): returns all transitively
- *   affected item ids when a field value changes (lazily cached).
+ *   affected item ids, plus their ancestor sections, when a field value
+ *   changes (lazily cached).
  *
  * Static methods (`extractFieldRefs`, `detectCycle`) can be used before
  * constructing an instance, e.g. during semantic validation.
@@ -113,8 +114,9 @@ export class DependencyGraph {
      * field's value changes.
      *
      * Performs a transitive expansion of the forward dependency graph starting
-     * from the field's direct dependents. Results are memoized for subsequent
-     * calls with the same `fieldId`.
+     * from the field's direct dependents, then adds the ancestor sections of every
+     * affected item, since a section is hidden once it has no visible value field.
+     * Results are memoized for subsequent calls with the same `fieldId`.
      *
      * @param fieldId - Id of the field whose value changed.
      * @returns Set of all transitively affected item ids. Empty set if no items
@@ -132,6 +134,7 @@ export class DependencyGraph {
         }
 
         const expanded = this.expandTransitiveDependencies(directDeps)
+        this.addAncestorSections(expanded)
         this.affectedCache.set(fieldId, expanded)
 
         return expanded
@@ -331,5 +334,16 @@ export class DependencyGraph {
         }
 
         return result
+    }
+
+    /** Adds every ancestor section of the given ids to the same set. */
+    private addAncestorSections(ids: Set<number>): void {
+        for (const id of [...ids]) {
+            let parentId = this.registry.get(id)?.parentId
+            while (parentId !== undefined && !ids.has(parentId)) {
+                ids.add(parentId)
+                parentId = this.registry.get(parentId)?.parentId
+            }
+        }
     }
 }

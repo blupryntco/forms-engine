@@ -59,8 +59,10 @@ describe('backward compatibility -- the 4.0.1 coverage matrix', () => {
         // Derived by hand from matrix.definition.json + matrix.valid.document.json.
         // ids 221-230 are the false twins of 201-210; 242/244 the false compounds;
         // 330/331/340/341 the cascade under a section whose condition is false.
+        // Section 220 holds only those false twins, so it is hidden as empty.
         expect(hiddenIds(engine, MATRIX.valid)).toEqual([
-            221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 242, 244, 263, 264, 266, 270, 271, 330, 331, 340, 341,
+            220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 242, 244, 263, 264, 266, 270, 271, 330, 331, 340,
+            341,
         ])
     })
 

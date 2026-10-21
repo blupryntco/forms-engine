@@ -72,6 +72,7 @@ Each field may have validation rules depending on its type:
 - Fields can exist at the top level of the form or be grouped into sections.
 - Sections can be nested up to **3 levels deep**.
 - A section contains fields and/or child sections.
+- A section is shown only while at least one visible value field (any type except `static`) remains beneath it, at any depth. An empty section, one holding only `static` blocks, or one whose fields and child sections are all hidden is hidden, together with everything inside it. See §6.2.
 
 ## 6. Conditionals
 
@@ -96,9 +97,10 @@ Conditionals control the visibility of individual fields or entire sections base
 
 - A conditional references another field in the form by its identifier. Sections and `static` blocks hold no value and cannot be referenced. An `array_obj` **sub-field** id cannot be referenced either — its value is per-row, so a form-level condition cannot say which row it means. Sub-fields carry no `condition` of their own; they inherit the `array_obj` field's visibility.
 - When a conditional evaluates to false, the associated field or section must be hidden.
-- When a conditional evaluates to true, the associated field or section must be shown.
+- When a conditional evaluates to true, the associated field or section must be shown (a section only if it still has a visible value field beneath it, see §5).
 - Conditionals must be evaluated dynamically as form values change.
 - When a conditional field is hidden we do not consider it in form validation at all.
+- Section visibility follows from content: `getVisibilityMap` / `isVisible` hide a section with no visible value field beneath it (§5), so the viewer and editor never render an empty section. In section-grouping mode (`FormSections`) such a section gets no tab, and the top-level "General" group appears only when at least one top-level value field is visible — `static` blocks alone do not create it. Validation is unaffected. Because a section's visibility can change with its content's, `getAffectedIds(fieldId)` also returns the ancestor sections of affected items.
 - Against an object-valued field (`file`, `sustainability`) only `set` and `notset` are meaningful: any object present counts as set, and the comparison operators compare by reference so they never match. A half-filled `{ address: "", ccri: "", cmc: "" }` therefore still counts as set.
 - Against a `multiselect` field the operators are set-oriented: `set` means at least one option is chosen, `eq`/`ne` compare the whole selection as a set (order- and duplicate-insensitive), `in`/`notin` test whether *any* chosen option appears in the given list, and the ordering operators are always false. Every other type — including `array` and `array_obj` — keeps scalar semantics.
 

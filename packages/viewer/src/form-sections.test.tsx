@@ -304,4 +304,45 @@ describe('FormSections', () => {
         // Nested section is not a top-level entry
         expect(screen.queryByTestId('section-item-20')).toBeNull()
     })
+
+    it('renders no tab for a top-level section whose fields are all hidden', () => {
+        const definition = baseDef([
+            { id: 1, type: 'boolean', label: 'Toggle' },
+            {
+                id: 10,
+                type: 'section',
+                title: 'Conditional',
+                content: [{ id: 2, type: 'string', label: 'Detail', condition: { field: 1, op: 'eq', value: true } }],
+            },
+        ])
+
+        renderSections({ definition, data: doc({ '1': false }) })
+
+        expect(screen.getByTestId('section-item-root')).toBeTruthy()
+        expect(screen.queryByTestId('section-item-10')).toBeNull()
+    })
+
+    it('renders no General tab when top-level items are only static blocks', () => {
+        const definition = baseDef([
+            { id: 1, type: 'static', text: 'Intro' },
+            { id: 10, type: 'section', title: 'Details', content: [{ id: 2, type: 'string', label: 'Name' }] },
+        ])
+
+        renderSections({ definition, data: doc(), section: DEFAULT })
+
+        expect(screen.queryByTestId('section-item-root')).toBeNull()
+        expect(screen.getByTestId('section-item-10').getAttribute('data-active')).toBe('true')
+    })
+
+    it('marks the first non-empty section active when DEFAULT skips an empty one', () => {
+        const definition = baseDef([
+            { id: 10, type: 'section', title: 'Notice', content: [{ id: 11, type: 'static', text: 'Read me.' }] },
+            { id: 20, type: 'section', title: 'Details', content: [{ id: 2, type: 'string', label: 'Name' }] },
+        ])
+
+        renderSections({ definition, data: doc(), section: DEFAULT })
+
+        expect(screen.queryByTestId('section-item-10')).toBeNull()
+        expect(screen.getByTestId('section-item-20').getAttribute('data-active')).toBe('true')
+    })
 })

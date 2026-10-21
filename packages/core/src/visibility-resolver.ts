@@ -12,12 +12,16 @@ import type { FormValues } from './types/form-values'
  * - **Bulk** (`getVisibilityMap`): evaluates all items in topological order
  *   with the hidden-field rule applied (references to hidden fields are
  *   treated as "not set").
+ *
+ * In both modes a section is visible only while some value field (any type
+ * except `section` and `static`) beneath it, at any depth, is visible.
  */
 export class VisibilityResolver {
     private readonly registry: Map<number, FieldEntry>
     private readonly conditionEvaluator: ConditionEvaluator
     private readonly topologicalOrder: number[]
     private readonly fieldTypes: Map<number, ContentItemType>
+    private readonly childrenByParent: Map<number, number[]>
 
     /**
      * @param registry - The engine's field registry.
@@ -29,6 +33,7 @@ export class VisibilityResolver {
         this.conditionEvaluator = conditionEvaluator
         this.topologicalOrder = topologicalOrder
         this.fieldTypes = new Map([...registry].map(([id, entry]) => [id, entry.type]))
+        this.childrenByParent = VisibilityResolver.buildChildrenByParent(registry)
     }
 
     /**
@@ -36,9 +41,10 @@ export class VisibilityResolver {
      *
      * Evaluation logic:
      * 1. If the item has its own condition, evaluate it. If `false`, the item is hidden.
-     * 2. If the item has a parent section, recursively check parent visibility.
-     *    An item is hidden whenever any ancestor is hidden.
-     * 3. Items without conditions and without hidden parents are visible.
+     * 2. A section is additionally hidden unless some value field beneath it
+     *    passes steps 1 and 3 (a section with no such field is empty).
+     * 3. A non-section item is hidden whenever its parent section is hidden.
+     * 4. Items without conditions and without hidden parents are visible.
      *
      * Unlike {@link getVisibilityMap}, this method does not use the
      * pre-computed visibility map and does not apply the hidden-field rule.
@@ -54,20 +60,12 @@ export class VisibilityResolver {
         const entry = this.registry.get(id)
         if (!entry) return false
 
-        // Check own condition
-        if (entry.condition) {
-            const result = this.conditionEvaluator.evalCondition(entry.condition, {
-                values,
-                now,
-                fieldTypes: this.fieldTypes,
-            })
-            if (!result) return false
+        if (entry.type === 'section') {
+            return this.isConditionVisible(id, values, now) && this.hasConditionVisibleValueField(id, values, now)
         }
 
-        // Check parent chain
-        if (entry.parentId !== undefined) {
-            return this.isVisible(entry.parentId, values, now)
-        }
+        if (!this.isOwnConditionMet(entry, values, now)) return false
+        if (entry.parentId !== undefined) return this.isVisible(entry.parentId, values, now)
 
         return true
     }
@@ -83,6 +81,10 @@ export class VisibilityResolver {
      * Cascading parent visibility is also enforced -- if a parent section is
      * hidden, all its children are immediately marked hidden without evaluating
      * their own conditions.
+     *
+     * A post-pass then hides every section with no visible value field beneath
+     * it, together with its descendants. That only flips sections and `static`
+     * blocks, which no condition can reference, so no condition result changes.
      *
      * @param values - Current form values.
      * @param now - Reference date for relative date expressions.
@@ -118,6 +120,91 @@ export class VisibilityResolver {
             }
         }
 
+        this.hideEmptySections(result)
+
         return result
+    }
+
+    /** Whether the item's own condition and those of all its ancestors hold, ignoring section content. */
+    private isConditionVisible(id: number, values: FormValues, now: Date): boolean {
+        const entry = this.registry.get(id)
+        if (!entry) return false
+        if (!this.isOwnConditionMet(entry, values, now)) return false
+        if (entry.parentId !== undefined) return this.isConditionVisible(entry.parentId, values, now)
+
+        return true
+    }
+
+    /** Whether the entry has no condition or its condition evaluates to `true`. */
+    private isOwnConditionMet(entry: FieldEntry, values: FormValues, now: Date): boolean {
+        if (!entry.condition) return true
+
+        return this.conditionEvaluator.evalCondition(entry.condition, { values, now, fieldTypes: this.fieldTypes })
+    }
+
+    /**
+     * Whether some value field beneath the section, at any depth, passes
+     * {@link isConditionVisible}. Ancestors are re-checked per field, which is
+     * redundant but keeps the single-item path free of shared state.
+     */
+    private hasConditionVisibleValueField(sectionId: number, values: FormValues, now: Date): boolean {
+        return (this.childrenByParent.get(sectionId) ?? []).some((childId) => {
+            const type = this.registry.get(childId)?.type
+            if (type === 'static') return false
+            if (type === 'section') return this.hasConditionVisibleValueField(childId, values, now)
+
+            return this.isConditionVisible(childId, values, now)
+        })
+    }
+
+    /** Sets every visible section with no visible value field beneath it, and its subtree, to `false`. */
+    private hideEmptySections(result: Map<number, boolean>): void {
+        const contentCache = new Map<number, boolean>()
+
+        for (const [id, entry] of this.registry) {
+            if (entry.type !== 'section' || result.get(id) !== true) continue
+            if (this.hasVisibleContent(id, result, contentCache)) continue
+
+            this.hideSubtree(id, result)
+        }
+    }
+
+    /** Whether some child of the section is visible and is a value field or a section with content. Memoized in `cache`. */
+    private hasVisibleContent(sectionId: number, result: Map<number, boolean>, cache: Map<number, boolean>): boolean {
+        const cached = cache.get(sectionId)
+        if (cached !== undefined) return cached
+
+        const hasContent = (this.childrenByParent.get(sectionId) ?? []).some((childId) => {
+            if (result.get(childId) !== true) return false
+
+            const type = this.registry.get(childId)?.type
+            if (type === 'static') return false
+            if (type === 'section') return this.hasVisibleContent(childId, result, cache)
+
+            return true
+        })
+        cache.set(sectionId, hasContent)
+
+        return hasContent
+    }
+
+    /** Marks the item and all its descendants hidden. */
+    private hideSubtree(id: number, result: Map<number, boolean>): void {
+        result.set(id, false)
+        for (const childId of this.childrenByParent.get(id) ?? []) this.hideSubtree(childId, result)
+    }
+
+    /** Groups registry ids by their parent section id, in registry order. */
+    private static buildChildrenByParent(registry: Map<number, FieldEntry>): Map<number, number[]> {
+        const childrenByParent = new Map<number, number[]>()
+        for (const [id, entry] of registry) {
+            if (entry.parentId === undefined) continue
+
+            const children = childrenByParent.get(entry.parentId)
+            if (children) children.push(id)
+            else childrenByParent.set(entry.parentId, [id])
+        }
+
+        return childrenByParent
     }
 }
