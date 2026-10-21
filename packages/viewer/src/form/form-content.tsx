@@ -17,7 +17,7 @@ import type {
     ViewerComponentMap,
 } from '../types'
 import { FormItems } from './form-items'
-import { findSection } from './utils'
+import { findSection, hasVisibleValueItem } from './utils'
 
 type FormContentBaseProps = {
     items: ContentItem[]
@@ -97,8 +97,7 @@ const resolveDefaultSection = (
     items: ContentItem[],
     visibilityMap: Map<number, boolean>,
 ): typeof ROOT | number | undefined => {
-    const rootFields = items.filter((item) => item.type !== 'section')
-    if (rootFields.some((item) => visibilityMap.get(item.id))) return ROOT
+    if (hasVisibleValueItem(items, visibilityMap)) return ROOT
 
     const firstVisibleSection = items.find((item) => item.type === 'section' && visibilityMap.get(item.id) !== false)
 

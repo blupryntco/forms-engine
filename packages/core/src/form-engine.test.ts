@@ -1674,6 +1674,95 @@ describe('FormEngine', () => {
         })
     })
 
+    describe('sections without visible value fields', () => {
+        const engine = new FormEngine(
+            baseDef([
+                { id: 1, type: 'boolean', label: 'Has subsidiaries' },
+                {
+                    id: 10,
+                    type: 'section',
+                    title: 'Subsidiaries',
+                    content: [
+                        { id: 11, type: 'static', text: 'List every subsidiary.' },
+                        {
+                            id: 20,
+                            type: 'section',
+                            title: 'Details',
+                            content: [
+                                {
+                                    id: 21,
+                                    type: 'string',
+                                    label: 'Name',
+                                    condition: { field: 1, op: 'eq', value: true },
+                                    validation: { required: true },
+                                },
+                            ],
+                        },
+                    ],
+                },
+                { id: 30, type: 'section', title: 'Notice', content: [{ id: 31, type: 'static', text: 'Read me.' }] },
+                {
+                    id: 40,
+                    type: 'section',
+                    title: 'Directors',
+                    content: [
+                        {
+                            id: 41,
+                            type: 'array_obj',
+                            label: 'Directors',
+                            items: [{ id: 42, type: 'string', label: 'Name' }],
+                        },
+                    ],
+                },
+            ]),
+        )
+
+        it('hides nested sections whose only field is hidden, and isVisible agrees', () => {
+            const map = engine.getVisibilityMap(doc({ '1': false }))
+
+            expect([10, 11, 20, 21].map((id) => map.get(id))).toEqual([false, false, false, false])
+            expect([10, 11, 20, 21].map((id) => engine.isVisible(id, doc({ '1': false })))).toEqual([
+                false,
+                false,
+                false,
+                false,
+            ])
+        })
+
+        it('hides a static-only section and its static blocks', () => {
+            const map = engine.getVisibilityMap(doc())
+
+            expect(map.get(30)).toBe(false)
+            expect(map.get(31)).toBe(false)
+            expect(engine.isVisible(30, doc())).toBe(false)
+            expect(engine.isVisible(31, doc())).toBe(false)
+        })
+
+        it('keeps a section with a visible array_obj visible', () => {
+            expect(engine.getVisibilityMap(doc()).get(40)).toBe(true)
+            expect(engine.isVisible(40, doc())).toBe(true)
+        })
+
+        it('shows the sections again when the controlling value is set', () => {
+            const map = engine.getVisibilityMap(doc({ '1': true }))
+
+            expect([10, 11, 20, 21].map((id) => map.get(id))).toEqual([true, true, true, true])
+            expect(engine.isVisible(10, doc({ '1': true }))).toBe(true)
+        })
+
+        it('leaves validation unchanged', () => {
+            expect(engine.validate(doc({ '1': false })).valid).toBe(true)
+
+            const result = engine.validate(doc({ '1': true }))
+            expect(result.valid).toBe(false)
+            expect([...result.fieldErrors.keys()]).toEqual([21])
+        })
+
+        it('reports the ancestor sections of affected fields from getAffectedIds', () => {
+            expect(engine.getAffectedIds(1)).toEqual(new Set([21, 20, 10]))
+        })
+    })
+
     describe('form document compatibility', () => {
         const engine = new FormEngine(
             baseDef([

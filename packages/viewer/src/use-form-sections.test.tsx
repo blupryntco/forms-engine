@@ -226,4 +226,48 @@ describe('useFormSections', () => {
         expect(rootEntry?.content).toHaveLength(2)
         expect(rootEntry?.content.every((item) => item.type !== 'section')).toBe(true)
     })
+
+    it('excludes a top-level section whose fields are all hidden', () => {
+        const definition = baseDef([
+            { id: 1, type: 'boolean', label: 'Toggle' },
+            {
+                id: 10,
+                type: 'section',
+                title: 'Conditional',
+                content: [{ id: 2, type: 'string', label: 'Detail', condition: { field: 1, op: 'eq', value: true } }],
+            },
+        ])
+
+        const { result } = renderHook(() => useFormSections(), {
+            wrapper: createWrapper({ definition, data: doc({ '1': false }) }),
+        })
+
+        expect(result.current.map((entry) => entry.id)).toEqual([ROOT])
+    })
+
+    it('excludes a static-only top-level section', () => {
+        const definition = baseDef([
+            { id: 1, type: 'string', label: 'Name' },
+            { id: 10, type: 'section', title: 'Notice', content: [{ id: 11, type: 'static', text: 'Read me.' }] },
+        ])
+
+        const { result } = renderHook(() => useFormSections(), {
+            wrapper: createWrapper({ definition, data: doc() }),
+        })
+
+        expect(result.current.map((entry) => entry.id)).toEqual([ROOT])
+    })
+
+    it('does not include root section when top-level items are only static blocks', () => {
+        const definition = baseDef([
+            { id: 1, type: 'static', text: 'Intro' },
+            { id: 10, type: 'section', title: 'Details', content: [{ id: 2, type: 'string', label: 'Name' }] },
+        ])
+
+        const { result } = renderHook(() => useFormSections(), {
+            wrapper: createWrapper({ definition, data: doc() }),
+        })
+
+        expect(result.current.map((entry) => entry.id)).toEqual([10])
+    })
 })

@@ -587,6 +587,36 @@ describe('FormEditor', () => {
             expect(screen.getByTestId('string-1')).toBeTruthy()
             expect(screen.queryByTestId('section-20')).toBeNull()
         })
+
+        it('hides a section whose fields are all hidden and shows it once the controlling value is set', () => {
+            const definition = baseDef([
+                { id: 1, type: 'boolean', label: 'Toggle' },
+                {
+                    id: 10,
+                    type: 'section',
+                    title: 'Conditional',
+                    content: [
+                        { id: 11, type: 'static', text: 'Intro' },
+                        { id: 12, type: 'string', label: 'Detail', condition: { field: 1, op: 'eq', value: true } },
+                    ],
+                },
+            ])
+
+            const { rerender } = render(
+                <Form definition={definition} data={doc({ '1': false })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={noop} />
+                </Form>,
+            )
+            expect(screen.queryByTestId('section-10')).toBeNull()
+
+            rerender(
+                <Form definition={definition} data={doc({ '1': true })}>
+                    <FormEditor components={makeComponentsWithNewTypes()} onChange={noop} />
+                </Form>,
+            )
+            expect(screen.getByTestId('section-10')).toBeTruthy()
+            expect(screen.getByTestId('string-12')).toBeTruthy()
+        })
     })
 
     describe('controlled re-render', () => {

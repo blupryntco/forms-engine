@@ -3,6 +3,7 @@ import { useMemo } from 'react'
 import type { SectionContentItem } from '@bluprynt/forms-core'
 
 import { ROOT } from './constants'
+import { hasVisibleValueItem } from './form/utils'
 import { useFormContext } from './form-context'
 
 export type FormSectionEntry = Omit<SectionContentItem, 'id' | 'type'> & {
@@ -22,7 +23,7 @@ export const useFormSections = (
         const result: FormSectionEntry[] = []
 
         const rootFields = definition.content.filter((item) => item.type !== 'section')
-        if (rootFields.some((item) => visibilityMap.get(item.id)))
+        if (hasVisibleValueItem(rootFields, visibilityMap))
             result.push({
                 id: ROOT,
                 title: defaultSectionTitle,

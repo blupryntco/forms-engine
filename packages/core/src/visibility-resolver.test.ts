@@ -419,3 +419,140 @@ describe('DependencyGraph.getAffectedIds (via VisibilityResolver context)', () =
         expect(first.size).toBe(0)
     })
 })
+
+describe('VisibilityResolver – sections without visible value fields', () => {
+    /** Builds a resolver whose topological order is the registry's insertion order. */
+    const makeResolver = (entries: FieldEntry[]): VisibilityResolver =>
+        new VisibilityResolver(
+            new Map(entries.map((entry) => [entry.id, entry])),
+            conditionEvaluator,
+            entries.map((entry) => entry.id),
+        )
+
+    it('hides a section with no children', () => {
+        const resolver = makeResolver([makeEntry(10, { type: 'section' })])
+
+        expect(resolver.getVisibilityMap({}, now).get(10)).toBe(false)
+        expect(resolver.isVisible(10, {}, now)).toBe(false)
+    })
+
+    it('hides a section whose fields are all hidden by their conditions', () => {
+        const resolver = makeResolver([
+            makeEntry(1),
+            makeEntry(10, { type: 'section' }),
+            makeEntry(11, { parentId: 10, condition: { field: 1, op: 'set' } }),
+            makeEntry(12, { parentId: 10, condition: { field: 1, op: 'eq', value: 'x' } }),
+        ])
+
+        expect(resolver.getVisibilityMap({}, now).get(10)).toBe(false)
+        expect(resolver.isVisible(10, {}, now)).toBe(false)
+    })
+
+    it('hides an outer section whose only child section is empty', () => {
+        const resolver = makeResolver([
+            makeEntry(1),
+            makeEntry(10, { type: 'section' }),
+            makeEntry(20, { type: 'section', parentId: 10 }),
+            makeEntry(21, { parentId: 20, condition: { field: 1, op: 'set' } }),
+        ])
+
+        const map = resolver.getVisibilityMap({}, now)
+        expect(map.get(10)).toBe(false)
+        expect(map.get(20)).toBe(false)
+        expect(resolver.isVisible(10, {}, now)).toBe(false)
+        expect(resolver.isVisible(20, {}, now)).toBe(false)
+    })
+
+    it('hides a static-only section together with its static blocks', () => {
+        const resolver = makeResolver([
+            makeEntry(10, { type: 'section' }),
+            makeEntry(11, { type: 'static', parentId: 10 }),
+            makeEntry(20, { type: 'section', parentId: 10 }),
+            makeEntry(21, { type: 'static', parentId: 20 }),
+        ])
+
+        const map = resolver.getVisibilityMap({}, now)
+        expect([10, 11, 20, 21].map((id) => map.get(id))).toEqual([false, false, false, false])
+        expect([10, 11, 20, 21].map((id) => resolver.isVisible(id, {}, now))).toEqual([false, false, false, false])
+    })
+
+    it('keeps a section, and its static blocks, visible while one value field is visible', () => {
+        const resolver = makeResolver([
+            makeEntry(1),
+            makeEntry(10, { type: 'section' }),
+            makeEntry(11, { type: 'static', parentId: 10 }),
+            makeEntry(12, { parentId: 10, condition: { field: 1, op: 'set' } }),
+            makeEntry(13, { parentId: 10 }),
+        ])
+
+        const map = resolver.getVisibilityMap({}, now)
+        expect(map.get(10)).toBe(true)
+        expect(map.get(11)).toBe(true)
+        expect(resolver.isVisible(10, {}, now)).toBe(true)
+        expect(resolver.isVisible(11, {}, now)).toBe(true)
+    })
+
+    it('keeps a section visible when its only value field is a visible array_obj', () => {
+        const resolver = makeResolver([
+            makeEntry(10, { type: 'section' }),
+            makeEntry(11, { type: 'array_obj', parentId: 10, items: [{ id: 12, type: 'string', label: 'Name' }] }),
+        ])
+
+        expect(resolver.getVisibilityMap({}, now).get(10)).toBe(true)
+        expect(resolver.isVisible(10, {}, now)).toBe(true)
+    })
+
+    it('shows the section again once the controlling value makes a field visible', () => {
+        const resolver = makeResolver([
+            makeEntry(1),
+            makeEntry(10, { type: 'section' }),
+            makeEntry(20, { type: 'section', parentId: 10 }),
+            makeEntry(21, { parentId: 20, condition: { field: 1, op: 'eq', value: 'yes' } }),
+        ])
+        const values = { '1': 'yes' }
+
+        const map = resolver.getVisibilityMap(values, now)
+        expect(map.get(10)).toBe(true)
+        expect(map.get(20)).toBe(true)
+        expect(resolver.isVisible(10, values, now)).toBe(true)
+        expect(resolver.isVisible(20, values, now)).toBe(true)
+    })
+
+    it('hides a section whose only field is hidden by the hidden-field rule', () => {
+        // 2 is hidden (1 unset), so 11's reference to 2 counts as "not set".
+        const resolver = makeResolver([
+            makeEntry(1),
+            makeEntry(2, { condition: { field: 1, op: 'set' } }),
+            makeEntry(10, { type: 'section' }),
+            makeEntry(11, { parentId: 10, condition: { field: 2, op: 'set' } }),
+        ])
+
+        expect(resolver.getVisibilityMap({ '2': 'x' }, now).get(10)).toBe(false)
+    })
+})
+
+describe('DependencyGraph.getAffectedIds – ancestor sections', () => {
+    it('includes every ancestor section of an affected field', () => {
+        // section 10 > section 20 > field 21 (controlled by 1)
+        const registry = new Map<number, FieldEntry>([
+            [1, makeEntry(1)],
+            [10, makeEntry(10, { type: 'section' })],
+            [20, makeEntry(20, { type: 'section', parentId: 10 })],
+            [21, makeEntry(21, { parentId: 20, condition: { field: 1, op: 'set' } })],
+        ])
+        const depGraph = new DependencyGraph(registry)
+
+        expect(depGraph.getAffectedIds(1)).toEqual(new Set([21, 20, 10]))
+    })
+
+    it('does not add the ancestors of the changed field itself', () => {
+        const registry = new Map<number, FieldEntry>([
+            [10, makeEntry(10, { type: 'section' })],
+            [1, makeEntry(1, { parentId: 10 })],
+            [2, makeEntry(2, { condition: { field: 1, op: 'set' } })],
+        ])
+        const depGraph = new DependencyGraph(registry)
+
+        expect(depGraph.getAffectedIds(1)).toEqual(new Set([2]))
+    })
+})

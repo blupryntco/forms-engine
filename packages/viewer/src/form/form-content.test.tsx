@@ -1,11 +1,12 @@
 import type { FC, ReactNode } from 'react'
 
-import type {
-    ContentItem,
-    FieldContentItem,
-    FieldValidationError,
-    FormValues,
-    SectionContentItem,
+import {
+    type ContentItem,
+    type FieldContentItem,
+    type FieldValidationError,
+    FormEngine,
+    type FormValues,
+    type SectionContentItem,
 } from '@bluprynt/forms-core'
 import { render, screen } from '@testing-library/react'
 
@@ -49,6 +50,10 @@ const MockFile: FC<Record<string, unknown>> = jest.fn((props) => (
 
 const MockSection: FC<Record<string, unknown>> = jest.fn((props) => (
     <div data-testid={`section-${(props.section as SectionContentItem).id}`}>{props.children as ReactNode}</div>
+))
+
+const MockStatic: FC<Record<string, unknown>> = jest.fn((props) => (
+    <div data-testid={`static-${(props.field as FieldContentItem).id}`} />
 ))
 
 const MockError: FC<Record<string, unknown>> = jest.fn((props) => (
@@ -118,6 +123,13 @@ const renderArrayObjItemProps = jest.fn(
         onChange: jest.fn(),
     }),
 )
+
+/** Visibility map the engine computes for `content` and `values`, as the viewer would receive it. */
+const getEngineVisibilityMap = (content: ContentItem[], formValues: FormValues): Map<number, boolean> =>
+    new FormEngine({ id: 'f', version: '1.0.0', title: 'F', content }).getVisibilityMap({
+        form: { id: 'f', version: '1.0.0', submittedAt: '2025-06-15T00:00:00.000Z' },
+        values: formValues,
+    })
 
 beforeEach(() => {
     jest.clearAllMocks()
@@ -477,6 +489,63 @@ describe('FormContent', () => {
             const { container } = render(<FormContent {...props} />)
 
             expect(container.innerHTML).toBe('')
+        })
+
+        it('skips a section whose fields are all hidden and renders the next one', () => {
+            const content: ContentItem[] = [
+                { id: 1, type: 'boolean', label: 'Toggle' },
+                {
+                    id: 10,
+                    type: 'section',
+                    title: 'Conditional',
+                    content: [{ id: 11, type: 'string', label: 'A', condition: { field: 1, op: 'eq', value: true } }],
+                },
+                { id: 20, type: 'section', title: 'Always', content: [{ id: 21, type: 'number', label: 'B' }] },
+            ]
+            const sectionItems = content.filter((item) => item.type === 'section')
+            const vis = getEngineVisibilityMap(content, { '1': false })
+
+            render(
+                <FormContent
+                    mode="viewer"
+                    items={sectionItems}
+                    visibilityMap={vis}
+                    values={{ '1': false }}
+                    fieldErrors={fieldErrors}
+                    section={DEFAULT}
+                    showInlineValidation={false}
+                    components={makeViewerComponents()}
+                />,
+            )
+
+            expect(screen.queryByTestId('section-10')).toBeNull()
+            expect(screen.getByTestId('section-20')).toBeTruthy()
+        })
+
+        it('skips static-only root items and a static-only section', () => {
+            const content: ContentItem[] = [
+                { id: 1, type: 'static', text: 'Intro' },
+                { id: 10, type: 'section', title: 'Notice', content: [{ id: 11, type: 'static', text: 'Read me.' }] },
+                { id: 20, type: 'section', title: 'Details', content: [{ id: 21, type: 'string', label: 'Name' }] },
+            ]
+
+            render(
+                <FormContent
+                    mode="viewer"
+                    items={content}
+                    visibilityMap={getEngineVisibilityMap(content, {})}
+                    values={{}}
+                    fieldErrors={fieldErrors}
+                    section={DEFAULT}
+                    showInlineValidation={false}
+                    components={{ ...makeViewerComponents(), static: MockStatic as ViewerComponentMap['static'] }}
+                />,
+            )
+
+            expect(screen.queryByTestId('static-1')).toBeNull()
+            expect(screen.queryByTestId('section-10')).toBeNull()
+            expect(screen.getByTestId('section-20')).toBeTruthy()
+            expect(screen.getByTestId('string-21')).toBeTruthy()
         })
     })
 
