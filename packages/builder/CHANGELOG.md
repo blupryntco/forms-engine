@@ -1,5 +1,11 @@
 # @bluprynt/forms-builder
 
+## 4.2.0
+
+### Patch Changes
+
+- [#16](https://github.com/blupryntco/forms-engine/pull/16) [`99ad24b`](https://github.com/blupryntco/forms-engine/commit/99ad24b7a8e07dcf46bb16be19d0d41fddeb7ee3) Thanks [@sergeyzwezdin](https://github.com/sergeyzwezdin)! - Dependencies update
+
 ## 4.1.0
 
 ### Minor Changes
