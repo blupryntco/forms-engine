@@ -1,5 +1,26 @@
 # @bluprynt/forms-core
 
+## 4.2.0
+
+### Minor Changes
+
+- [#18](https://github.com/blupryntco/forms-engine/pull/18) [`4b608af`](https://github.com/blupryntco/forms-engine/commit/4b608afaaf3b25ee018be900cc5fceea21a88288) Thanks [@sergeyzwezdin](https://github.com/sergeyzwezdin)! - Hide sections that have no visible value field beneath them.
+  
+  **Behaviour change.** `getVisibilityMap` and `isVisible` now return `false` for a section with no visible
+  value field (any type except `section` and `static`) at any depth — an empty section, a `static`-only section,
+  or one whose fields and child sections are all hidden — and for every item inside it, `static` blocks
+  included. `getAffectedIds(fieldId)` now also returns the ancestor sections of the affected items, since a
+  section's visibility follows its content. Consumers that read the visibility map for progress or completion
+  UI will see fewer visible sections. Validation is unaffected.
+  
+  The viewer and editor no longer render such sections. In `FormSections` an empty top-level section gets no
+  tab, and the "General" group appears only when a top-level value field is visible — `static` blocks alone no
+  longer create it. `DEFAULT` section resolution follows the same rule.
+
+### Patch Changes
+
+- [#16](https://github.com/blupryntco/forms-engine/pull/16) [`99ad24b`](https://github.com/blupryntco/forms-engine/commit/99ad24b7a8e07dcf46bb16be19d0d41fddeb7ee3) Thanks [@sergeyzwezdin](https://github.com/sergeyzwezdin)! - Dependencies update
+
 ## 4.1.0
 
 ### Minor Changes
