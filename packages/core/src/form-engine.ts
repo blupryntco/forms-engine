@@ -9,6 +9,7 @@ import type { ContentItem, FormDefinition } from './types/form-definition'
 import type { FormSnapshot } from './types/form-snapshot'
 import type { FormDocument, FormValues } from './types/form-values'
 import type { DocumentValidationError, FieldValidationError, FormValidationResult } from './types/validation-results'
+import { ValueSanitizer } from './value-sanitizer'
 import { VisibilityResolver } from './visibility-resolver'
 
 /**
@@ -47,6 +48,7 @@ export class FormEngine {
     private readonly depGraph: DependencyGraph
     private readonly visibilityResolver: VisibilityResolver
     private readonly fieldValidator: FieldValidator
+    private readonly valueSanitizer: ValueSanitizer
     private readonly definition: FormDefinition
     private readonly formId: string
     private readonly formVersion: string
@@ -100,6 +102,7 @@ export class FormEngine {
         const conditionEvaluator = new ConditionEvaluator()
         this.visibilityResolver = new VisibilityResolver(registry, conditionEvaluator, this.depGraph.topologicalOrder)
         this.fieldValidator = new FieldValidator(registry)
+        this.valueSanitizer = new ValueSanitizer(registry)
 
         this.registry = registry
         this.contentOrder = contentOrder
@@ -243,6 +246,11 @@ export class FormEngine {
      * present and valid: a missing or unparseable value is a document-level
      * error either way. An invalid `options.now` yields `NOW_INVALID`.
      *
+     * Values the definition does not accept (see {@link sanitize}) pass
+     * silently by default. With `options.strict` each of them is reported as
+     * a document error (`UNKNOWN_VALUE_KEY`, `NON_VALUE_ITEM_VALUE`,
+     * `HIDDEN_FIELD_VALUE`, `UNKNOWN_ROW_KEY`) next to the field errors.
+     *
      * @param doc - Current form document to validate.
      * @param options - Evaluation options; pass `now` for server-side checks.
      * @returns Validation result with a `valid` flag and a `fieldErrors` map.
@@ -309,7 +317,43 @@ export class FormEngine {
         // Field level validation errors
 
         const visibilityMap = this.visibilityResolver.getVisibilityMap(doc.values, now)
-        return this.fieldValidator.validate(doc.values, visibilityMap, now)
+        const result = this.fieldValidator.validate(doc.values, visibilityMap, now)
+        if (!options?.strict) return result
+
+        const strayErrors = this.valueSanitizer.findStrayValues(doc.values, visibilityMap)
+        if (strayErrors.length === 0) return result
+        return { valid: false, fieldErrors: result.fieldErrors, documentErrors: strayErrors }
+    }
+
+    /**
+     * Returns a copy of the document without values the definition does not accept.
+     *
+     * Removed from `values`: keys that match no form item, values on
+     * `section` and `static` ids, values of hidden fields, and keys in
+     * `array_obj` rows that are not a declared value sub-field. `suggestions`
+     * is cleaned by the same rules and dropped when nothing is left. Values of
+     * the wrong type are kept; `validate` reports them. The input is not mutated.
+     *
+     * Visibility uses `options.now` when given, otherwise `doc.form.submittedAt`.
+     * Hidden values are dropped for good, so call this when saving or
+     * submitting, not on every edit.
+     *
+     * @param doc - The form document to clean.
+     * @param options - Evaluation options; pass `now` for server-side checks.
+     * @returns A new, cleaned form document.
+     * @throws {RangeError} If `options.now` is an invalid date.
+     */
+    sanitize(doc: FormDocument, options?: EvaluationOptions): FormDocument {
+        const visibilityMap = this.visibilityResolver.getVisibilityMap(doc.values, FormEngine.resolveNow(doc, options))
+        const { suggestions, ...rest } = doc
+        const result: FormDocument = {
+            ...rest,
+            form: { ...doc.form },
+            values: this.valueSanitizer.sanitizeValues(doc.values, visibilityMap),
+        }
+        const cleanSuggestions = suggestions && this.valueSanitizer.sanitizeSuggestions(suggestions, visibilityMap)
+        if (cleanSuggestions) result.suggestions = cleanSuggestions
+        return result
     }
 
     /**

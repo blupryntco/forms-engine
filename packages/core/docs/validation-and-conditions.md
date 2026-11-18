@@ -20,6 +20,33 @@ This is a **document-time** check (runs when validating user-submitted data), as
 
 ---
 
+## Stray Values
+
+Field validation only reads values that belong to visible fields. Anything else in `doc.values` passes by default, so a client can attach data the form never asked for and a consumer that stores the document keeps it. These stray values are:
+
+| Stray value | Strict-mode error |
+|-------------|-------------------|
+| A key that matches no form item (including `"01"` and top-level keys equal to an `array_obj` sub-field id) | `UNKNOWN_VALUE_KEY` |
+| A value stored under a `section` or `static` id | `NON_VALUE_ITEM_VALUE` |
+| A value of a hidden field | `HIDDEN_FIELD_VALUE` |
+| A key in an `array_obj` row that is not a declared value sub-field | `UNKNOWN_ROW_KEY` |
+
+`FormEngine.sanitize(doc, options?)` returns a copy of the document with all of them removed, and cleans `suggestions` by the same rules. `FormValuesEditor.sanitize(options?)` does the same to the editor's document. Values of the wrong type are kept for `validate()` to report.
+
+`validate(doc, { strict: true })` reports each stray value in `values` as a document error and sets `valid` to `false`; field errors are still returned. It finds exactly what `sanitize` removes from `values`. Suggestions are not checked.
+
+On the server, persist the sanitized document:
+
+```ts
+const now = new Date()
+const clean = engine.sanitize(doc, { now })
+const result = engine.validate(clean, { now })
+```
+
+Hidden values are removed permanently, so call `sanitize` on save or submit, not on every edit. The UI keeps a field's value when the field becomes hidden, so strict validation rejects a document taken straight from the UI unless it was sanitized first.
+
+---
+
 ## Field Validation
 
 Validation is performed by `FieldValidator` and invoked through `FormEngine.validate()`. Only **visible** fields are validated — hidden fields are skipped entirely. Sections are never validated.

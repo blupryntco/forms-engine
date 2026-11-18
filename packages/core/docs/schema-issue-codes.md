@@ -79,6 +79,12 @@ Separate from schema definition issues, `FormEngine.validate()` can produce **do
 | `FORM_SUBMITTED_AT_MISSING` | `doc.form.submittedAt` is missing |
 | `FORM_SUBMITTED_AT_INVALID` | `doc.form.submittedAt` is not a valid ISO 8601 string |
 | `NOW_INVALID` | `options.now` passed to `validate()` is not a valid date |
+| `UNKNOWN_VALUE_KEY` | Strict mode only: a `values` key matches no form item |
+| `NON_VALUE_ITEM_VALUE` | Strict mode only: a value is stored under a `section` or `static` id. `itemId` is that id |
+| `HIDDEN_FIELD_VALUE` | Strict mode only: a hidden field holds a value. `itemId` is the field id |
+| `UNKNOWN_ROW_KEY` | Strict mode only: an `array_obj` row holds a key that is not a declared value sub-field. `itemId` is the `array_obj` field id |
+
+The last four are reported only by `validate(doc, { strict: true })`, next to any field errors. They cover the values `FormEngine.sanitize()` removes; see [Stray Values](./validation-and-conditions.md#stray-values).
 
 Each error may include a `params` object for debuggability. The shape varies by code:
 
@@ -89,6 +95,10 @@ Each error may include a `params` object for debuggability. The shape varies by 
 | `FORM_SUBMITTED_AT_MISSING` | _(none)_ |
 | `FORM_SUBMITTED_AT_INVALID` | `{ actual }` |
 | `NOW_INVALID` | _(none)_ |
+| `UNKNOWN_VALUE_KEY` | `{ key }` |
+| `NON_VALUE_ITEM_VALUE` | _(none)_ |
+| `HIDDEN_FIELD_VALUE` | _(none)_ |
+| `UNKNOWN_ROW_KEY` | `{ itemIndex, key }` — the zero-based row and the undeclared key |
 
 ```ts
 const result = engine.validate(doc)

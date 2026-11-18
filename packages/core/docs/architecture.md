@@ -49,6 +49,7 @@ packages/core/
 │   ├── condition-evaluator.ts         # ConditionEvaluator — condition logic
 │   ├── visibility-resolver.ts         # VisibilityResolver — visibility computation
 │   ├── field-validator.ts             # FieldValidator — value validation
+│   ├── value-sanitizer.ts             # ValueSanitizer — stray-value detection and removal (internal)
 │   ├── dependency-graph.ts            # DependencyGraph — DAG + topological sort
 │   ├── form-definition-validator.ts   # JSON Schema + semantic validation
 │   ├── date-utils.ts                  # Relative date parsing and resolution
@@ -75,6 +76,7 @@ FormEngine (form-engine.ts)
 ├── VisibilityResolver (visibility-resolver.ts)
 │   ├── ConditionEvaluator          (fed a field-type map, for multiselect set semantics)
 │   └── topologicalOrder (from DependencyGraph)
+├── ValueSanitizer (value-sanitizer.ts)
 └── FieldValidator (field-validator.ts)
     └── validators/
         ├── StringValidator
@@ -133,7 +135,7 @@ Input: FormDefinition (JSON)
   │
   ▼
 [5] Assemble Components
-     → ConditionEvaluator, VisibilityResolver, FieldValidator
+     → ConditionEvaluator, VisibilityResolver, FieldValidator, ValueSanitizer
 ```
 
 ## Condition System
@@ -297,11 +299,16 @@ validate(doc, options?)
   │
   ├─ [2] Resolve reference time: options.now if given, else doc.form.submittedAt
   ├─ [3] Compute visibilityMap (using resolved reference time)
-  └─ [4] Validate only visible fields → collect FieldValidationError[]
+  ├─ [4] Validate only visible fields → collect FieldValidationError[]
+  └─ [5] options.strict only: ValueSanitizer finds stray values
+         (unknown keys, section/static values, hidden-field values,
+         undeclared array_obj row keys) → DocumentValidationError[]
   → Return { valid, fieldErrors, documentErrors? }
 ```
 
-Field validation (steps 2-4) only runs when no document errors exist. If document errors are present, the method returns early with `valid: false` and an empty `fieldErrors` map.
+Field validation (steps 2-5) only runs when no document errors exist. If document errors are present, the method returns early with `valid: false` and an empty `fieldErrors` map.
+
+`sanitize(doc, options?)` computes the same visibility map and uses the same `ValueSanitizer` pass to remove the stray values from a copy of the document, so strict validation reports exactly what `sanitize` removes from `values`.
 
 ### Relative Date Resolution
 
@@ -315,7 +322,7 @@ Without `now`, date constraints are anchored to the submission time, so re-valid
 
 ### Fluent Values Editor (FormValuesEditor)
 
-`FormValuesEditor` wraps a `FormEngine` and a mutable `FormDocument`. It provides chainable methods for setting/clearing field values, manipulating array items (add, remove, move, set), setting `submittedAt`, and delegating to the engine for validation and visibility. The document is deep-cloned on construction and on output (`toJSON()`) to prevent external mutation.
+`FormValuesEditor` wraps a `FormEngine` and a mutable `FormDocument`. It provides chainable methods for setting/clearing field values, manipulating array items (add, remove, move, set), setting `submittedAt`, and delegating to the engine for validation, sanitizing and visibility. The document is deep-cloned on construction and on output (`toJSON()`) to prevent external mutation.
 
 ## External Dependencies
 

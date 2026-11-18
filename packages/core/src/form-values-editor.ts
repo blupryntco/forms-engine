@@ -293,6 +293,21 @@ export class FormValuesEditor {
     }
 
     /**
+     * Replaces the current document with a copy that has no values the
+     * definition does not accept.
+     *
+     * Delegates to {@link FormEngine.sanitize}.
+     *
+     * @param options - Evaluation options; pass `now` for server-side checks.
+     * @returns `this` for chaining.
+     * @throws {RangeError} If `options.now` is an invalid date.
+     */
+    sanitize(options?: EvaluationOptions): this {
+        this.doc = this.engine.sanitize(this.doc, options)
+        return this
+    }
+
+    /**
      * Computes visibility for every field and section.
      *
      * Delegates to {@link FormEngine.getVisibilityMap}.

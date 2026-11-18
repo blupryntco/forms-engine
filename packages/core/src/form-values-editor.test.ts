@@ -607,6 +607,25 @@ describe('FormValuesEditor', () => {
         })
     })
 
+    describe('sanitize', () => {
+        const def = baseDef([
+            { id: 1, type: 'boolean', label: 'Show' },
+            { id: 2, type: 'string', label: 'Details', condition: { field: 1, op: 'eq', value: true } },
+        ])
+
+        it('replaces the document with a sanitized copy and returns this', () => {
+            const editor = new FormValuesEditor(def, doc({ '1': false, '2': 'hidden', '99': 'x' }))
+            expect(editor.sanitize()).toBe(editor)
+            expect(editor.toJSON().values).toEqual({ '1': false })
+            expect(editor.validate({ strict: true }).valid).toBe(true)
+        })
+
+        it('passes options through', () => {
+            const editor = new FormValuesEditor(def, doc({}))
+            expect(() => editor.sanitize({ now: new Date('garbage') })).toThrow(RangeError)
+        })
+    })
+
     describe('validate (additional)', () => {
         it('hidden conditional field with required does not produce errors', () => {
             const def = baseDef([

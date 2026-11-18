@@ -16,12 +16,14 @@ A form schema is a JSON document that describes the structure of a form: its fie
 
 Form values is a JSON document that contains user-submitted data corresponding to a specific form schema. Form documents carry a required `submittedAt` (ISO 8601) timestamp that serves as the reference time for relative date resolution (e.g., `"+7d"`, `"-1m"`) unless the caller passes a trusted `now` in `EvaluationOptions`. The client controls `submittedAt`, so server-side validation must pass `now`; an invalid `now` produces a `NOW_INVALID` document error. Missing `submittedAt` produces a `FORM_SUBMITTED_AT_MISSING` document error; invalid values produce a `FORM_SUBMITTED_AT_INVALID` document error.
 
+`values` may hold data the form has no place for: unknown keys, values on `section`/`static` ids, values of hidden fields, undeclared keys in `array_obj` rows. `FormEngine.sanitize(doc, options?)` returns a copy without them (and cleans `suggestions` the same way); servers should persist `engine.sanitize(doc, { now: new Date() })`. Hidden values are dropped for good, so sanitize on save/submit, not on every edit. `validate(doc, { strict: true })` reports each such value as a document error (`UNKNOWN_VALUE_KEY`, `NON_VALUE_ITEM_VALUE`, `HIDDEN_FIELD_VALUE`, `UNKNOWN_ROW_KEY`); without `strict` they pass.
+
 A form document may also carry an optional `suggestions` block alongside `values` — machine-proposed answers keyed by the same stringified field ids. Each entry is `{ value, confidence (0..1), source }`. Suggestions never affect validation or visibility; they are accepted (copied into `values`, suggestion kept) or rejected (removed, value untouched). See [Form Schema](./SCHEMA.md) §6.1.
 
 ### 2.3 Editors
 
 - **`FormDefinitionEditor`** — fluent builder for programmatically constructing and modifying form schemas (`FormDefinition`). Operates on the schema structure: add/remove/move fields and sections, set validation rules, configure conditions and options.
-- **`FormValuesEditor`** — fluent editor for programmatically reading and writing form values against a `FormDefinition`. Wraps a `FormEngine` and a mutable `FormDocument`. Supports setting/clearing field values, array item manipulation (add, remove, move, set — on `array` and `array_obj` alike), per-cell writes into `array_obj` rows, suggestion management (set/clear/accept/reject), validation, and visibility queries.
+- **`FormValuesEditor`** — fluent editor for programmatically reading and writing form values against a `FormDefinition`. Wraps a `FormEngine` and a mutable `FormDocument`. Supports setting/clearing field values, array item manipulation (add, remove, move, set — on `array` and `array_obj` alike), per-cell writes into `array_obj` rows, suggestion management (set/clear/accept/reject), validation, sanitizing (`sanitize`), and visibility queries.
 
 ## 3. Field Types
 

@@ -136,7 +136,37 @@ const result = engine.validate(doc, { now: new Date() })
 
 `submittedAt` must still be present and valid when `now` is passed: `FORM_SUBMITTED_AT_MISSING` and `FORM_SUBMITTED_AT_INVALID` are reported either way. An invalid `options.now` produces a `NOW_INVALID` document error.
 
+**Strict mode:** By default, `validate` accepts values the definition has no place for (see [`sanitize()`](#sanitizedoc-formdocument-options-evaluationoptions-formdocument)). With `options.strict: true`, every value that `sanitize()` would remove from `values` becomes a document error (`UNKNOWN_VALUE_KEY`, `NON_VALUE_ITEM_VALUE`, `HIDDEN_FIELD_VALUE`, `UNKNOWN_ROW_KEY`) and `result.valid` is `false`. Field errors are still returned alongside them. Strict mode does not check `suggestions`, and it does not run when the compatibility check fails.
+
+```ts
+const result = engine.validate(doc, { now: new Date(), strict: true })
+```
+
+The UI keeps a field's value when the field becomes hidden, so a document saved straight from the form fails strict validation with `HIDDEN_FIELD_VALUE`. Run `sanitize()` first if you want such documents to pass.
+
 > **Note:** `isVisible()` and `getVisibilityMap()` do not perform compatibility checks.
+
+#### `sanitize(doc: FormDocument, options?: EvaluationOptions): FormDocument`
+
+Returns a copy of the document without the values the definition does not accept. Removed from `values`:
+
+- keys that match no form item, including non-canonical keys such as `"01"` and top-level keys equal to an `array_obj` sub-field id;
+- values stored under a `section` or `static` id;
+- values of hidden fields;
+- keys in `array_obj` rows that are not a declared value sub-field (keys of `static` sub-fields are removed too).
+
+`suggestions` is cleaned by the same rules, applied to each suggestion's `value`, and the key is dropped when nothing is left. Values of the wrong type are kept; `validate()` reports them as `TYPE`. `doc.form` is copied unchanged: `sanitize` does not check `id`, `version` or `submittedAt`.
+
+The result is a deep (JSON) copy, and the input is not mutated. Visibility uses `options.now` when given, otherwise `doc.form.submittedAt`.
+
+**Throws:** `RangeError` if `options.now` is an invalid date.
+
+Hidden values are dropped for good, so call `sanitize` when saving or submitting, not on every edit. Servers should persist the sanitized document:
+
+```ts
+const clean = engine.sanitize(doc, { now: new Date() })
+const result = engine.validate(clean, { now: new Date() })
+```
 
 #### `getFieldDef(id: number): FieldEntry | undefined`
 
@@ -443,6 +473,16 @@ if (!result.valid) {
 }
 ```
 
+##### `sanitize(options?: EvaluationOptions): this`
+
+Replaces the current document with a copy that has no values the definition does not accept. Delegates to `FormEngine.sanitize()`, passing `options` through.
+
+**Throws:** `RangeError` if `options.now` is an invalid date.
+
+```ts
+const doc = editor.sanitize({ now: new Date() }).toJSON()
+```
+
 ##### `getVisibilityMap(options?: EvaluationOptions): Map<number, boolean>`
 
 Computes visibility for every field and section. Delegates to `FormEngine.getVisibilityMap()`, passing `options` through.
@@ -628,7 +668,7 @@ None of these validate that `fieldId` refers to an existing, non-section field �
 |------|-------------|
 | `FormValidationResult` | `{ valid: boolean, fieldErrors: Map<number, FieldValidationError[]>, documentErrors?: DocumentValidationError[] }` |
 | `FieldValidationError` | `{ fieldId, rule, message, params?, itemIndex? }` |
-| `DocumentValidationErrorCode` | `'SCHEMA_INVALID' \| 'DUPLICATE_ID' \| 'NESTING_DEPTH' \| 'UNKNOWN_FIELD_REF' \| 'CONDITION_REFS_SECTION' \| 'CONDITION_REFS_STATIC' \| 'INVALID_MIN_MAX' \| 'INVALID_REGEX' \| 'CIRCULAR_DEPENDENCY' \| 'FORM_ID_MISMATCH' \| 'FORM_VERSION_MISMATCH' \| 'FORM_SUBMITTED_AT_MISSING' \| 'FORM_SUBMITTED_AT_INVALID' \| 'NOW_INVALID'` |
+| `DocumentValidationErrorCode` | `'SCHEMA_INVALID' \| 'DUPLICATE_ID' \| 'NESTING_DEPTH' \| 'UNKNOWN_FIELD_REF' \| 'CONDITION_REFS_SECTION' \| 'CONDITION_REFS_STATIC' \| 'INVALID_MIN_MAX' \| 'INVALID_REGEX' \| 'CIRCULAR_DEPENDENCY' \| 'FORM_ID_MISMATCH' \| 'FORM_VERSION_MISMATCH' \| 'FORM_SUBMITTED_AT_MISSING' \| 'FORM_SUBMITTED_AT_INVALID' \| 'NOW_INVALID' \| 'UNKNOWN_VALUE_KEY' \| 'NON_VALUE_ITEM_VALUE' \| 'HIDDEN_FIELD_VALUE' \| 'UNKNOWN_ROW_KEY'` |
 | `DocumentValidationError` | `{ code: DocumentValidationErrorCode, message: string, params?: Record<string, unknown>, itemId?: number }` |
 | `StringValidation` | `{ required?, minLength?, maxLength?, pattern?, patternMessage? }` |
 | `NumberValidation` | `{ required?, min?, max? }` |
@@ -657,7 +697,7 @@ None of these validate that `fieldId` refers to an existing, non-section field �
 | `SustainabilityValue` | `{ address, ccri?, cmc? }` — the value of a `sustainability` field |
 | `DocumentError` | Error class with `.errors: DocumentValidationError[]` — thrown on definition validation failure or by `loadDocument()` on id/version mismatch |
 | `EvaluationContext` | `{ values, visibilityMap?, now }` |
-| `EvaluationOptions` | `{ now?: Date }` — trusted reference time for relative dates. Accepted by `validate()`, `isVisible()` and `getVisibilityMap()`; overrides `doc.form.submittedAt` |
+| `EvaluationOptions` | `{ now?: Date, strict?: boolean }` — `now` is a trusted reference time for relative dates. Accepted by `validate()`, `sanitize()`, `isVisible()` and `getVisibilityMap()`; overrides `doc.form.submittedAt`. `strict` is read by `validate()` only: it reports values `sanitize()` would remove as document errors |
 | `FieldDescriptor` | `(Omit<FieldContentItem, 'id'> \| Omit<StaticFieldContentItem, 'id'>) & { id?: number }` — hand-written, because `Omit` does not distribute over a union |
 | `SectionDescriptor` | `Omit<SectionContentItem, 'id' \| 'content'> & { id?: number, content?: ContentItem[] }` |
 | `ContentItemInfo` | `{ id, type, label?, title?, parentId }` |

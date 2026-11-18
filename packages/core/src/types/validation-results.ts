@@ -79,6 +79,10 @@ export type FieldValidationError = {
  * | `FORM_SUBMITTED_AT_MISSING` | The document's submittedAt field is missing. |
  * | `FORM_SUBMITTED_AT_INVALID` | The document's submittedAt field is not a valid date. |
  * | `NOW_INVALID` | The `now` option passed to `validate` is not a valid date. |
+ * | `UNKNOWN_VALUE_KEY` | Strict mode: a `values` key matches no form item. |
+ * | `NON_VALUE_ITEM_VALUE` | Strict mode: a value is stored under a `section` or `static` id. |
+ * | `HIDDEN_FIELD_VALUE` | Strict mode: a hidden field holds a value. |
+ * | `UNKNOWN_ROW_KEY` | Strict mode: an `array_obj` row holds a key that is not a declared value sub-field. |
  */
 export type DocumentValidationErrorCode =
     | 'SCHEMA_INVALID'
@@ -96,6 +100,10 @@ export type DocumentValidationErrorCode =
     | 'FORM_SUBMITTED_AT_MISSING'
     | 'FORM_SUBMITTED_AT_INVALID'
     | 'NOW_INVALID'
+    | 'UNKNOWN_VALUE_KEY'
+    | 'NON_VALUE_ITEM_VALUE'
+    | 'HIDDEN_FIELD_VALUE'
+    | 'UNKNOWN_ROW_KEY'
 
 /**
  * A single validation error found during form definition or document validation.
