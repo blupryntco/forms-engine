@@ -1,7 +1,8 @@
+import { DependencyGraph } from './dependency-graph'
 import { FormDefinitionEditor } from './form-definition-editor'
 import { FormEngine } from './form-engine'
 import { FormValuesEditor } from './form-values-editor'
-import { SimpleCondition } from './types/conditions'
+import type { Condition, SimpleCondition } from './types/conditions'
 import { DocumentError } from './types/errors'
 import type { ContentItem, FieldContentItem, FormDefinition } from './types/form-definition'
 import type { FormSnapshot } from './types/form-snapshot'
@@ -2561,5 +2562,95 @@ describe('FormEngine', () => {
 
             expect(() => new FormEngine(broken)).toThrow(DocumentError)
         })
+    })
+})
+
+describe('FormEngine definition limits', () => {
+    const compileErrorCodes = (definition: FormDefinition): string[] => {
+        try {
+            new FormEngine(definition)
+            return []
+        } catch (err) {
+            if (!(err instanceof DocumentError)) throw err
+            return err.errors.map((issue) => issue.code)
+        }
+    }
+
+    const nestedSections = (levels: number): ContentItem[] => {
+        let content: ContentItem[] = [{ id: levels + 1, type: 'string', label: 'Leaf' }]
+        for (let id = levels; id >= 1; id -= 1) {
+            content = [{ id, type: 'section', title: `L${id}`, content }]
+        }
+        return content
+    }
+
+    const withCondition = (condition: Condition): FormDefinition =>
+        baseDef([
+            { id: 1, type: 'string', label: 'A' },
+            { id: 2, type: 'string', label: 'B', condition },
+        ])
+
+    const nestedCondition = (levels: number, key: 'and' | 'or'): Condition => {
+        let condition: Condition = { field: 1, op: 'set' }
+        for (let i = 0; i < levels; i += 1) {
+            condition = key === 'and' ? { and: [condition] } : { or: [condition] }
+        }
+        return condition
+    }
+
+    afterEach(() => {
+        jest.restoreAllMocks()
+    })
+
+    it('rejects 10,000 nested sections with NESTING_DEPTH', () => {
+        expect(compileErrorCodes(baseDef(nestedSections(10_000)))).toEqual(['NESTING_DEPTH'])
+    })
+
+    it.each(['and', 'or'] as const)('rejects 10,000 nested %s groups with NESTING_DEPTH', (key) => {
+        expect(compileErrorCodes(withCondition(nestedCondition(10_000, key)))).toEqual(['NESTING_DEPTH'])
+    })
+
+    it('accepts 100 conditions in one group and rejects 101', () => {
+        const leaves = (count: number): Condition[] =>
+            Array.from({ length: count }, (): Condition => ({ field: 1, op: 'set' }))
+        expect(compileErrorCodes(withCondition({ and: leaves(100) }))).toEqual([])
+        expect(compileErrorCodes(withCondition({ or: leaves(101) }))).toContain('SCHEMA_INVALID')
+    })
+
+    it('rejects 5001 flat fields with DEFINITION_TOO_LARGE', () => {
+        const content = Array.from(
+            { length: 5001 },
+            (_, i): ContentItem => ({ id: i + 1, type: 'string', label: `F${i + 1}` }),
+        )
+        expect(compileErrorCodes(baseDef(content))).toEqual(['DEFINITION_TOO_LARGE'])
+    })
+
+    it('compiles the longest dependency chain the node limit allows', () => {
+        const content = Array.from(
+            { length: 2500 },
+            (_, i): ContentItem => ({
+                id: i + 1,
+                type: 'string',
+                label: `F${i + 1}`,
+                ...(i > 0 ? { condition: { field: i, op: 'set' } } : {}),
+            }),
+        )
+        const engine = new FormEngine(baseDef(content))
+        expect(engine.getVisibilityMap(doc({ '1': 'x' })).get(2500)).toBe(false)
+    })
+
+    it('turns a RangeError during compilation into DEFINITION_TOO_LARGE', () => {
+        jest.spyOn(DependencyGraph, 'detectCycle').mockImplementation(() => {
+            throw new RangeError('Maximum call stack size exceeded')
+        })
+        expect(compileErrorCodes(withCondition({ field: 1, op: 'set' }))).toEqual(['DEFINITION_TOO_LARGE'])
+    })
+
+    it('rethrows other errors during compilation unchanged', () => {
+        const error = new Error('boom')
+        jest.spyOn(DependencyGraph, 'detectCycle').mockImplementation(() => {
+            throw error
+        })
+        expect(() => new FormEngine(withCondition({ field: 1, op: 'set' }))).toThrow(error)
     })
 })

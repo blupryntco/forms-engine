@@ -642,7 +642,7 @@ shows the dependent item whenever *Travel Rule* is among the chosen programmes.
 
 ### 5.3 Compound Conditions
 
-Combine conditions with `and` / `or`. Supports arbitrary nesting.
+Combine conditions with `and` / `or`. Groups nest up to 16 levels deep and hold up to 100 conditions each.
 
 ```json
 {
@@ -800,6 +800,9 @@ Two operations are defined on a suggestion:
 | Constraint | Limit |
 |------------|-------|
 | Section nesting depth | 3 levels |
+| `and` / `or` nesting depth within one condition | 16 levels |
+| Conditions per `and` / `or` group | 100 |
+| Nodes per definition | 5000, counting content items, `array_obj` sub-fields and condition nodes (groups and simple conditions) |
 | ID format | Positive integer |
 | ID uniqueness | Global across entire schema (all fields and sections) |
 | Select / multiselect options minimum | 1 |
@@ -825,7 +828,10 @@ The engine must validate the schema itself before use. Invalid schemas must be r
 |------|-------|
 | Duplicate IDs | `Duplicate id: "{id}"` |
 | Condition references non-existent field | `Condition references unknown field: "{field}"` |
-| Section nesting exceeds 3 levels | `Section nesting exceeds maximum depth of 3: "{id}"` |
+| Section nesting exceeds 3 levels | `Section nesting exceeds maximum depth of 3: {id}` |
+| `and` / `or` nesting exceeds 16 levels | `Condition nesting exceeds maximum depth of 16 (in item {id})` |
+| More than 100 conditions in an `and` / `or` group | Schema error: `maxItems` |
+| Definition exceeds 5000 nodes | `Form definition exceeds the maximum of 5000 nodes` |
 | `maxLength` < `minLength` | `maxLength must be >= minLength for field "{id}"` |
 | `max` < `min` | `max must be >= min for field "{id}"` |
 | `maxDate` < `minDate` | `maxDate must be >= minDate for field "{id}"` |

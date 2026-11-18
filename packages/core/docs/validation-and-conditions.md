@@ -253,7 +253,7 @@ A condition may not reference a `section` (`CONDITION_REFS_SECTION`) or a `stati
 
 ### Compound Conditions
 
-Combine conditions with `and` / `or`. Supports arbitrary nesting.
+Combine conditions with `and` / `or`. Groups nest up to 16 levels deep and hold up to 100 conditions each.
 
 ```json
 {

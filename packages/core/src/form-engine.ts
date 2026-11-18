@@ -18,6 +18,8 @@ import { VisibilityResolver } from './visibility-resolver'
  * Created by passing a {@link FormDefinition} to the constructor. The
  * construction lifecycle is:
  *
+ * 0. **Limits and schema** -- checks section and condition depth and the
+ *    node count without recursion, then validates against the JSON schema.
  * 1. **Build field registry** -- walks the definition tree depth-first,
  *    creating a flat {@link FieldEntry} for every field and section while
  *    recording document-order ids in `contentOrder`.
@@ -63,52 +65,75 @@ export class FormEngine {
      * Compiles a {@link FormDefinition} into a ready-to-use engine.
      *
      * @param definition - A complete form definition to compile.
-     * @throws {DocumentError} If the definition contains semantic issues
-     *   or circular condition dependencies.
+     * @throws {DocumentError} If the definition exceeds depth or size limits,
+     *   contains semantic issues or circular condition dependencies.
      */
     constructor(definition: FormDefinition) {
-        // 0. JSON schema validation
-        const definitionValidator = new FormDefinitionValidator()
-        const schemaIssues = definitionValidator.validateSchema(definition)
-        if (schemaIssues.length > 0) {
-            throw new DocumentError(schemaIssues)
+        try {
+            // 0. Depth and size limits, checked without recursion before any recursive walk
+            const definitionValidator = new FormDefinitionValidator()
+            const limitIssues = definitionValidator.validateLimits(definition)
+            if (limitIssues.length > 0) {
+                throw new DocumentError(limitIssues)
+            }
+
+            // 0b. JSON schema validation
+            const schemaIssues = definitionValidator.validateSchema(definition)
+            if (schemaIssues.length > 0) {
+                throw new DocumentError(schemaIssues)
+            }
+
+            // 1. Build field registry + content order
+            const registry = new Map<number, FieldEntry>()
+            const contentOrder: number[] = []
+            FormEngine.walkContent(definition.content, undefined, registry, contentOrder)
+
+            // 2. Semantic validation
+            const issues = definitionValidator.validate(definition, registry)
+
+            // 3. Cycle detection
+            const cyclePath = DependencyGraph.detectCycle(registry)
+            if (cyclePath) {
+                issues.push({
+                    code: 'CIRCULAR_DEPENDENCY',
+                    message: `Circular condition dependency detected: ${cyclePath.join(' -> ')}`,
+                })
+            }
+
+            if (issues.length > 0) {
+                throw new DocumentError(issues)
+            }
+
+            // 4. Build dependency graph
+            this.depGraph = new DependencyGraph(registry)
+
+            // 5. Assemble components
+            const conditionEvaluator = new ConditionEvaluator()
+            this.visibilityResolver = new VisibilityResolver(
+                registry,
+                conditionEvaluator,
+                this.depGraph.topologicalOrder,
+            )
+            this.fieldValidator = new FieldValidator(registry)
+            this.valueSanitizer = new ValueSanitizer(registry)
+
+            this.registry = registry
+            this.contentOrder = contentOrder
+            this.definition = definition
+            this.formId = definition.id
+            this.formVersion = definition.version
+        } catch (err) {
+            // A stack overflow in any recursive step means the definition is too big to compile.
+            if (err instanceof RangeError) {
+                throw new DocumentError([
+                    {
+                        code: 'DEFINITION_TOO_LARGE',
+                        message: 'Form definition is too large or too deeply nested to compile',
+                    },
+                ])
+            }
+            throw err
         }
-
-        // 1. Build field registry + content order
-        const registry = new Map<number, FieldEntry>()
-        const contentOrder: number[] = []
-        FormEngine.walkContent(definition.content, undefined, registry, contentOrder)
-
-        // 2. Semantic validation
-        const issues = definitionValidator.validate(definition, registry)
-
-        // 3. Cycle detection
-        const cyclePath = DependencyGraph.detectCycle(registry)
-        if (cyclePath) {
-            issues.push({
-                code: 'CIRCULAR_DEPENDENCY',
-                message: `Circular condition dependency detected: ${cyclePath.join(' -> ')}`,
-            })
-        }
-
-        if (issues.length > 0) {
-            throw new DocumentError(issues)
-        }
-
-        // 4. Build dependency graph
-        this.depGraph = new DependencyGraph(registry)
-
-        // 5. Assemble components
-        const conditionEvaluator = new ConditionEvaluator()
-        this.visibilityResolver = new VisibilityResolver(registry, conditionEvaluator, this.depGraph.topologicalOrder)
-        this.fieldValidator = new FieldValidator(registry)
-        this.valueSanitizer = new ValueSanitizer(registry)
-
-        this.registry = registry
-        this.contentOrder = contentOrder
-        this.definition = definition
-        this.formId = definition.id
-        this.formVersion = definition.version
     }
 
     /**

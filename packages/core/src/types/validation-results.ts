@@ -66,7 +66,8 @@ export type FieldValidationError = {
  * |------|-------------|
  * | `SCHEMA_INVALID` | The form definition does not conform to the JSON schema. |
  * | `DUPLICATE_ID` | Two or more content items share the same numeric id. |
- * | `NESTING_DEPTH` | A section is nested deeper than the allowed 3 levels. |
+ * | `NESTING_DEPTH` | A section is nested deeper than 3 levels, or `and`/`or` groups deeper than 16 levels. |
+ * | `DEFINITION_TOO_LARGE` | The definition has more than 5000 nodes or is too deep to compile. |
  * | `UNKNOWN_FIELD_REF` | A condition references a field id that does not exist in the form. |
  * | `CONDITION_REFS_SECTION` | A condition references a section id; sections have no value to compare. |
  * | `CONDITION_REFS_STATIC` | A condition references a static field id; static blocks have no value to compare. |
@@ -88,6 +89,7 @@ export type DocumentValidationErrorCode =
     | 'SCHEMA_INVALID'
     | 'DUPLICATE_ID'
     | 'NESTING_DEPTH'
+    | 'DEFINITION_TOO_LARGE'
     | 'UNKNOWN_FIELD_REF'
     | 'CONDITION_REFS_SECTION'
     | 'CONDITION_REFS_STATIC'

@@ -107,7 +107,13 @@ When `new FormEngine(definition)` is called, the following steps execute in orde
 Input: FormDefinition (JSON)
   │
   ▼
-[0] JSON Schema Validation (AJV)
+[0] Limits Check
+  │  Stack-based walk, no recursion: section depth ≤ 3,
+  │  and/or depth ≤ 16, ≤ 5000 nodes
+  │  → Throws DocumentError (NESTING_DEPTH, DEFINITION_TOO_LARGE) if exceeded
+  │
+  ▼
+[0b] JSON Schema Validation (AJV)
   │  Validates structural correctness against form-definition.schema.json
   │  → Throws DocumentError if invalid
   │
@@ -138,6 +144,8 @@ Input: FormDefinition (JSON)
      → ConditionEvaluator, VisibilityResolver, FieldValidator, ValueSanitizer
 ```
 
+A `RangeError` thrown by any step, such as a stack overflow in a recursive walk, is rethrown as a `DocumentError` with code `DEFINITION_TOO_LARGE`. Other errors propagate unchanged.
+
 ## Condition System
 
 Conditions control the visibility of fields and sections. The evaluation is handled by `ConditionEvaluator` (`condition-evaluator.ts`).
@@ -156,7 +164,7 @@ A condition is either **simple** or **compound**. They are mutually exclusive �
 - `op` — one of: `set`, `notset`, `eq`, `ne`, `lt`, `gt`, `lte`, `gte`, `in`, `notin`.
 - `value` — comparison operand. Required for all operators except `set`/`notset`. Must be an array for `in`/`notin`.
 
-**Compound condition** — combines child conditions with logical `and`/`or`, supporting arbitrary nesting:
+**Compound condition** — combines child conditions with logical `and`/`or`, nesting up to 16 levels deep with up to 100 conditions per group:
 
 ```json
 {

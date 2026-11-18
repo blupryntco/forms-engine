@@ -603,6 +603,10 @@ Forward adjacency map: key is a field ID, value is the set of item IDs whose con
 
 Validates form definitions at both the structural (JSON Schema) and semantic levels.
 
+#### `validateLimits(input: unknown): DocumentValidationError[]`
+
+Checks depth and size limits with a stack-based walk, so deeply nested input cannot overflow the call stack. Returns `NESTING_DEPTH` for sections nested deeper than 3 levels or `and`/`or` groups nested deeper than 16, and a single `DEFINITION_TOO_LARGE` for more than 5000 nodes. `FormEngine` runs it before `validateSchema()`.
+
 #### `validateSchema(input: unknown): DocumentValidationError[]`
 
 Validates raw input against the JSON Schema (`form-definition.schema.json`) using AJV. Returns errors with code `SCHEMA_INVALID`.
@@ -668,7 +672,7 @@ None of these validate that `fieldId` refers to an existing, non-section field â
 |------|-------------|
 | `FormValidationResult` | `{ valid: boolean, fieldErrors: Map<number, FieldValidationError[]>, documentErrors?: DocumentValidationError[] }` |
 | `FieldValidationError` | `{ fieldId, rule, message, params?, itemIndex? }` |
-| `DocumentValidationErrorCode` | `'SCHEMA_INVALID' \| 'DUPLICATE_ID' \| 'NESTING_DEPTH' \| 'UNKNOWN_FIELD_REF' \| 'CONDITION_REFS_SECTION' \| 'CONDITION_REFS_STATIC' \| 'INVALID_MIN_MAX' \| 'INVALID_REGEX' \| 'CIRCULAR_DEPENDENCY' \| 'FORM_ID_MISMATCH' \| 'FORM_VERSION_MISMATCH' \| 'FORM_SUBMITTED_AT_MISSING' \| 'FORM_SUBMITTED_AT_INVALID' \| 'NOW_INVALID' \| 'UNKNOWN_VALUE_KEY' \| 'NON_VALUE_ITEM_VALUE' \| 'HIDDEN_FIELD_VALUE' \| 'UNKNOWN_ROW_KEY'` |
+| `DocumentValidationErrorCode` | `'SCHEMA_INVALID' \| 'DUPLICATE_ID' \| 'NESTING_DEPTH' \| 'DEFINITION_TOO_LARGE' \| 'UNKNOWN_FIELD_REF' \| 'CONDITION_REFS_SECTION' \| 'CONDITION_REFS_STATIC' \| 'CONDITION_REFS_ARRAY_OBJ_ITEM' \| 'INVALID_MIN_MAX' \| 'INVALID_REGEX' \| 'CIRCULAR_DEPENDENCY' \| 'FORM_ID_MISMATCH' \| 'FORM_VERSION_MISMATCH' \| 'FORM_SUBMITTED_AT_MISSING' \| 'FORM_SUBMITTED_AT_INVALID' \| 'NOW_INVALID' \| 'UNKNOWN_VALUE_KEY' \| 'NON_VALUE_ITEM_VALUE' \| 'HIDDEN_FIELD_VALUE' \| 'UNKNOWN_ROW_KEY'` |
 | `DocumentValidationError` | `{ code: DocumentValidationErrorCode, message: string, params?: Record<string, unknown>, itemId?: number }` |
 | `StringValidation` | `{ required?, minLength?, maxLength?, pattern?, patternMessage? }` |
 | `NumberValidation` | `{ required?, min?, max? }` |

@@ -15,6 +15,21 @@ import type { DocumentValidationError } from './types/validation-results'
 const ajv = new Ajv2020({ allErrors: true })
 const validateFn = ajv.compile(formDefinitionSchema)
 
+/** Sections may nest this many levels deep. */
+const maxSectionDepth = 3
+
+/** `and`/`or` groups may nest this many levels deep inside one condition. */
+const maxConditionDepth = 16
+
+/** Content items, `array_obj` sub-fields and condition nodes allowed in one definition. */
+const maxDefinitionNodes = 5000
+
+/** One pending node of the iterative limits walk, with the depth of its enclosing structure. */
+type LimitsFrame =
+    | { kind: 'content'; value: unknown; sectionDepth: number }
+    | { kind: 'condition'; value: unknown; conditionDepth: number; itemId: number | undefined }
+    | { kind: 'leaf' }
+
 type SchemaIssue = {
     path: string
     keyword: string
@@ -234,6 +249,12 @@ const itemAllowedProperties = new Map<string, Set<string>>([
  *
  * Used by {@link FormEngine} during construction before building the engine.
  *
+ * ### Limits validation (`validateLimits`)
+ * Runs before the schema check, without recursion, so a hostile definition
+ * cannot overflow the stack. Reports `NESTING_DEPTH` for sections deeper than
+ * 3 levels or `and`/`or` groups deeper than 16 levels, and
+ * `DEFINITION_TOO_LARGE` past 5000 nodes.
+ *
  * ### Schema validation (`validateSchema`)
  * Validates raw input against the form definition JSON Schema. Returns
  * `SCHEMA_INVALID` issues for every violation found.
@@ -258,6 +279,111 @@ const itemAllowedProperties = new Map<string, Set<string>>([
  *    be valid regular expressions.
  */
 export class FormDefinitionValidator {
+    /**
+     * Checks nesting depth and node count of raw input with an explicit stack,
+     * so it is safe to run before any recursive walk. Input of unexpected shape
+     * is skipped and left to {@link validateSchema}.
+     *
+     * @returns `NESTING_DEPTH` and `DEFINITION_TOO_LARGE` issues. Empty when the input is within limits.
+     */
+    validateLimits(input: unknown): DocumentValidationError[] {
+        const issues: DocumentValidationError[] = []
+        if (!this.isRecord(input) || !Array.isArray(input.content)) return issues
+
+        const stack: LimitsFrame[] = []
+        this.pushReversed(stack, input.content, (value) => ({ kind: 'content', value, sectionDepth: 0 }))
+
+        let nodeCount = 0
+        while (stack.length > 0) {
+            const frame = stack.pop() as LimitsFrame
+            nodeCount += 1
+            if (nodeCount > maxDefinitionNodes) {
+                issues.push({
+                    code: 'DEFINITION_TOO_LARGE',
+                    message: `Form definition exceeds the maximum of ${maxDefinitionNodes} nodes`,
+                })
+                break
+            }
+
+            if (frame.kind === 'content') this.expandContentFrame(frame, stack, issues)
+            else if (frame.kind === 'condition') this.expandConditionFrame(frame, stack, issues)
+        }
+
+        return issues
+    }
+
+    /**
+     * Queues the condition, sub-fields and nested content of one content item.
+     * Any item with a `content` array is descended, not only sections, because
+     * the schema check would recurse into it as well.
+     */
+    private expandContentFrame(
+        frame: Extract<LimitsFrame, { kind: 'content' }>,
+        stack: LimitsFrame[],
+        issues: DocumentValidationError[],
+    ): void {
+        const item = frame.value
+        if (!this.isRecord(item)) return
+        const itemId = typeof item.id === 'number' ? item.id : undefined
+
+        if (item.condition !== undefined) {
+            stack.push({ kind: 'condition', value: item.condition, conditionDepth: 0, itemId })
+        }
+        if (Array.isArray(item.items)) {
+            for (let i = 0; i < item.items.length; i += 1) stack.push({ kind: 'leaf' })
+        }
+        if (!Array.isArray(item.content)) return
+
+        if (frame.sectionDepth >= maxSectionDepth) {
+            issues.push({
+                code: 'NESTING_DEPTH',
+                message: `Section nesting exceeds maximum depth of ${maxSectionDepth}: ${itemId}`,
+                itemId,
+            })
+            return
+        }
+        const sectionDepth = frame.sectionDepth + 1
+        this.pushReversed(stack, item.content, (value) => ({ kind: 'content', value, sectionDepth }))
+    }
+
+    /** Queues the children of an `and`/`or` group, or reports it when it nests too deep. */
+    private expandConditionFrame(
+        frame: Extract<LimitsFrame, { kind: 'condition' }>,
+        stack: LimitsFrame[],
+        issues: DocumentValidationError[],
+    ): void {
+        const condition = frame.value
+        if (!this.isRecord(condition)) return
+
+        // Both keys are walked: the schema check tries every `oneOf` branch, so it recurses into each.
+        const children = [
+            ...(Array.isArray(condition.and) ? condition.and : []),
+            ...(Array.isArray(condition.or) ? condition.or : []),
+        ]
+        if (children.length === 0) return
+
+        if (frame.conditionDepth >= maxConditionDepth) {
+            issues.push({
+                code: 'NESTING_DEPTH',
+                message: `Condition nesting exceeds maximum depth of ${maxConditionDepth} (in item ${frame.itemId})`,
+                itemId: frame.itemId,
+            })
+            return
+        }
+        const conditionDepth = frame.conditionDepth + 1
+        this.pushReversed(stack, children, (value) => ({
+            kind: 'condition',
+            value,
+            conditionDepth,
+            itemId: frame.itemId,
+        }))
+    }
+
+    /** Pushes frames for `values` in reverse, so they pop in document order. */
+    private pushReversed(stack: LimitsFrame[], values: unknown[], toFrame: (value: unknown) => LimitsFrame): void {
+        for (let i = values.length - 1; i >= 0; i -= 1) stack.push(toFrame(values[i]))
+    }
+
     /**
      * Validates raw input against the form definition JSON schema.
      *

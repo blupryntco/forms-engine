@@ -73,6 +73,7 @@ Each field may have validation rules depending on its type:
 
 - Fields can exist at the top level of the form or be grouped into sections.
 - Sections can be nested up to **3 levels deep**.
+- A form definition holds at most **5000 nodes**, counting content items, `array_obj` sub-fields and condition nodes. Larger definitions fail with `DEFINITION_TOO_LARGE`.
 - A section contains fields and/or child sections.
 - A section is shown only while at least one visible value field (any type except `static`) remains beneath it, at any depth. An empty section, one holding only `static` blocks, or one whose fields and child sections are all hidden is hidden, together with everything inside it. See §6.2.
 
@@ -94,6 +95,8 @@ Conditionals control the visibility of individual fields or entire sections base
 | **gte** | Field value is greater than or equal to a given value |
 | **in** | Field value is contained in a given array |
 | **notin** | Field value is not contained in a given array |
+
+Conditions combine with `and` / `or` groups. Groups nest up to **16 levels deep** and hold up to **100 conditions** each.
 
 ### 6.2 Conditional Behavior
 

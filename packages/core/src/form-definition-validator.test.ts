@@ -1,4 +1,5 @@
 import { FormDefinitionValidator } from './form-definition-validator'
+import type { Condition } from './types/conditions'
 import type { FieldEntry } from './types/field-entry'
 import type { FormDefinition } from './types/form-definition'
 
@@ -1386,6 +1387,129 @@ describe('FormDefinitionValidator.validateSchema', () => {
                 ])
                 expect(validator.validate(def, registry)).toEqual([])
             },
+        )
+    })
+})
+
+describe('FormDefinitionValidator.validateLimits', () => {
+    const nestedSections = (levels: number): FormDefinition['content'] => {
+        let content: FormDefinition['content'] = [{ id: levels + 1, type: 'string', label: 'Leaf' }]
+        for (let id = levels; id >= 1; id -= 1) {
+            content = [{ id, type: 'section', title: `L${id}`, content }]
+        }
+        return content
+    }
+
+    const nestedCondition = (levels: number, key: 'and' | 'or' = 'and'): Condition => {
+        let condition: Condition = { field: 1, op: 'set' }
+        for (let i = 0; i < levels; i += 1) {
+            condition = key === 'and' ? { and: [condition] } : { or: [condition] }
+        }
+        return condition
+    }
+
+    const withCondition = (condition: Condition): FormDefinition =>
+        minimalDef([
+            { id: 1, type: 'string', label: 'A' },
+            { id: 2, type: 'string', label: 'B', condition },
+        ])
+
+    const flatFields = (count: number): FormDefinition['content'] =>
+        Array.from({ length: count }, (_, i) => ({ id: i + 1, type: 'string' as const, label: `F${i + 1}` }))
+
+    const codes = (input: unknown): string[] => validator.validateLimits(input).map((issue) => issue.code)
+
+    it('accepts sections nested 3 levels deep', () => {
+        expect(validator.validateLimits(minimalDef(nestedSections(3)))).toEqual([])
+    })
+
+    it('rejects a section nested 4 levels deep', () => {
+        const issues = validator.validateLimits(minimalDef(nestedSections(4)))
+        expect(issues).toEqual([expect.objectContaining({ code: 'NESTING_DEPTH', itemId: 4 })])
+    })
+
+    it('stops at the depth limit on 10,000 nested sections', () => {
+        expect(codes(minimalDef(nestedSections(10_000)))).toEqual(['NESTING_DEPTH'])
+    })
+
+    it('accepts and/or groups nested 16 levels deep', () => {
+        expect(validator.validateLimits(withCondition(nestedCondition(16)))).toEqual([])
+        expect(validator.validateLimits(withCondition(nestedCondition(16, 'or')))).toEqual([])
+    })
+
+    it.each(['and', 'or'] as const)('rejects %s groups nested 17 levels deep', (key) => {
+        const issues = validator.validateLimits(withCondition(nestedCondition(17, key)))
+        expect(issues).toEqual([expect.objectContaining({ code: 'NESTING_DEPTH', itemId: 2 })])
+    })
+
+    it('walks both and and or of a malformed condition', () => {
+        const condition = { and: [{ field: 1, op: 'set' }], or: [nestedCondition(10_000)] }
+        expect(codes(withCondition(condition as unknown as Condition))).toEqual(['NESTING_DEPTH'])
+    })
+
+    it('caps content nested under a non-section item', () => {
+        const content = [{ id: 1, type: 'string', label: 'A', content: nestedSections(10_000) }]
+        expect(codes({ ...minimal, content })).toEqual(['NESTING_DEPTH'])
+    })
+
+    it('accepts 5000 nodes', () => {
+        expect(validator.validateLimits(minimalDef(flatFields(5000)))).toEqual([])
+    })
+
+    it('rejects 5001 nodes with a single DEFINITION_TOO_LARGE', () => {
+        expect(codes(minimalDef(flatFields(5001)))).toEqual(['DEFINITION_TOO_LARGE'])
+    })
+
+    it('counts array_obj sub-fields and condition nodes', () => {
+        const items = (count: number) =>
+            Array.from({ length: count }, (_, i) => ({ id: i + 10, type: 'string', label: `S${i}` }))
+        expect(codes({ ...minimal, content: [{ id: 1, type: 'array_obj', label: 'L', items: items(4999) }] })).toEqual(
+            [],
+        )
+        expect(codes({ ...minimal, content: [{ id: 1, type: 'array_obj', label: 'L', items: items(5000) }] })).toEqual([
+            'DEFINITION_TOO_LARGE',
+        ])
+
+        const leaves = (count: number) => Array.from({ length: count }, () => ({ field: 1, op: 'set' }))
+        expect(codes(withCondition({ and: leaves(4997) } as Condition))).toEqual([])
+        expect(codes(withCondition({ and: leaves(4998) } as Condition))).toEqual(['DEFINITION_TOO_LARGE'])
+    })
+
+    it.each([
+        ['null', null],
+        ['a string', 'form'],
+        ['non-array content', { ...minimal, content: 'x' }],
+        ['malformed items', { ...minimal, content: [null, 1, 'a', { condition: 5 }, { content: 7 }, { items: 3 }] }],
+    ])('ignores %s', (_, input) => {
+        expect(validator.validateLimits(input)).toEqual([])
+    })
+})
+
+describe('FormDefinitionValidator.validateSchema condition size', () => {
+    const withGroup = (key: 'and' | 'or', size: number) => ({
+        ...minimal,
+        content: [
+            { id: 1, type: 'string', label: 'A' },
+            {
+                id: 2,
+                type: 'string',
+                label: 'B',
+                condition: { [key]: Array.from({ length: size }, () => ({ field: 1, op: 'set' })) },
+            },
+        ],
+    })
+
+    it.each(['and', 'or'] as const)('accepts 100 conditions in %s', (key) => {
+        expect(schemaValid(withGroup(key, 100))).toBe(true)
+    })
+
+    it.each(['and', 'or'] as const)('rejects 101 conditions in %s', (key) => {
+        const issues = schemaIssues(withGroup(key, 101))
+        expect(issues).toContainEqual(
+            expect.objectContaining({
+                code: 'SCHEMA_INVALID',
+                params: expect.objectContaining({ keyword: 'maxItems' }),
+            }),
         )
     })
 })
