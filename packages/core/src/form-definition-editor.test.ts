@@ -1359,4 +1359,130 @@ describe('FormDefinitionEditor', () => {
             expect((editor.toJSON().content[0] as FieldContentItem).validation).toEqual({ required: true })
         })
     })
+
+    describe('update key allowlist', () => {
+        // biome-ignore lint/suspicious/noExplicitAny: simulates an untyped JSON payload
+        const payload = (json: string): any => JSON.parse(json)
+        const pollutionPayload = () => payload('{"__proto__":{"polluted":true},"label":"X"}')
+
+        const arrayObjDef = (): FormDefinition =>
+            defWith([
+                {
+                    id: 10,
+                    type: 'array_obj',
+                    label: 'Directors',
+                    items: [
+                        { id: 11, type: 'string', label: 'Name' },
+                        { id: 12, type: 'static', text: 'Caption' },
+                    ],
+                },
+            ])
+
+        const subField = (editor: FormDefinitionEditor, id: number) =>
+            (editor.getItem(10) as FieldContentItem).items?.find((f) => f.id === id)
+
+        afterEach(() => {
+            expect(({} as Record<string, unknown>).polluted).toBeUndefined()
+        })
+
+        it('updateField ignores an own __proto__ key', () => {
+            const editor = new FormDefinitionEditor(defWith([{ id: 1, type: 'string', label: 'A' }]))
+            editor.updateField(1, pollutionPayload())
+            const item = editor.getItem(1)
+            expect(Object.getPrototypeOf(item)).toBe(Object.prototype)
+            expect((item as unknown as Record<string, unknown>).polluted).toBeUndefined()
+            expect(item).toMatchObject({ label: 'X' })
+            expect(Object.hasOwn(editor.toJSON().content[0] as object, '__proto__')).toBe(false)
+        })
+
+        it('updateSection ignores an own __proto__ key', () => {
+            const editor = new FormDefinitionEditor(defWith([{ id: 1, type: 'section', title: 'S', content: [] }]))
+            editor.updateSection(1, payload('{"__proto__":{"polluted":true},"title":"X"}'))
+            const item = editor.getItem(1)
+            expect(Object.getPrototypeOf(item)).toBe(Object.prototype)
+            expect(item).toMatchObject({ title: 'X' })
+        })
+
+        it('updateArrayItemField ignores an own __proto__ key', () => {
+            const editor = new FormDefinitionEditor(arrayObjDef())
+            editor.updateArrayItemField(10, 11, pollutionPayload())
+            const item = subField(editor, 11)
+            expect(Object.getPrototypeOf(item)).toBe(Object.prototype)
+            expect(item).toEqual({ id: 11, type: 'string', label: 'X' })
+        })
+
+        it('updateField ignores id and type without throwing', () => {
+            const editor = new FormDefinitionEditor(defWith([{ id: 1, type: 'string', label: 'A' }]))
+            editor.updateField(1, payload('{"id":5,"type":"number","label":"B"}'))
+            expect(editor.toJSON().content[0]).toEqual({ id: 1, type: 'string', label: 'B' })
+        })
+
+        it('updateSection ignores id, type and content without throwing', () => {
+            const editor = new FormDefinitionEditor(
+                defWith([{ id: 1, type: 'section', title: 'S', content: [{ id: 2, type: 'string', label: 'A' }] }]),
+            )
+            editor.updateSection(1, payload('{"id":5,"type":"string","content":[],"title":"T"}'))
+            expect(editor.toJSON().content[0]).toEqual({
+                id: 1,
+                type: 'section',
+                title: 'T',
+                content: [{ id: 2, type: 'string', label: 'A' }],
+            })
+        })
+
+        it('updateArrayItemField ignores id and type without throwing', () => {
+            const editor = new FormDefinitionEditor(arrayObjDef())
+            editor.updateArrayItemField(10, 11, payload('{"id":99,"type":"number","label":"B"}'))
+            expect(subField(editor, 11)).toEqual({ id: 11, type: 'string', label: 'B' })
+        })
+
+        it('drops keys the item type does not declare', () => {
+            const editor = new FormDefinitionEditor(
+                defWith([
+                    { id: 1, type: 'string', label: 'A' },
+                    { id: 2, type: 'static', text: 'T' },
+                    { id: 3, type: 'section', title: 'S', content: [] },
+                ]),
+            )
+            editor.updateField(1, payload('{"foo":1,"text":"x","label":"B"}'))
+            editor.updateField(2, payload('{"validation":{"required":true},"options":[],"text":"U"}'))
+            editor.updateSection(3, payload('{"label":"x","validation":{},"title":"S2"}'))
+            expect(editor.toJSON().content).toEqual([
+                { id: 1, type: 'string', label: 'B' },
+                { id: 2, type: 'static', text: 'U' },
+                { id: 3, type: 'section', title: 'S2', content: [] },
+            ])
+        })
+
+        it('updateArrayItemField drops undeclared keys and applies text to a static sub-field', () => {
+            const editor = new FormDefinitionEditor(arrayObjDef())
+            editor.updateArrayItemField(10, 11, payload('{"text":"x","condition":{"field":1,"op":"set"}}'))
+            editor.updateArrayItemField(10, 12, payload('{"text":"New caption","validation":{"required":true}}'))
+            expect(subField(editor, 11)).toEqual({ id: 11, type: 'string', label: 'Name' })
+            expect(subField(editor, 12)).toEqual({ id: 12, type: 'static', text: 'New caption' })
+        })
+
+        it('keeps merge semantics: an explicit undefined clears an allowed key', () => {
+            const editor = new FormDefinitionEditor(
+                defWith([{ id: 1, type: 'string', label: 'A', description: 'D', placeholder: 'P' }]),
+            )
+            editor.updateField(1, { description: undefined })
+            expect(editor.toJSON().content[0]).toEqual({ id: 1, type: 'string', label: 'A', placeholder: 'P' })
+        })
+    })
+
+    describe('validate', () => {
+        it('returns no issues for a valid definition', () => {
+            const editor = new FormDefinitionEditor(defWith([{ id: 1, type: 'string', label: 'A' }]))
+            expect(editor.validate()).toEqual([])
+        })
+
+        it('reports SCHEMA_INVALID for an invalid definition', () => {
+            const editor = new FormDefinitionEditor(defWith([{ id: 1, type: 'string', label: 'A' }]))
+            editor.setValidation(1, { required: 'yes' } as unknown as { required: boolean })
+            const issues = editor.validate()
+            expect(issues.length).toBeGreaterThan(0)
+            expect(issues.every((issue) => issue.code === 'SCHEMA_INVALID')).toBe(true)
+        })
+    })
 })

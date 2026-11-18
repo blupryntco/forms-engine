@@ -147,7 +147,7 @@ onChange({ ...item, placeholder: 'e.g. Acme Ltd', reference_id: 'KYI-3.1.a' })
 ```
 
 **Omitting a property does not clear it.** The builder forwards the item to
-`FormDefinitionEditor.updateField`, which merges with `Object.assign`. To remove a property, pass it
+`FormDefinitionEditor.updateField`, which merges only the keys the item's type declares. To remove a property, pass it
 explicitly as `undefined` — serialization then strips the key:
 
 ```tsx

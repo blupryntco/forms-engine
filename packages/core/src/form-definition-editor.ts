@@ -1,5 +1,11 @@
+import { FormDefinitionValidator } from './form-definition-validator'
 import type { ArrayItemDef } from './types/array-item-def'
-import type { ArrayObjItemDef, ArrayObjKind } from './types/array-obj-item-def'
+import type {
+    ArrayObjItemDef,
+    ArrayObjKind,
+    StaticArrayObjItemDef,
+    ValueArrayObjItemDef,
+} from './types/array-obj-item-def'
 import type { Condition } from './types/conditions'
 import type {
     AnyFieldContentItem,
@@ -11,6 +17,30 @@ import type {
 } from './types/form-definition'
 import type { SelectOption } from './types/select-option'
 import type { TypeSpecificValidation } from './types/validation/type-specific'
+import type { DocumentValidationError } from './types/validation-results'
+
+/** Metadata keys every field, static block, section and sub-field accepts. */
+const metadataKeys = ['description', 'placeholder', 'answer_guidelines', 'reference_id'] as const
+
+/**
+ * Keys each update method may copy onto an item of the given kind. `id`,
+ * `type` and a section's `content` are never listed, so they are never
+ * overwritten; neither are `__proto__`, `constructor` or `prototype`.
+ */
+const fieldUpdateKeys: ReadonlySet<string> = new Set([
+    'label',
+    ...metadataKeys,
+    'condition',
+    'validation',
+    'options',
+    'item',
+    'items',
+    'kind',
+])
+const staticFieldUpdateKeys: ReadonlySet<string> = new Set(['text', 'label', ...metadataKeys, 'condition'])
+const sectionUpdateKeys: ReadonlySet<string> = new Set(['title', ...metadataKeys, 'condition'])
+const subFieldUpdateKeys: ReadonlySet<string> = new Set(['label', ...metadataKeys, 'validation', 'options'])
+const staticSubFieldUpdateKeys: ReadonlySet<string> = new Set(['text', 'label', ...metadataKeys])
 
 /**
  * Descriptor for a field to be added via the editor.
@@ -156,13 +186,14 @@ export class FormDefinitionEditor {
      * Updates properties of an existing field.
      *
      * Cannot change `id` or `type`. Use {@link removeItem} + {@link addField}
-     * to change the type.
+     * to change the type. Only keys the field's type declares are copied;
+     * `id`, `type` and any other key are silently ignored.
      */
     updateField(id: number, updates: Partial<Omit<FieldContentItem, 'id' | 'type'> & { text: string }>): this {
         const item = this.findItem(id)
         if (!item) throw new Error(`Item with id ${id} not found`)
         if (item.type === 'section') throw new Error(`Item ${id} is a section, not a field`)
-        Object.assign(item, updates)
+        assignAllowed(item, updates, item.type === 'static' ? staticFieldUpdateKeys : fieldUpdateKeys)
         return this
     }
 
@@ -170,13 +201,14 @@ export class FormDefinitionEditor {
      * Updates properties of an existing section.
      *
      * Cannot change `id`, `type`, or `content` directly. Use add/remove methods
-     * for content manipulation.
+     * for content manipulation. Those keys, and any key a section does not
+     * declare, are silently ignored.
      */
     updateSection(id: number, updates: Partial<Omit<SectionContentItem, 'id' | 'type' | 'content'>>): this {
         const item = this.findItem(id)
         if (!item) throw new Error(`Item with id ${id} not found`)
         if (item.type !== 'section') throw new Error(`Item ${id} is not a section`)
-        Object.assign(item, updates)
+        assignAllowed(item, updates, sectionUpdateKeys)
         return this
     }
 
@@ -376,15 +408,21 @@ export class FormDefinitionEditor {
      *
      * Like {@link updateField}, omitted properties are kept rather than
      * removed -- pass a property explicitly as `undefined` to clear it.
+     * Cannot change `id` or `type`: those keys, and any key the sub-field's
+     * type does not declare, are silently ignored.
      *
      * @throws If the field or the sub-field is not found.
      */
-    updateArrayItemField(id: number, subFieldId: number, patch: Partial<ArrayObjItemDef>): this {
+    updateArrayItemField(
+        id: number,
+        subFieldId: number,
+        patch: Partial<Omit<ValueArrayObjItemDef, 'id' | 'type'>> | Partial<Omit<StaticArrayObjItemDef, 'id' | 'type'>>,
+    ): this {
         const field = this.assertArrayObjField(id)
         const subField = field.items?.find((f) => f.id === subFieldId)
         if (!subField) throw new Error(`Sub-field with id ${subFieldId} not found in field ${id}`)
 
-        Object.assign(subField, patch, { id: subFieldId })
+        assignAllowed(subField, patch, subField.type === 'static' ? staticSubFieldUpdateKeys : subFieldUpdateKeys)
         return this
     }
 
@@ -514,6 +552,17 @@ export class FormDefinitionEditor {
         return JSON.parse(JSON.stringify(this.definition))
     }
 
+    /**
+     * Checks the current definition against the form definition JSON Schema.
+     * Semantic checks (duplicate ids, condition references) run only when the
+     * definition is compiled by `FormEngine`.
+     *
+     * @returns `SCHEMA_INVALID` issues; empty when the definition conforms.
+     */
+    validate(): DocumentValidationError[] {
+        return new FormDefinitionValidator().validateSchema(this.toJSON())
+    }
+
     private findItem(id: number): ContentItem | undefined {
         let found: ContentItem | undefined
 
@@ -612,5 +661,18 @@ export class FormDefinitionEditor {
         const ids = new Set<number>()
         this.walkAll(section.content, (item) => ids.add(item.id))
         return ids
+    }
+}
+
+/**
+ * Copies the own keys of `updates` that appear in `allowed` onto `target`.
+ * Replaces `Object.assign` so untrusted input cannot overwrite `id`/`type` or
+ * set an own `__proto__` key.
+ */
+const assignAllowed = (target: object, updates: object, allowed: ReadonlySet<string>): void => {
+    const source = updates as Record<string, unknown>
+    const destination = target as Record<string, unknown>
+    for (const key of Object.keys(source)) {
+        if (allowed.has(key)) destination[key] = source[key]
     }
 }

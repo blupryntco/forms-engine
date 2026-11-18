@@ -225,7 +225,12 @@ editor.addSection({ title: 'Personal Info' })
 
 #### `updateField(id: number, updates: Partial<Omit<FieldContentItem, 'id' | 'type'>>): this`
 
-Partially updates a field. Cannot change `id` or `type`.
+Partially updates a field. Copies only the keys the field's kind accepts and silently ignores the rest,
+including `id`, `type`, `__proto__`, `constructor` and `prototype`:
+
+- value field: `label`, `description`, `placeholder`, `answer_guidelines`, `reference_id`, `condition`,
+  `validation`, `options`, `item`, `items`, `kind`;
+- `static` block: `text`, `label`, `description`, `placeholder`, `answer_guidelines`, `reference_id`, `condition`.
 
 ```ts
 editor.updateField(3, { label: 'Full Name', validation: { required: true } })
@@ -233,7 +238,8 @@ editor.updateField(3, { label: 'Full Name', validation: { required: true } })
 
 #### `updateSection(id: number, updates: Partial<Omit<SectionContentItem, 'id' | 'type' | 'content'>>): this`
 
-Partially updates a section. Cannot change `id`, `type`, or `content`.
+Partially updates a section. Copies only `title`, `description`, `placeholder`, `answer_guidelines`,
+`reference_id` and `condition`; other keys, including `id`, `type` and `content`, are silently ignored.
 
 #### `removeItem(id: number): this`
 
@@ -268,7 +274,8 @@ Pass `undefined` to `setValidation` or `setCondition` to clear the value.
 
 `setFieldDescription`, `setPlaceholder`, `setAnswerGuidelines` and `setReferenceId` work on both fields and
 sections, and also clear on `undefined`. Prefer them over `updateField` / `updateSection` when a property
-needs removing: those merge with `Object.assign` and cannot delete a key.
+needs removing: those copy allowed keys onto the item and cannot delete one. A key passed as `undefined` is
+assigned and then dropped by `toJSON()`.
 
 #### `array_obj` Sub-Field Methods
 
@@ -279,7 +286,7 @@ editor.getArrayItems(12)                                          // ArrayObjIte
 editor.setArrayItems(12, [{ id: 121, type: 'string', label: 'Name' }])   // replaces the whole list
 editor.setArrayKind(12, 'table')                                        // 'list' | 'table' | undefined
 editor.addArrayItemField(12, { type: 'date', label: 'Appointed' }) // → the new sub-field id
-editor.updateArrayItemField(12, 121, { label: 'Full name' })       // merges; the id is never changed
+editor.updateArrayItemField(12, 121, { label: 'Full name' })       // merges; id and type never change
 editor.removeArrayItemField(12, 121)
 editor.moveArrayItemField(12, 1, 0)
 editor.setArrayKind(12, 'table')                                   // undefined removes the key
@@ -289,6 +296,13 @@ editor.setArrayKind(12, 'table')                                   // undefined 
 explicit id that is already taken anywhere in the definition. `nextId()` itself counts sub-field ids, so a
 new top-level field can never collide with one. `updateArrayItemField` merges like `updateField`: a
 property left out is kept, so pass it explicitly as `undefined` to clear it.
+
+Its `patch` is typed `Partial<Omit<ValueArrayObjItemDef, 'id' | 'type'>> | Partial<Omit<StaticArrayObjItemDef, 'id' | 'type'>>`,
+so it cannot change a sub-field's `type`; to do that, remove the sub-field and add a new one. Only these keys are
+copied, the rest are silently ignored:
+
+- value sub-field: `label`, `description`, `placeholder`, `answer_guidelines`, `reference_id`, `validation`, `options`;
+- `static` sub-field: `text`, `label`, `description`, `placeholder`, `answer_guidelines`, `reference_id`.
 
 #### Listing Methods
 
@@ -304,6 +318,17 @@ editor.getItem(3)      // ContentItem | undefined
 #### `toJSON(): FormDefinition`
 
 Returns a deep clone of the current definition.
+
+#### `validate(): DocumentValidationError[]`
+
+Checks the current definition against the form definition JSON Schema and returns `SCHEMA_INVALID` issues, or an
+empty array when it conforms. Semantic checks such as duplicate ids and condition references run only when
+`FormEngine` compiles the definition.
+
+```ts
+const errors = editor.validate()
+if (errors.length === 0) save(editor.toJSON())
+```
 
 ---
 
