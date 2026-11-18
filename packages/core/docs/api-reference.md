@@ -77,9 +77,11 @@ try {
 }
 ```
 
-#### `isVisible(id: number, doc: FormDocument): boolean`
+#### `isVisible(id: number, doc: FormDocument, options?: EvaluationOptions): boolean`
 
 Checks whether a single item is visible. Evaluates the item's own condition and walks up the parent chain. **Does not apply the hidden-field rule** — use `getVisibilityMap()` for authoritative cascading visibility.
+
+Relative dates in conditions resolve against `options.now` when given, otherwise against `doc.form.submittedAt`. Throws `RangeError` if `options.now` is an invalid date.
 
 ```ts
 if (engine.isVisible(5, doc)) {
@@ -87,9 +89,9 @@ if (engine.isVisible(5, doc)) {
 }
 ```
 
-#### `getVisibilityMap(doc: FormDocument): Map<number, boolean>`
+#### `getVisibilityMap(doc: FormDocument, options?: EvaluationOptions): Map<number, boolean>`
 
-Computes visibility for all items in topological order. Applies the [hidden-field rule](./architecture.md#hidden-field-rule) and cascading parent visibility. This is the authoritative visibility source.
+Computes visibility for all items in topological order. Applies the [hidden-field rule](./architecture.md#hidden-field-rule) and cascading parent visibility. This is the authoritative visibility source. `options.now` works as in `isVisible()`, including the `RangeError` on an invalid date.
 
 ```ts
 const vis = engine.getVisibilityMap(doc)
@@ -107,14 +109,14 @@ const affected = engine.getAffectedIds(6)
 // Re-evaluate visibility only for these items after field 6 changes
 ```
 
-#### `validate(doc: FormDocument): FormValidationResult`
+#### `validate(doc: FormDocument, options?: EvaluationOptions): FormValidationResult`
 
 Validates a form document in two phases:
 
-1. **Compatibility check** — verifies `doc.form.id` matches the engine's form ID, `doc.form.version` matches the engine's form version, and `doc.form.submittedAt` is present and valid. Mismatches/issues are reported in `result.documentErrors`.
+1. **Compatibility check** — verifies `doc.form.id` matches the engine's form ID, `doc.form.version` matches the engine's form version, `doc.form.submittedAt` is present and valid, and `options.now`, when given, is a valid date. Mismatches/issues are reported in `result.documentErrors`.
 2. **Field validation** — validates all **visible** fields against their validation rules. Hidden fields are skipped.
 
-Both phases always run. If document errors are present, `result.valid` is `false` regardless of field validation results.
+Field validation runs only when the compatibility check passes. If it finds any document errors, `validate` returns right away with `result.valid` set to `false`, those `documentErrors` and an empty `fieldErrors` map.
 
 ```ts
 const result = engine.validate(doc)
@@ -126,9 +128,45 @@ if (!result.valid) {
 }
 ```
 
-**Relative date resolution:** When resolving relative dates (e.g., `"+7d"`), `validate()` uses `doc.form.submittedAt` as the reference timestamp. This is the sole source of truth for relative date resolution — it cannot be overridden.
+**Relative date resolution:** Relative dates (e.g., `"+7d"`) resolve against `options.now` when it is given, and against `doc.form.submittedAt` otherwise. The client controls `submittedAt`, so server-side validation must pass a trusted `now`:
+
+```ts
+const result = engine.validate(doc, { now: new Date() })
+```
+
+`submittedAt` must still be present and valid when `now` is passed: `FORM_SUBMITTED_AT_MISSING` and `FORM_SUBMITTED_AT_INVALID` are reported either way. An invalid `options.now` produces a `NOW_INVALID` document error.
+
+**Strict mode:** By default, `validate` accepts values the definition has no place for (see [`sanitize()`](#sanitizedoc-formdocument-options-evaluationoptions-formdocument)). With `options.strict: true`, every value that `sanitize()` would remove from `values` becomes a document error (`UNKNOWN_VALUE_KEY`, `NON_VALUE_ITEM_VALUE`, `HIDDEN_FIELD_VALUE`, `UNKNOWN_ROW_KEY`) and `result.valid` is `false`. Field errors are still returned alongside them. Strict mode does not check `suggestions`, and it does not run when the compatibility check fails.
+
+```ts
+const result = engine.validate(doc, { now: new Date(), strict: true })
+```
+
+The UI keeps a field's value when the field becomes hidden, so a document saved straight from the form fails strict validation with `HIDDEN_FIELD_VALUE`. Run `sanitize()` first if you want such documents to pass.
 
 > **Note:** `isVisible()` and `getVisibilityMap()` do not perform compatibility checks.
+
+#### `sanitize(doc: FormDocument, options?: EvaluationOptions): FormDocument`
+
+Returns a copy of the document without the values the definition does not accept. Removed from `values`:
+
+- keys that match no form item, including non-canonical keys such as `"01"` and top-level keys equal to an `array_obj` sub-field id;
+- values stored under a `section` or `static` id;
+- values of hidden fields;
+- keys in `array_obj` rows that are not a declared value sub-field (keys of `static` sub-fields are removed too).
+
+`suggestions` is cleaned by the same rules, applied to each suggestion's `value`, and the key is dropped when nothing is left. Values of the wrong type are kept; `validate()` reports them as `TYPE`. `doc.form` is copied unchanged: `sanitize` does not check `id`, `version` or `submittedAt`.
+
+The result is a deep (JSON) copy, and the input is not mutated. Visibility uses `options.now` when given, otherwise `doc.form.submittedAt`.
+
+**Throws:** `RangeError` if `options.now` is an invalid date.
+
+Hidden values are dropped for good, so call `sanitize` when saving or submitting, not on every edit. Servers should persist the sanitized document:
+
+```ts
+const clean = engine.sanitize(doc, { now: new Date() })
+const result = engine.validate(clean, { now: new Date() })
+```
 
 #### `getFieldDef(id: number): FieldEntry | undefined`
 
@@ -187,7 +225,12 @@ editor.addSection({ title: 'Personal Info' })
 
 #### `updateField(id: number, updates: Partial<Omit<FieldContentItem, 'id' | 'type'>>): this`
 
-Partially updates a field. Cannot change `id` or `type`.
+Partially updates a field. Copies only the keys the field's kind accepts and silently ignores the rest,
+including `id`, `type`, `__proto__`, `constructor` and `prototype`:
+
+- value field: `label`, `description`, `placeholder`, `answer_guidelines`, `reference_id`, `condition`,
+  `validation`, `options`, `item`, `items`, `kind`;
+- `static` block: `text`, `label`, `description`, `placeholder`, `answer_guidelines`, `reference_id`, `condition`.
 
 ```ts
 editor.updateField(3, { label: 'Full Name', validation: { required: true } })
@@ -195,7 +238,8 @@ editor.updateField(3, { label: 'Full Name', validation: { required: true } })
 
 #### `updateSection(id: number, updates: Partial<Omit<SectionContentItem, 'id' | 'type' | 'content'>>): this`
 
-Partially updates a section. Cannot change `id`, `type`, or `content`.
+Partially updates a section. Copies only `title`, `description`, `placeholder`, `answer_guidelines`,
+`reference_id` and `condition`; other keys, including `id`, `type` and `content`, are silently ignored.
 
 #### `removeItem(id: number): this`
 
@@ -230,7 +274,8 @@ Pass `undefined` to `setValidation` or `setCondition` to clear the value.
 
 `setFieldDescription`, `setPlaceholder`, `setAnswerGuidelines` and `setReferenceId` work on both fields and
 sections, and also clear on `undefined`. Prefer them over `updateField` / `updateSection` when a property
-needs removing: those merge with `Object.assign` and cannot delete a key.
+needs removing: those copy allowed keys onto the item and cannot delete one. A key passed as `undefined` is
+assigned and then dropped by `toJSON()`.
 
 #### `array_obj` Sub-Field Methods
 
@@ -241,7 +286,7 @@ editor.getArrayItems(12)                                          // ArrayObjIte
 editor.setArrayItems(12, [{ id: 121, type: 'string', label: 'Name' }])   // replaces the whole list
 editor.setArrayKind(12, 'table')                                        // 'list' | 'table' | undefined
 editor.addArrayItemField(12, { type: 'date', label: 'Appointed' }) // → the new sub-field id
-editor.updateArrayItemField(12, 121, { label: 'Full name' })       // merges; the id is never changed
+editor.updateArrayItemField(12, 121, { label: 'Full name' })       // merges; id and type never change
 editor.removeArrayItemField(12, 121)
 editor.moveArrayItemField(12, 1, 0)
 editor.setArrayKind(12, 'table')                                   // undefined removes the key
@@ -251,6 +296,13 @@ editor.setArrayKind(12, 'table')                                   // undefined 
 explicit id that is already taken anywhere in the definition. `nextId()` itself counts sub-field ids, so a
 new top-level field can never collide with one. `updateArrayItemField` merges like `updateField`: a
 property left out is kept, so pass it explicitly as `undefined` to clear it.
+
+Its `patch` is typed `Partial<Omit<ValueArrayObjItemDef, 'id' | 'type'>> | Partial<Omit<StaticArrayObjItemDef, 'id' | 'type'>>`,
+so it cannot change a sub-field's `type`; to do that, remove the sub-field and add a new one. Only these keys are
+copied, the rest are silently ignored:
+
+- value sub-field: `label`, `description`, `placeholder`, `answer_guidelines`, `reference_id`, `validation`, `options`;
+- `static` sub-field: `text`, `label`, `description`, `placeholder`, `answer_guidelines`, `reference_id`.
 
 #### Listing Methods
 
@@ -266,6 +318,17 @@ editor.getItem(3)      // ContentItem | undefined
 #### `toJSON(): FormDefinition`
 
 Returns a deep clone of the current definition.
+
+#### `validate(): DocumentValidationError[]`
+
+Checks the current definition against the form definition JSON Schema and returns `SCHEMA_INVALID` issues, or an
+empty array when it conforms. Semantic checks such as duplicate ids and condition references run only when
+`FormEngine` compiles the definition.
+
+```ts
+const errors = editor.validate()
+if (errors.length === 0) save(editor.toJSON())
+```
 
 ---
 
@@ -424,9 +487,9 @@ editor.setSubmittedAt('2025-01-01T00:00:00Z')
 
 #### Validation & Visibility
 
-##### `validate(): FormValidationResult`
+##### `validate(options?: EvaluationOptions): FormValidationResult`
 
-Validates the current document against the form definition. Delegates to `FormEngine.validate()`.
+Validates the current document against the form definition. Delegates to `FormEngine.validate()`, passing `options` through.
 
 ```ts
 const result = editor.validate()
@@ -435,17 +498,27 @@ if (!result.valid) {
 }
 ```
 
-##### `getVisibilityMap(): Map<number, boolean>`
+##### `sanitize(options?: EvaluationOptions): this`
 
-Computes visibility for every field and section. Delegates to `FormEngine.getVisibilityMap()`.
+Replaces the current document with a copy that has no values the definition does not accept. Delegates to `FormEngine.sanitize()`, passing `options` through.
+
+**Throws:** `RangeError` if `options.now` is an invalid date.
+
+```ts
+const doc = editor.sanitize({ now: new Date() }).toJSON()
+```
+
+##### `getVisibilityMap(options?: EvaluationOptions): Map<number, boolean>`
+
+Computes visibility for every field and section. Delegates to `FormEngine.getVisibilityMap()`, passing `options` through.
 
 ```ts
 const vis = editor.getVisibilityMap()
 ```
 
-##### `isVisible(id: number): boolean`
+##### `isVisible(id: number, options?: EvaluationOptions): boolean`
 
-Determines whether a field or section is visible given current values. Delegates to `FormEngine.isVisible()`.
+Determines whether a field or section is visible given current values. Delegates to `FormEngine.isVisible()`, passing `options` through.
 
 ```ts
 if (editor.isVisible(5)) {
@@ -491,7 +564,7 @@ const visible = evaluator.evalCondition(
 type EvaluationContext = {
   values: Record<string, unknown>   // form values keyed by stringified field ID
   visibilityMap?: Map<number, boolean>  // enables hidden-field rule
-  now: Date                         // reference date for relative dates (resolved from form.submittedAt)
+  now: Date                         // reference date for relative dates (options.now, or form.submittedAt)
 }
 ```
 
@@ -554,6 +627,10 @@ Forward adjacency map: key is a field ID, value is the set of item IDs whose con
 ### FormDefinitionValidator
 
 Validates form definitions at both the structural (JSON Schema) and semantic levels.
+
+#### `validateLimits(input: unknown): DocumentValidationError[]`
+
+Checks depth and size limits with a stack-based walk, so deeply nested input cannot overflow the call stack. Returns `NESTING_DEPTH` for sections nested deeper than 3 levels or `and`/`or` groups nested deeper than 16, and a single `DEFINITION_TOO_LARGE` for more than 5000 nodes. `FormEngine` runs it before `validateSchema()`.
 
 #### `validateSchema(input: unknown): DocumentValidationError[]`
 
@@ -620,7 +697,7 @@ None of these validate that `fieldId` refers to an existing, non-section field �
 |------|-------------|
 | `FormValidationResult` | `{ valid: boolean, fieldErrors: Map<number, FieldValidationError[]>, documentErrors?: DocumentValidationError[] }` |
 | `FieldValidationError` | `{ fieldId, rule, message, params?, itemIndex? }` |
-| `DocumentValidationErrorCode` | `'SCHEMA_INVALID' \| 'DUPLICATE_ID' \| 'NESTING_DEPTH' \| 'UNKNOWN_FIELD_REF' \| 'CONDITION_REFS_SECTION' \| 'CONDITION_REFS_STATIC' \| 'INVALID_MIN_MAX' \| 'INVALID_REGEX' \| 'CIRCULAR_DEPENDENCY' \| 'FORM_ID_MISMATCH' \| 'FORM_VERSION_MISMATCH' \| 'FORM_SUBMITTED_AT_MISSING' \| 'FORM_SUBMITTED_AT_INVALID'` |
+| `DocumentValidationErrorCode` | `'SCHEMA_INVALID' \| 'DUPLICATE_ID' \| 'NESTING_DEPTH' \| 'DEFINITION_TOO_LARGE' \| 'UNKNOWN_FIELD_REF' \| 'CONDITION_REFS_SECTION' \| 'CONDITION_REFS_STATIC' \| 'CONDITION_REFS_ARRAY_OBJ_ITEM' \| 'INVALID_MIN_MAX' \| 'INVALID_REGEX' \| 'CIRCULAR_DEPENDENCY' \| 'FORM_ID_MISMATCH' \| 'FORM_VERSION_MISMATCH' \| 'FORM_SUBMITTED_AT_MISSING' \| 'FORM_SUBMITTED_AT_INVALID' \| 'NOW_INVALID' \| 'UNKNOWN_VALUE_KEY' \| 'NON_VALUE_ITEM_VALUE' \| 'HIDDEN_FIELD_VALUE' \| 'UNKNOWN_ROW_KEY'` |
 | `DocumentValidationError` | `{ code: DocumentValidationErrorCode, message: string, params?: Record<string, unknown>, itemId?: number }` |
 | `StringValidation` | `{ required?, minLength?, maxLength?, pattern?, patternMessage? }` |
 | `NumberValidation` | `{ required?, min?, max? }` |
@@ -649,6 +726,7 @@ None of these validate that `fieldId` refers to an existing, non-section field �
 | `SustainabilityValue` | `{ address, ccri?, cmc? }` — the value of a `sustainability` field |
 | `DocumentError` | Error class with `.errors: DocumentValidationError[]` — thrown on definition validation failure or by `loadDocument()` on id/version mismatch |
 | `EvaluationContext` | `{ values, visibilityMap?, now }` |
+| `EvaluationOptions` | `{ now?: Date, strict?: boolean }` — `now` is a trusted reference time for relative dates. Accepted by `validate()`, `sanitize()`, `isVisible()` and `getVisibilityMap()`; overrides `doc.form.submittedAt`. `strict` is read by `validate()` only: it reports values `sanitize()` would remove as document errors |
 | `FieldDescriptor` | `(Omit<FieldContentItem, 'id'> \| Omit<StaticFieldContentItem, 'id'>) & { id?: number }` — hand-written, because `Omit` does not distribute over a union |
 | `SectionDescriptor` | `Omit<SectionContentItem, 'id' \| 'content'> & { id?: number, content?: ContentItem[] }` |
 | `ContentItemInfo` | `{ id, type, label?, title?, parentId }` |

@@ -66,7 +66,8 @@ export type FieldValidationError = {
  * |------|-------------|
  * | `SCHEMA_INVALID` | The form definition does not conform to the JSON schema. |
  * | `DUPLICATE_ID` | Two or more content items share the same numeric id. |
- * | `NESTING_DEPTH` | A section is nested deeper than the allowed 3 levels. |
+ * | `NESTING_DEPTH` | A section is nested deeper than 3 levels, or `and`/`or` groups deeper than 16 levels. |
+ * | `DEFINITION_TOO_LARGE` | The definition has more than 5000 nodes or is too deep to compile. |
  * | `UNKNOWN_FIELD_REF` | A condition references a field id that does not exist in the form. |
  * | `CONDITION_REFS_SECTION` | A condition references a section id; sections have no value to compare. |
  * | `CONDITION_REFS_STATIC` | A condition references a static field id; static blocks have no value to compare. |
@@ -78,11 +79,17 @@ export type FieldValidationError = {
  * | `FORM_VERSION_MISMATCH` | The document's form version does not match the engine's form definition version. |
  * | `FORM_SUBMITTED_AT_MISSING` | The document's submittedAt field is missing. |
  * | `FORM_SUBMITTED_AT_INVALID` | The document's submittedAt field is not a valid date. |
+ * | `NOW_INVALID` | The `now` option passed to `validate` is not a valid date. |
+ * | `UNKNOWN_VALUE_KEY` | Strict mode: a `values` key matches no form item. |
+ * | `NON_VALUE_ITEM_VALUE` | Strict mode: a value is stored under a `section` or `static` id. |
+ * | `HIDDEN_FIELD_VALUE` | Strict mode: a hidden field holds a value. |
+ * | `UNKNOWN_ROW_KEY` | Strict mode: an `array_obj` row holds a key that is not a declared value sub-field. |
  */
 export type DocumentValidationErrorCode =
     | 'SCHEMA_INVALID'
     | 'DUPLICATE_ID'
     | 'NESTING_DEPTH'
+    | 'DEFINITION_TOO_LARGE'
     | 'UNKNOWN_FIELD_REF'
     | 'CONDITION_REFS_SECTION'
     | 'CONDITION_REFS_STATIC'
@@ -94,6 +101,11 @@ export type DocumentValidationErrorCode =
     | 'FORM_VERSION_MISMATCH'
     | 'FORM_SUBMITTED_AT_MISSING'
     | 'FORM_SUBMITTED_AT_INVALID'
+    | 'NOW_INVALID'
+    | 'UNKNOWN_VALUE_KEY'
+    | 'NON_VALUE_ITEM_VALUE'
+    | 'HIDDEN_FIELD_VALUE'
+    | 'UNKNOWN_ROW_KEY'
 
 /**
  * A single validation error found during form definition or document validation.

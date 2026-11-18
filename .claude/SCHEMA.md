@@ -211,7 +211,7 @@ Date values and date validation boundaries support two formats:
 
 Relative dates must match the pattern `^[+-]\d+[dwmy]$`.
 
-Relative dates are resolved to absolute ISO 8601 values at evaluation time (validation, condition evaluation). The reference timestamp is always `form.submittedAt` from the form document. The resolution happens on every evaluation — they are not cached.
+Relative dates are resolved to absolute ISO 8601 values at evaluation time (validation, condition evaluation). The reference timestamp is `form.submittedAt` from the form document, unless the caller passes a trusted `now` (`engine.validate(doc, { now })`). The client controls `submittedAt`, so server-side validation must pass `now`. The resolution happens on every evaluation — they are not cached.
 
 ### 3.8 File Validation
 
@@ -642,7 +642,7 @@ shows the dependent item whenever *Travel Rule* is among the chosen programmes.
 
 ### 5.3 Compound Conditions
 
-Combine conditions with `and` / `or`. Supports arbitrary nesting.
+Combine conditions with `and` / `or`. Groups nest up to 16 levels deep and hold up to 100 conditions each.
 
 ```json
 {
@@ -734,7 +734,7 @@ Form values document links to its form definition via `form` and contains field 
 | `form` | `object` | yes | Reference to the form schema. |
 | `form.id` | `string` | yes | Must match the `id` of the form schema these values belong to. Validated by `FormEngine.validate()` — mismatch produces a `FORM_ID_MISMATCH` document error. |
 | `form.version` | `string` | yes | Must match the `version` of the form schema (semver). Validated by `FormEngine.validate()` — mismatch produces a `FORM_VERSION_MISMATCH` document error. |
-| `form.submittedAt` | `string` | yes | ISO 8601 timestamp of when the form was submitted. Used as the sole reference time for relative date resolution. Auto-populated by `createFormDocument()`. Missing `submittedAt` produces a `FORM_SUBMITTED_AT_MISSING` document error; malformed values produce a `FORM_SUBMITTED_AT_INVALID` document error. |
+| `form.submittedAt` | `string` | yes | ISO 8601 timestamp of when the form was submitted. Used as the reference time for relative date resolution unless the caller passes a trusted `now`. Client-controlled, so do not rely on it server-side. Auto-populated by `createFormDocument()`. Missing `submittedAt` produces a `FORM_SUBMITTED_AT_MISSING` document error; malformed values produce a `FORM_SUBMITTED_AT_INVALID` document error. |
 | `values` | `object` | yes | Flat key-value map. Keys are stringified field IDs, values match field types. |
 | `suggestions` | `object` | no | Sparse map of machine-proposed answers, keyed like `values`. See §6.1. |
 
@@ -800,6 +800,9 @@ Two operations are defined on a suggestion:
 | Constraint | Limit |
 |------------|-------|
 | Section nesting depth | 3 levels |
+| `and` / `or` nesting depth within one condition | 16 levels |
+| Conditions per `and` / `or` group | 100 |
+| Nodes per definition | 5000, counting content items, `array_obj` sub-fields and condition nodes (groups and simple conditions) |
 | ID format | Positive integer |
 | ID uniqueness | Global across entire schema (all fields and sections) |
 | Select / multiselect options minimum | 1 |
@@ -825,7 +828,10 @@ The engine must validate the schema itself before use. Invalid schemas must be r
 |------|-------|
 | Duplicate IDs | `Duplicate id: "{id}"` |
 | Condition references non-existent field | `Condition references unknown field: "{field}"` |
-| Section nesting exceeds 3 levels | `Section nesting exceeds maximum depth of 3: "{id}"` |
+| Section nesting exceeds 3 levels | `Section nesting exceeds maximum depth of 3: {id}` |
+| `and` / `or` nesting exceeds 16 levels | `Condition nesting exceeds maximum depth of 16 (in item {id})` |
+| More than 100 conditions in an `and` / `or` group | Schema error: `maxItems` |
+| Definition exceeds 5000 nodes | `Form definition exceeds the maximum of 5000 nodes` |
 | `maxLength` < `minLength` | `maxLength must be >= minLength for field "{id}"` |
 | `max` < `min` | `max must be >= min for field "{id}"` |
 | `maxDate` < `minDate` | `maxDate must be >= minDate for field "{id}"` |

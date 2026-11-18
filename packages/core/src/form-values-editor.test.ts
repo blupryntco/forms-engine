@@ -379,6 +379,22 @@ describe('FormValuesEditor', () => {
         })
     })
 
+    describe('options.now', () => {
+        it('passes now to the engine instead of submittedAt', () => {
+            const now = new Date('2026-01-10T00:00:00.000Z')
+            const def = baseDef([
+                { id: 1, type: 'date', label: 'D', validation: { minDate: '-7d', maxDate: '+7d' } },
+                { id: 2, type: 'string', label: 'S', condition: { field: 1, op: 'gt', value: '-30d' } },
+            ])
+            const editor = new FormValuesEditor(def, doc({ '1': '2026-01-05' }, '2030-01-01T00:00:00.000Z'))
+            expect(editor.validate().valid).toBe(false)
+            expect(editor.validate({ now }).valid).toBe(true)
+            expect(editor.isVisible(2)).toBe(false)
+            expect(editor.isVisible(2, { now })).toBe(true)
+            expect(editor.getVisibilityMap({ now }).get(2)).toBe(true)
+        })
+    })
+
     describe('output', () => {
         it('toJSON returns deep clone', () => {
             const editor = new FormValuesEditor(simpleDef)
@@ -588,6 +604,25 @@ describe('FormValuesEditor', () => {
             const result = editor.validate()
             expect(result.valid).toBe(false)
             expect(result.documentErrors?.some((e) => e.code === 'FORM_SUBMITTED_AT_INVALID')).toBe(true)
+        })
+    })
+
+    describe('sanitize', () => {
+        const def = baseDef([
+            { id: 1, type: 'boolean', label: 'Show' },
+            { id: 2, type: 'string', label: 'Details', condition: { field: 1, op: 'eq', value: true } },
+        ])
+
+        it('replaces the document with a sanitized copy and returns this', () => {
+            const editor = new FormValuesEditor(def, doc({ '1': false, '2': 'hidden', '99': 'x' }))
+            expect(editor.sanitize()).toBe(editor)
+            expect(editor.toJSON().values).toEqual({ '1': false })
+            expect(editor.validate({ strict: true }).valid).toBe(true)
+        })
+
+        it('passes options through', () => {
+            const editor = new FormValuesEditor(def, doc({}))
+            expect(() => editor.sanitize({ now: new Date('garbage') })).toThrow(RangeError)
         })
     })
 

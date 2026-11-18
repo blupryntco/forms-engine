@@ -49,6 +49,7 @@ packages/core/
 │   ├── condition-evaluator.ts         # ConditionEvaluator — condition logic
 │   ├── visibility-resolver.ts         # VisibilityResolver — visibility computation
 │   ├── field-validator.ts             # FieldValidator — value validation
+│   ├── value-sanitizer.ts             # ValueSanitizer — stray-value detection and removal (internal)
 │   ├── dependency-graph.ts            # DependencyGraph — DAG + topological sort
 │   ├── form-definition-validator.ts   # JSON Schema + semantic validation
 │   ├── date-utils.ts                  # Relative date parsing and resolution
@@ -75,6 +76,7 @@ FormEngine (form-engine.ts)
 ├── VisibilityResolver (visibility-resolver.ts)
 │   ├── ConditionEvaluator          (fed a field-type map, for multiselect set semantics)
 │   └── topologicalOrder (from DependencyGraph)
+├── ValueSanitizer (value-sanitizer.ts)
 └── FieldValidator (field-validator.ts)
     └── validators/
         ├── StringValidator
@@ -105,7 +107,13 @@ When `new FormEngine(definition)` is called, the following steps execute in orde
 Input: FormDefinition (JSON)
   │
   ▼
-[0] JSON Schema Validation (AJV)
+[0] Limits Check
+  │  Stack-based walk, no recursion: section depth ≤ 3,
+  │  and/or depth ≤ 16, ≤ 5000 nodes
+  │  → Throws DocumentError (NESTING_DEPTH, DEFINITION_TOO_LARGE) if exceeded
+  │
+  ▼
+[0b] JSON Schema Validation (AJV)
   │  Validates structural correctness against form-definition.schema.json
   │  → Throws DocumentError if invalid
   │
@@ -133,8 +141,10 @@ Input: FormDefinition (JSON)
   │
   ▼
 [5] Assemble Components
-     → ConditionEvaluator, VisibilityResolver, FieldValidator
+     → ConditionEvaluator, VisibilityResolver, FieldValidator, ValueSanitizer
 ```
+
+A `RangeError` thrown by any step, such as a stack overflow in a recursive walk, is rethrown as a `DocumentError` with code `DEFINITION_TOO_LARGE`. Other errors propagate unchanged.
 
 ## Condition System
 
@@ -154,7 +164,7 @@ A condition is either **simple** or **compound**. They are mutually exclusive �
 - `op` — one of: `set`, `notset`, `eq`, `ne`, `lt`, `gt`, `lte`, `gte`, `in`, `notin`.
 - `value` — comparison operand. Required for all operators except `set`/`notset`. Must be an array for `in`/`notin`.
 
-**Compound condition** — combines child conditions with logical `and`/`or`, supporting arbitrary nesting:
+**Compound condition** — combines child conditions with logical `and`/`or`, nesting up to 16 levels deep with up to 100 conditions per group:
 
 ```json
 {
@@ -225,7 +235,7 @@ Key implications:
 
 ### Relative Date Resolution in Conditions
 
-Condition values that match the pattern `^[+-]\d+[dwmy]$` (e.g., `"+7d"`, `"-1m"`) are resolved to absolute ISO 8601 strings before comparison. Resolution uses `ctx.now`, which is derived from `form.submittedAt`. This applies to:
+Condition values that match the pattern `^[+-]\d+[dwmy]$` (e.g., `"+7d"`, `"-1m"`) are resolved to absolute ISO 8601 strings before comparison. Resolution uses `ctx.now`: the caller's `options.now` when given, otherwise `form.submittedAt`. This applies to:
 - The `value` operand of `eq`/`ne` operators (via `resolveIfDate`)
 - The `value` operand of ordering operators `lt`/`gt`/`lte`/`gte` (via `compareTo` → `resolveIfDate`)
 
@@ -289,25 +299,30 @@ If a parent section is hidden, all its descendants are immediately marked hidden
 Validation always operates on the visibility map: hidden fields are skipped entirely. This means a required field inside a hidden section produces no validation error. The full flow is:
 
 ```
-validate(doc)
+validate(doc, options?)
   ├─ [1] Compatibility check: verify doc.form.id, doc.form.version,
-  │      and doc.form.submittedAt → collect DocumentValidationError[]
+  │      doc.form.submittedAt and options.now → collect DocumentValidationError[]
   │
   │  If documentErrors exist → return early { valid: false, fieldErrors: empty, documentErrors }
   │
-  ├─ [2] Resolve reference time from doc.form.submittedAt
+  ├─ [2] Resolve reference time: options.now if given, else doc.form.submittedAt
   ├─ [3] Compute visibilityMap (using resolved reference time)
-  └─ [4] Validate only visible fields → collect FieldValidationError[]
+  ├─ [4] Validate only visible fields → collect FieldValidationError[]
+  └─ [5] options.strict only: ValueSanitizer finds stray values
+         (unknown keys, section/static values, hidden-field values,
+         undeclared array_obj row keys) → DocumentValidationError[]
   → Return { valid, fieldErrors, documentErrors? }
 ```
 
-Field validation (steps 2-4) only runs when no document errors exist. If document errors are present, the method returns early with `valid: false` and an empty `fieldErrors` map.
+Field validation (steps 2-5) only runs when no document errors exist. If document errors are present, the method returns early with `valid: false` and an empty `fieldErrors` map.
+
+`sanitize(doc, options?)` computes the same visibility map and uses the same `ValueSanitizer` pass to remove the stray values from a copy of the document, so strict validation reports exactly what `sanitize` removes from `values`.
 
 ### Relative Date Resolution
 
-Date boundaries (`minDate`, `maxDate`) and condition values support relative expressions like `"+7d"`, `"-1m"`, `"+1y"`. These are resolved to absolute ISO 8601 strings **at evaluation time** (not at construction time), using `doc.form.submittedAt` as the reference timestamp. `submittedAt` is the sole source of truth and cannot be overridden.
+Date boundaries (`minDate`, `maxDate`) and condition values support relative expressions like `"+7d"`, `"-1m"`, `"+1y"`. These are resolved to absolute ISO 8601 strings **at evaluation time** (not at construction time), using `options.now` as the reference timestamp when the caller passes it, and `doc.form.submittedAt` otherwise.
 
-This means date constraints are anchored to the submission time, ensuring consistent validation results when re-validating a previously submitted form. Missing `submittedAt` produces a `FORM_SUBMITTED_AT_MISSING` document error; malformed values produce a `FORM_SUBMITTED_AT_INVALID` document error.
+Without `now`, date constraints are anchored to the submission time, so re-validating a previously submitted form gives the same result. The client controls `submittedAt`, though, so server-side validation must pass a trusted `now`. Missing `submittedAt` produces a `FORM_SUBMITTED_AT_MISSING` document error and malformed values produce a `FORM_SUBMITTED_AT_INVALID` document error, with or without `now`. An invalid `now` produces `NOW_INVALID` in `validate()` and a `RangeError` in `isVisible()` and `getVisibilityMap()`.
 
 ### Fluent Builder (FormDefinitionEditor)
 
@@ -315,7 +330,7 @@ This means date constraints are anchored to the submission time, ensuring consis
 
 ### Fluent Values Editor (FormValuesEditor)
 
-`FormValuesEditor` wraps a `FormEngine` and a mutable `FormDocument`. It provides chainable methods for setting/clearing field values, manipulating array items (add, remove, move, set), setting `submittedAt`, and delegating to the engine for validation and visibility. The document is deep-cloned on construction and on output (`toJSON()`) to prevent external mutation.
+`FormValuesEditor` wraps a `FormEngine` and a mutable `FormDocument`. It provides chainable methods for setting/clearing field values, manipulating array items (add, remove, move, set), setting `submittedAt`, and delegating to the engine for validation, sanitizing and visibility. The document is deep-cloned on construction and on output (`toJSON()`) to prevent external mutation.
 
 ## External Dependencies
 

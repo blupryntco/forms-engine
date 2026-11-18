@@ -8,12 +8,42 @@ Before field-level checks, `FormEngine.validate()` verifies the document is comp
 2. `doc.form.version` must match the engine's `formVersion` — otherwise a `FORM_VERSION_MISMATCH` error is produced.
 3. `doc.form.submittedAt` must be present — otherwise a `FORM_SUBMITTED_AT_MISSING` error is produced.
 4. `doc.form.submittedAt` must be a valid date — otherwise a `FORM_SUBMITTED_AT_INVALID` error is produced.
+5. `options.now`, when passed, must be a valid date — otherwise a `NOW_INVALID` error is produced.
+
+Checks 3 and 4 run even when `options.now` is passed.
 
 These errors are collected in `result.documentErrors`. If any are present, `result.valid` is `false` and field validation is skipped entirely — `result.fieldErrors` will be an empty map.
 
 This is a **document-time** check (runs when validating user-submitted data), as opposed to **definition-time** validation (JSON Schema and semantic checks that run in the `FormEngine` constructor). Use `createFormDocument()` to produce documents that are guaranteed compatible.
 
 > `isVisible()` and `getVisibilityMap()` do not perform compatibility checks.
+
+---
+
+## Stray Values
+
+Field validation only reads values that belong to visible fields. Anything else in `doc.values` passes by default, so a client can attach data the form never asked for and a consumer that stores the document keeps it. These stray values are:
+
+| Stray value | Strict-mode error |
+|-------------|-------------------|
+| A key that matches no form item (including `"01"` and top-level keys equal to an `array_obj` sub-field id) | `UNKNOWN_VALUE_KEY` |
+| A value stored under a `section` or `static` id | `NON_VALUE_ITEM_VALUE` |
+| A value of a hidden field | `HIDDEN_FIELD_VALUE` |
+| A key in an `array_obj` row that is not a declared value sub-field | `UNKNOWN_ROW_KEY` |
+
+`FormEngine.sanitize(doc, options?)` returns a copy of the document with all of them removed, and cleans `suggestions` by the same rules. `FormValuesEditor.sanitize(options?)` does the same to the editor's document. Values of the wrong type are kept for `validate()` to report.
+
+`validate(doc, { strict: true })` reports each stray value in `values` as a document error and sets `valid` to `false`; field errors are still returned. It finds exactly what `sanitize` removes from `values`. Suggestions are not checked.
+
+On the server, persist the sanitized document:
+
+```ts
+const now = new Date()
+const clean = engine.sanitize(doc, { now })
+const result = engine.validate(clean, { now })
+```
+
+Hidden values are removed permanently, so call `sanitize` on save or submit, not on every edit. The UI keeps a field's value when the field becomes hidden, so strict validation rejects a document taken straight from the UI unless it was sanitized first.
 
 ---
 
@@ -223,7 +253,7 @@ A condition may not reference a `section` (`CONDITION_REFS_SECTION`) or a `stati
 
 ### Compound Conditions
 
-Combine conditions with `and` / `or`. Supports arbitrary nesting.
+Combine conditions with `and` / `or`. Groups nest up to 16 levels deep and hold up to 100 conditions each.
 
 ```json
 {
@@ -303,9 +333,9 @@ Pattern: `^[+-]\d+[dwmy]$`
 
 ### Resolution
 
-Relative dates are resolved to absolute ISO 8601 strings **at evaluation time**. The reference timestamp is always `doc.form.submittedAt` — it is the sole source of truth and cannot be overridden.
+Relative dates are resolved to absolute ISO 8601 strings **at evaluation time**. The reference timestamp is `options.now` when the caller passes it to `validate()`, `isVisible()` or `getVisibilityMap()`, and `doc.form.submittedAt` otherwise. The client controls `submittedAt`, so server-side validation must pass a trusted `now`, e.g. `engine.validate(doc, { now: new Date() })`.
 
-They are **not cached** — every call to `validate()` or `getVisibilityMap()` resolves them fresh. Missing `submittedAt` produces a `FORM_SUBMITTED_AT_MISSING` document error; malformed values produce a `FORM_SUBMITTED_AT_INVALID` document error.
+They are **not cached** — every call to `validate()` or `getVisibilityMap()` resolves them fresh. Missing `submittedAt` produces a `FORM_SUBMITTED_AT_MISSING` document error; malformed values produce a `FORM_SUBMITTED_AT_INVALID` document error. Both are reported even when `now` is passed. An invalid `now` produces a `NOW_INVALID` document error in `validate()` and a `RangeError` in `isVisible()` and `getVisibilityMap()`.
 
 ```ts
 // "+7d" resolved from 2025-06-15 → "2025-06-22T00:00:00.000Z"

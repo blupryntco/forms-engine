@@ -1,7 +1,8 @@
+import { DependencyGraph } from './dependency-graph'
 import { FormDefinitionEditor } from './form-definition-editor'
 import { FormEngine } from './form-engine'
 import { FormValuesEditor } from './form-values-editor'
-import { SimpleCondition } from './types/conditions'
+import type { Condition, SimpleCondition } from './types/conditions'
 import { DocumentError } from './types/errors'
 import type { ContentItem, FieldContentItem, FormDefinition } from './types/form-definition'
 import type { FormSnapshot } from './types/form-snapshot'
@@ -1157,6 +1158,75 @@ describe('FormEngine', () => {
             expect(engine.validate(doc({ '1': '2025-06-15' }, SUBMITTED_AT)).valid).toBe(true)
             expect(engine.validate(doc({ '1': '2025-06-01' }, SUBMITTED_AT)).valid).toBe(false)
             expect(engine.validate(doc({ '1': '2025-06-30' }, SUBMITTED_AT)).valid).toBe(false)
+        })
+    })
+
+    describe('options.now as trusted reference date', () => {
+        const NOW = new Date('2026-01-10T00:00:00.000Z')
+        const SUBMITTED_AT_VARIANTS = ['2020-01-01T00:00:00.000Z', NOW.toISOString(), '2030-01-01T00:00:00.000Z']
+
+        // Section 10 shows only when date field 1 is within the last 30 days; field 11 inside is required.
+        const conditionalDef = baseDef([
+            { id: 1, type: 'date', label: 'Incorporated' },
+            {
+                id: 10,
+                type: 'section',
+                title: 'Recent',
+                condition: { field: 1, op: 'gt', value: '-30d' },
+                content: [{ id: 11, type: 'string', label: 'Reason', validation: { required: true } }],
+            },
+        ])
+
+        it('resolves relative minDate/maxDate against now regardless of submittedAt', () => {
+            const engine = new FormEngine(
+                baseDef([{ id: 1, type: 'date', label: 'D', validation: { minDate: '-7d', maxDate: '+7d' } }]),
+            )
+            for (const submittedAt of SUBMITTED_AT_VARIANTS) {
+                expect(engine.validate(doc({ '1': '2026-01-10' }, submittedAt), { now: NOW }).valid).toBe(true)
+                expect(engine.validate(doc({ '1': '2026-01-01' }, submittedAt), { now: NOW }).valid).toBe(false)
+                expect(engine.validate(doc({ '1': '2026-01-20' }, submittedAt), { now: NOW }).valid).toBe(false)
+            }
+        })
+
+        it('resolves relative condition values against now regardless of submittedAt', () => {
+            const engine = new FormEngine(conditionalDef)
+            for (const submittedAt of SUBMITTED_AT_VARIANTS) {
+                const d = doc({ '1': '2026-01-05' }, submittedAt)
+                expect(engine.isVisible(10, d, { now: NOW })).toBe(true)
+                expect(engine.getVisibilityMap(d, { now: NOW }).get(11)).toBe(true)
+                const result = engine.validate(d, { now: NOW })
+                expect(result.valid).toBe(false)
+                expect(result.fieldErrors.get(11)?.[0]?.rule).toBe('REQUIRED')
+            }
+        })
+
+        it('blocks hiding a section through a forged submittedAt', () => {
+            const engine = new FormEngine(conditionalDef)
+            const forged = doc({ '1': '2026-01-05' }, '2030-01-01T00:00:00.000Z')
+            expect(engine.validate(forged).valid).toBe(true)
+            expect(engine.validate(forged, { now: NOW }).valid).toBe(false)
+        })
+
+        it('still reports missing or invalid submittedAt when now is given', () => {
+            const engine = new FormEngine(baseDef([{ id: 1, type: 'string', label: 'S' }]))
+            const missing = engine.validate(doc({}, ''), { now: NOW })
+            expect(missing.documentErrors?.map((e) => e.code)).toEqual(['FORM_SUBMITTED_AT_MISSING'])
+            const invalid = engine.validate(doc({}, 'garbage'), { now: NOW })
+            expect(invalid.documentErrors?.map((e) => e.code)).toEqual(['FORM_SUBMITTED_AT_INVALID'])
+        })
+
+        it('reports NOW_INVALID from validate when now is an invalid date', () => {
+            const engine = new FormEngine(baseDef([{ id: 1, type: 'string', label: 'S' }]))
+            const result = engine.validate(doc(), { now: new Date('x') })
+            expect(result.valid).toBe(false)
+            expect(result.fieldErrors.size).toBe(0)
+            expect(result.documentErrors?.map((e) => e.code)).toEqual(['NOW_INVALID'])
+        })
+
+        it('throws RangeError from isVisible/getVisibilityMap when now is an invalid date', () => {
+            const engine = new FormEngine(conditionalDef)
+            expect(() => engine.isVisible(10, doc(), { now: new Date('x') })).toThrow(RangeError)
+            expect(() => engine.getVisibilityMap(doc(), { now: new Date('x') })).toThrow(RangeError)
         })
     })
 
@@ -2492,5 +2562,95 @@ describe('FormEngine', () => {
 
             expect(() => new FormEngine(broken)).toThrow(DocumentError)
         })
+    })
+})
+
+describe('FormEngine definition limits', () => {
+    const compileErrorCodes = (definition: FormDefinition): string[] => {
+        try {
+            new FormEngine(definition)
+            return []
+        } catch (err) {
+            if (!(err instanceof DocumentError)) throw err
+            return err.errors.map((issue) => issue.code)
+        }
+    }
+
+    const nestedSections = (levels: number): ContentItem[] => {
+        let content: ContentItem[] = [{ id: levels + 1, type: 'string', label: 'Leaf' }]
+        for (let id = levels; id >= 1; id -= 1) {
+            content = [{ id, type: 'section', title: `L${id}`, content }]
+        }
+        return content
+    }
+
+    const withCondition = (condition: Condition): FormDefinition =>
+        baseDef([
+            { id: 1, type: 'string', label: 'A' },
+            { id: 2, type: 'string', label: 'B', condition },
+        ])
+
+    const nestedCondition = (levels: number, key: 'and' | 'or'): Condition => {
+        let condition: Condition = { field: 1, op: 'set' }
+        for (let i = 0; i < levels; i += 1) {
+            condition = key === 'and' ? { and: [condition] } : { or: [condition] }
+        }
+        return condition
+    }
+
+    afterEach(() => {
+        jest.restoreAllMocks()
+    })
+
+    it('rejects 10,000 nested sections with NESTING_DEPTH', () => {
+        expect(compileErrorCodes(baseDef(nestedSections(10_000)))).toEqual(['NESTING_DEPTH'])
+    })
+
+    it.each(['and', 'or'] as const)('rejects 10,000 nested %s groups with NESTING_DEPTH', (key) => {
+        expect(compileErrorCodes(withCondition(nestedCondition(10_000, key)))).toEqual(['NESTING_DEPTH'])
+    })
+
+    it('accepts 100 conditions in one group and rejects 101', () => {
+        const leaves = (count: number): Condition[] =>
+            Array.from({ length: count }, (): Condition => ({ field: 1, op: 'set' }))
+        expect(compileErrorCodes(withCondition({ and: leaves(100) }))).toEqual([])
+        expect(compileErrorCodes(withCondition({ or: leaves(101) }))).toContain('SCHEMA_INVALID')
+    })
+
+    it('rejects 5001 flat fields with DEFINITION_TOO_LARGE', () => {
+        const content = Array.from(
+            { length: 5001 },
+            (_, i): ContentItem => ({ id: i + 1, type: 'string', label: `F${i + 1}` }),
+        )
+        expect(compileErrorCodes(baseDef(content))).toEqual(['DEFINITION_TOO_LARGE'])
+    })
+
+    it('compiles the longest dependency chain the node limit allows', () => {
+        const content = Array.from(
+            { length: 2500 },
+            (_, i): ContentItem => ({
+                id: i + 1,
+                type: 'string',
+                label: `F${i + 1}`,
+                ...(i > 0 ? { condition: { field: i, op: 'set' } } : {}),
+            }),
+        )
+        const engine = new FormEngine(baseDef(content))
+        expect(engine.getVisibilityMap(doc({ '1': 'x' })).get(2500)).toBe(false)
+    })
+
+    it('turns a RangeError during compilation into DEFINITION_TOO_LARGE', () => {
+        jest.spyOn(DependencyGraph, 'detectCycle').mockImplementation(() => {
+            throw new RangeError('Maximum call stack size exceeded')
+        })
+        expect(compileErrorCodes(withCondition({ field: 1, op: 'set' }))).toEqual(['DEFINITION_TOO_LARGE'])
+    })
+
+    it('rethrows other errors during compilation unchanged', () => {
+        const error = new Error('boom')
+        jest.spyOn(DependencyGraph, 'detectCycle').mockImplementation(() => {
+            throw error
+        })
+        expect(() => new FormEngine(withCondition({ field: 1, op: 'set' }))).toThrow(error)
     })
 })

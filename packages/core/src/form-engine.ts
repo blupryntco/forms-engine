@@ -3,11 +3,13 @@ import { DependencyGraph } from './dependency-graph'
 import { FieldValidator } from './field-validator'
 import { FormDefinitionValidator } from './form-definition-validator'
 import { DocumentError } from './types/errors'
+import type { EvaluationOptions } from './types/evaluation-options'
 import type { FieldEntry } from './types/field-entry'
 import type { ContentItem, FormDefinition } from './types/form-definition'
 import type { FormSnapshot } from './types/form-snapshot'
 import type { FormDocument, FormValues } from './types/form-values'
 import type { DocumentValidationError, FieldValidationError, FormValidationResult } from './types/validation-results'
+import { ValueSanitizer } from './value-sanitizer'
 import { VisibilityResolver } from './visibility-resolver'
 
 /**
@@ -16,6 +18,8 @@ import { VisibilityResolver } from './visibility-resolver'
  * Created by passing a {@link FormDefinition} to the constructor. The
  * construction lifecycle is:
  *
+ * 0. **Limits and schema** -- checks section and condition depth and the
+ *    node count without recursion, then validates against the JSON schema.
  * 1. **Build field registry** -- walks the definition tree depth-first,
  *    creating a flat {@link FieldEntry} for every field and section while
  *    recording document-order ids in `contentOrder`.
@@ -46,6 +50,7 @@ export class FormEngine {
     private readonly depGraph: DependencyGraph
     private readonly visibilityResolver: VisibilityResolver
     private readonly fieldValidator: FieldValidator
+    private readonly valueSanitizer: ValueSanitizer
     private readonly definition: FormDefinition
     private readonly formId: string
     private readonly formVersion: string
@@ -60,51 +65,75 @@ export class FormEngine {
      * Compiles a {@link FormDefinition} into a ready-to-use engine.
      *
      * @param definition - A complete form definition to compile.
-     * @throws {DocumentError} If the definition contains semantic issues
-     *   or circular condition dependencies.
+     * @throws {DocumentError} If the definition exceeds depth or size limits,
+     *   contains semantic issues or circular condition dependencies.
      */
     constructor(definition: FormDefinition) {
-        // 0. JSON schema validation
-        const definitionValidator = new FormDefinitionValidator()
-        const schemaIssues = definitionValidator.validateSchema(definition)
-        if (schemaIssues.length > 0) {
-            throw new DocumentError(schemaIssues)
+        try {
+            // 0. Depth and size limits, checked without recursion before any recursive walk
+            const definitionValidator = new FormDefinitionValidator()
+            const limitIssues = definitionValidator.validateLimits(definition)
+            if (limitIssues.length > 0) {
+                throw new DocumentError(limitIssues)
+            }
+
+            // 0b. JSON schema validation
+            const schemaIssues = definitionValidator.validateSchema(definition)
+            if (schemaIssues.length > 0) {
+                throw new DocumentError(schemaIssues)
+            }
+
+            // 1. Build field registry + content order
+            const registry = new Map<number, FieldEntry>()
+            const contentOrder: number[] = []
+            FormEngine.walkContent(definition.content, undefined, registry, contentOrder)
+
+            // 2. Semantic validation
+            const issues = definitionValidator.validate(definition, registry)
+
+            // 3. Cycle detection
+            const cyclePath = DependencyGraph.detectCycle(registry)
+            if (cyclePath) {
+                issues.push({
+                    code: 'CIRCULAR_DEPENDENCY',
+                    message: `Circular condition dependency detected: ${cyclePath.join(' -> ')}`,
+                })
+            }
+
+            if (issues.length > 0) {
+                throw new DocumentError(issues)
+            }
+
+            // 4. Build dependency graph
+            this.depGraph = new DependencyGraph(registry)
+
+            // 5. Assemble components
+            const conditionEvaluator = new ConditionEvaluator()
+            this.visibilityResolver = new VisibilityResolver(
+                registry,
+                conditionEvaluator,
+                this.depGraph.topologicalOrder,
+            )
+            this.fieldValidator = new FieldValidator(registry)
+            this.valueSanitizer = new ValueSanitizer(registry)
+
+            this.registry = registry
+            this.contentOrder = contentOrder
+            this.definition = definition
+            this.formId = definition.id
+            this.formVersion = definition.version
+        } catch (err) {
+            // A stack overflow in any recursive step means the definition is too big to compile.
+            if (err instanceof RangeError) {
+                throw new DocumentError([
+                    {
+                        code: 'DEFINITION_TOO_LARGE',
+                        message: 'Form definition is too large or too deeply nested to compile',
+                    },
+                ])
+            }
+            throw err
         }
-
-        // 1. Build field registry + content order
-        const registry = new Map<number, FieldEntry>()
-        const contentOrder: number[] = []
-        FormEngine.walkContent(definition.content, undefined, registry, contentOrder)
-
-        // 2. Semantic validation
-        const issues = definitionValidator.validate(definition, registry)
-
-        // 3. Cycle detection
-        const cyclePath = DependencyGraph.detectCycle(registry)
-        if (cyclePath) {
-            issues.push({
-                code: 'CIRCULAR_DEPENDENCY',
-                message: `Circular condition dependency detected: ${cyclePath.join(' -> ')}`,
-            })
-        }
-
-        if (issues.length > 0) {
-            throw new DocumentError(issues)
-        }
-
-        // 4. Build dependency graph
-        this.depGraph = new DependencyGraph(registry)
-
-        // 5. Assemble components
-        const conditionEvaluator = new ConditionEvaluator()
-        this.visibilityResolver = new VisibilityResolver(registry, conditionEvaluator, this.depGraph.topologicalOrder)
-        this.fieldValidator = new FieldValidator(registry)
-
-        this.registry = registry
-        this.contentOrder = contentOrder
-        this.definition = definition
-        this.formId = definition.id
-        this.formVersion = definition.version
     }
 
     /**
@@ -179,12 +208,17 @@ export class FormEngine {
      * an item is hidden if any ancestor is hidden. A section is also hidden
      * when no value field (any type except `section` and `static`) beneath it is visible.
      *
+     * Relative dates in conditions resolve against `options.now` when given,
+     * otherwise against `doc.form.submittedAt`, which the client controls.
+     *
      * @param id - Numeric id of the field or section.
      * @param doc - Current form document.
+     * @param options - Evaluation options; pass `now` for server-side checks.
      * @returns `true` if the item should be displayed, `false` otherwise.
+     * @throws {RangeError} If `options.now` is an invalid date.
      */
-    isVisible(id: number, doc: FormDocument): boolean {
-        return this.visibilityResolver.isVisible(id, doc.values, FormEngine.parseNow(doc))
+    isVisible(id: number, doc: FormDocument, options?: EvaluationOptions): boolean {
+        return this.visibilityResolver.isVisible(id, doc.values, FormEngine.resolveNow(doc, options))
     }
 
     /**
@@ -195,11 +229,16 @@ export class FormEngine {
      * cascading visibility (e.g. a hidden parent hides all children). A section
      * with no visible value field beneath it is hidden along with its descendants.
      *
+     * Relative dates in conditions resolve against `options.now` when given,
+     * otherwise against `doc.form.submittedAt`, which the client controls.
+     *
      * @param doc - Current form document.
+     * @param options - Evaluation options; pass `now` for server-side checks.
      * @returns Map from item id to visibility boolean.
+     * @throws {RangeError} If `options.now` is an invalid date.
      */
-    getVisibilityMap(doc: FormDocument): Map<number, boolean> {
-        return this.visibilityResolver.getVisibilityMap(doc.values, FormEngine.parseNow(doc))
+    getVisibilityMap(doc: FormDocument, options?: EvaluationOptions): Map<number, boolean> {
+        return this.visibilityResolver.getVisibilityMap(doc.values, FormEngine.resolveNow(doc, options))
     }
 
     /**
@@ -226,14 +265,22 @@ export class FormEngine {
      * Sections are never validated directly. For array fields, each item is
      * validated individually according to the array's item definition.
      *
-     * The reference time for relative date validation is derived from
-     * `doc.form.submittedAt`. If that value is missing or unparseable, a
-     * document-level error is reported and `new Date()` is used as fallback.
+     * The reference time for relative dates is `options.now` when given,
+     * otherwise `doc.form.submittedAt`. The client controls `submittedAt`,
+     * so server-side validation must pass `now`. `submittedAt` must still be
+     * present and valid: a missing or unparseable value is a document-level
+     * error either way. An invalid `options.now` yields `NOW_INVALID`.
+     *
+     * Values the definition does not accept (see {@link sanitize}) pass
+     * silently by default. With `options.strict` each of them is reported as
+     * a document error (`UNKNOWN_VALUE_KEY`, `NON_VALUE_ITEM_VALUE`,
+     * `HIDDEN_FIELD_VALUE`, `UNKNOWN_ROW_KEY`) next to the field errors.
      *
      * @param doc - Current form document to validate.
+     * @param options - Evaluation options; pass `now` for server-side checks.
      * @returns Validation result with a `valid` flag and a `fieldErrors` map.
      */
-    validate(doc: FormDocument): FormValidationResult {
+    validate(doc: FormDocument, options?: EvaluationOptions): FormValidationResult {
         // Document compatibility check
         const documentErrors: DocumentValidationError[] = []
         if (doc.form.id !== this.formId) {
@@ -273,6 +320,16 @@ export class FormEngine {
             }
         }
 
+        if (options?.now) {
+            if (Number.isNaN(options.now.getTime())) {
+                documentErrors.push({
+                    code: 'NOW_INVALID',
+                    message: 'Reference time "now" is not a valid date',
+                })
+            }
+            now = options.now
+        }
+
         // Document level validation errors
 
         if (documentErrors.length > 0)
@@ -285,7 +342,43 @@ export class FormEngine {
         // Field level validation errors
 
         const visibilityMap = this.visibilityResolver.getVisibilityMap(doc.values, now)
-        return this.fieldValidator.validate(doc.values, visibilityMap, now)
+        const result = this.fieldValidator.validate(doc.values, visibilityMap, now)
+        if (!options?.strict) return result
+
+        const strayErrors = this.valueSanitizer.findStrayValues(doc.values, visibilityMap)
+        if (strayErrors.length === 0) return result
+        return { valid: false, fieldErrors: result.fieldErrors, documentErrors: strayErrors }
+    }
+
+    /**
+     * Returns a copy of the document without values the definition does not accept.
+     *
+     * Removed from `values`: keys that match no form item, values on
+     * `section` and `static` ids, values of hidden fields, and keys in
+     * `array_obj` rows that are not a declared value sub-field. `suggestions`
+     * is cleaned by the same rules and dropped when nothing is left. Values of
+     * the wrong type are kept; `validate` reports them. The input is not mutated.
+     *
+     * Visibility uses `options.now` when given, otherwise `doc.form.submittedAt`.
+     * Hidden values are dropped for good, so call this when saving or
+     * submitting, not on every edit.
+     *
+     * @param doc - The form document to clean.
+     * @param options - Evaluation options; pass `now` for server-side checks.
+     * @returns A new, cleaned form document.
+     * @throws {RangeError} If `options.now` is an invalid date.
+     */
+    sanitize(doc: FormDocument, options?: EvaluationOptions): FormDocument {
+        const visibilityMap = this.visibilityResolver.getVisibilityMap(doc.values, FormEngine.resolveNow(doc, options))
+        const { suggestions, ...rest } = doc
+        const result: FormDocument = {
+            ...rest,
+            form: { ...doc.form },
+            values: this.valueSanitizer.sanitizeValues(doc.values, visibilityMap),
+        }
+        const cleanSuggestions = suggestions && this.valueSanitizer.sanitizeSuggestions(suggestions, visibilityMap)
+        if (cleanSuggestions) result.suggestions = cleanSuggestions
+        return result
     }
 
     /**
@@ -296,6 +389,12 @@ export class FormEngine {
      */
     getFieldDef(id: number): FieldEntry | undefined {
         return this.registry.get(id)
+    }
+
+    private static resolveNow(doc: FormDocument, options: EvaluationOptions | undefined): Date {
+        if (!options?.now) return FormEngine.parseNow(doc)
+        if (Number.isNaN(options.now.getTime())) throw new RangeError('Reference time "now" is not a valid date')
+        return options.now
     }
 
     private static parseNow(doc: FormDocument): Date {

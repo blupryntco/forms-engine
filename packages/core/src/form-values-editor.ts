@@ -1,6 +1,7 @@
 import { FormEngine } from './form-engine'
 import { applySuggestion, getSuggestion, getSuggestions, removeSuggestion, setSuggestion } from './suggestions'
 import type { ArrayObjRow } from './types/array-obj-item-def'
+import type { EvaluationOptions } from './types/evaluation-options'
 import type { FormDefinition } from './types/form-definition'
 import type { FormDocument } from './types/form-values'
 import type { FieldSuggestion, FormSuggestions } from './types/suggestion'
@@ -284,10 +285,26 @@ export class FormValuesEditor {
      *
      * Delegates to {@link FormEngine.validate}.
      *
+     * @param options - Evaluation options; pass `now` for server-side checks.
      * @returns The validation result.
      */
-    validate(): FormValidationResult {
-        return this.engine.validate(this.doc)
+    validate(options?: EvaluationOptions): FormValidationResult {
+        return this.engine.validate(this.doc, options)
+    }
+
+    /**
+     * Replaces the current document with a copy that has no values the
+     * definition does not accept.
+     *
+     * Delegates to {@link FormEngine.sanitize}.
+     *
+     * @param options - Evaluation options; pass `now` for server-side checks.
+     * @returns `this` for chaining.
+     * @throws {RangeError} If `options.now` is an invalid date.
+     */
+    sanitize(options?: EvaluationOptions): this {
+        this.doc = this.engine.sanitize(this.doc, options)
+        return this
     }
 
     /**
@@ -295,10 +312,11 @@ export class FormValuesEditor {
      *
      * Delegates to {@link FormEngine.getVisibilityMap}.
      *
+     * @param options - Evaluation options; pass `now` for server-side checks.
      * @returns Map from item id to visibility boolean.
      */
-    getVisibilityMap(): Map<number, boolean> {
-        return this.engine.getVisibilityMap(this.doc)
+    getVisibilityMap(options?: EvaluationOptions): Map<number, boolean> {
+        return this.engine.getVisibilityMap(this.doc, options)
     }
 
     /**
@@ -307,10 +325,11 @@ export class FormValuesEditor {
      * Delegates to {@link FormEngine.isVisible}.
      *
      * @param id - Numeric id of the field or section.
+     * @param options - Evaluation options; pass `now` for server-side checks.
      * @returns `true` if the item should be displayed.
      */
-    isVisible(id: number): boolean {
-        return this.engine.isVisible(id, this.doc)
+    isVisible(id: number, options?: EvaluationOptions): boolean {
+        return this.engine.isVisible(id, this.doc, options)
     }
 
     /**
