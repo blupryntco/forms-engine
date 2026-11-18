@@ -10,7 +10,7 @@ Framework-agnostic engine for JSON-driven dynamic forms. Given a form schema (JS
 - **Document compatibility validation** — verifies that a form document's `form.id` and `form.version` match the engine's definition before field validation.
 - **Form definition editing** — fluent builder API (`FormDefinitionEditor`) for programmatically constructing and modifying form schemas.
 - **Form values editing** — fluent editor API (`FormValuesEditor`) for programmatically reading and writing form values against a definition, with array manipulation, validation, and visibility queries.
-- **Relative dates** — date boundaries like `"+7d"` or `"-1m"` are resolved at evaluation time against the form's required `submittedAt` timestamp, enabling dynamic yet reproducible date constraints.
+- **Relative dates** — date boundaries like `"+7d"` or `"-1m"` are resolved at evaluation time against the form's required `submittedAt` timestamp, enabling dynamic yet reproducible date constraints. The client controls `submittedAt`, so servers should pass a trusted reference time: `engine.validate(doc, { now: new Date() })`.
 
 ## Quick Start
 

@@ -8,6 +8,9 @@ Before field-level checks, `FormEngine.validate()` verifies the document is comp
 2. `doc.form.version` must match the engine's `formVersion` — otherwise a `FORM_VERSION_MISMATCH` error is produced.
 3. `doc.form.submittedAt` must be present — otherwise a `FORM_SUBMITTED_AT_MISSING` error is produced.
 4. `doc.form.submittedAt` must be a valid date — otherwise a `FORM_SUBMITTED_AT_INVALID` error is produced.
+5. `options.now`, when passed, must be a valid date — otherwise a `NOW_INVALID` error is produced.
+
+Checks 3 and 4 run even when `options.now` is passed.
 
 These errors are collected in `result.documentErrors`. If any are present, `result.valid` is `false` and field validation is skipped entirely — `result.fieldErrors` will be an empty map.
 
@@ -303,9 +306,9 @@ Pattern: `^[+-]\d+[dwmy]$`
 
 ### Resolution
 
-Relative dates are resolved to absolute ISO 8601 strings **at evaluation time**. The reference timestamp is always `doc.form.submittedAt` — it is the sole source of truth and cannot be overridden.
+Relative dates are resolved to absolute ISO 8601 strings **at evaluation time**. The reference timestamp is `options.now` when the caller passes it to `validate()`, `isVisible()` or `getVisibilityMap()`, and `doc.form.submittedAt` otherwise. The client controls `submittedAt`, so server-side validation must pass a trusted `now`, e.g. `engine.validate(doc, { now: new Date() })`.
 
-They are **not cached** — every call to `validate()` or `getVisibilityMap()` resolves them fresh. Missing `submittedAt` produces a `FORM_SUBMITTED_AT_MISSING` document error; malformed values produce a `FORM_SUBMITTED_AT_INVALID` document error.
+They are **not cached** — every call to `validate()` or `getVisibilityMap()` resolves them fresh. Missing `submittedAt` produces a `FORM_SUBMITTED_AT_MISSING` document error; malformed values produce a `FORM_SUBMITTED_AT_INVALID` document error. Both are reported even when `now` is passed. An invalid `now` produces a `NOW_INVALID` document error in `validate()` and a `RangeError` in `isVisible()` and `getVisibilityMap()`.
 
 ```ts
 // "+7d" resolved from 2025-06-15 → "2025-06-22T00:00:00.000Z"

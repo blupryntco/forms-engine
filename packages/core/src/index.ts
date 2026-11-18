@@ -24,6 +24,7 @@ export type {
 } from './types/array-obj-item-def'
 export type { CompoundCondition, Condition, SimpleCondition } from './types/conditions'
 export { DocumentError } from './types/errors'
+export type { EvaluationOptions } from './types/evaluation-options'
 export type { FieldEntry } from './types/field-entry'
 export type { ContentItemType, FieldType } from './types/field-types'
 export type { FileValue } from './types/file-value'

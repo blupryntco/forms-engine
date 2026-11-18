@@ -77,9 +77,11 @@ try {
 }
 ```
 
-#### `isVisible(id: number, doc: FormDocument): boolean`
+#### `isVisible(id: number, doc: FormDocument, options?: EvaluationOptions): boolean`
 
 Checks whether a single item is visible. Evaluates the item's own condition and walks up the parent chain. **Does not apply the hidden-field rule** — use `getVisibilityMap()` for authoritative cascading visibility.
+
+Relative dates in conditions resolve against `options.now` when given, otherwise against `doc.form.submittedAt`. Throws `RangeError` if `options.now` is an invalid date.
 
 ```ts
 if (engine.isVisible(5, doc)) {
@@ -87,9 +89,9 @@ if (engine.isVisible(5, doc)) {
 }
 ```
 
-#### `getVisibilityMap(doc: FormDocument): Map<number, boolean>`
+#### `getVisibilityMap(doc: FormDocument, options?: EvaluationOptions): Map<number, boolean>`
 
-Computes visibility for all items in topological order. Applies the [hidden-field rule](./architecture.md#hidden-field-rule) and cascading parent visibility. This is the authoritative visibility source.
+Computes visibility for all items in topological order. Applies the [hidden-field rule](./architecture.md#hidden-field-rule) and cascading parent visibility. This is the authoritative visibility source. `options.now` works as in `isVisible()`, including the `RangeError` on an invalid date.
 
 ```ts
 const vis = engine.getVisibilityMap(doc)
@@ -107,14 +109,14 @@ const affected = engine.getAffectedIds(6)
 // Re-evaluate visibility only for these items after field 6 changes
 ```
 
-#### `validate(doc: FormDocument): FormValidationResult`
+#### `validate(doc: FormDocument, options?: EvaluationOptions): FormValidationResult`
 
 Validates a form document in two phases:
 
-1. **Compatibility check** — verifies `doc.form.id` matches the engine's form ID, `doc.form.version` matches the engine's form version, and `doc.form.submittedAt` is present and valid. Mismatches/issues are reported in `result.documentErrors`.
+1. **Compatibility check** — verifies `doc.form.id` matches the engine's form ID, `doc.form.version` matches the engine's form version, `doc.form.submittedAt` is present and valid, and `options.now`, when given, is a valid date. Mismatches/issues are reported in `result.documentErrors`.
 2. **Field validation** — validates all **visible** fields against their validation rules. Hidden fields are skipped.
 
-Both phases always run. If document errors are present, `result.valid` is `false` regardless of field validation results.
+Field validation runs only when the compatibility check passes. If it finds any document errors, `validate` returns right away with `result.valid` set to `false`, those `documentErrors` and an empty `fieldErrors` map.
 
 ```ts
 const result = engine.validate(doc)
@@ -126,7 +128,13 @@ if (!result.valid) {
 }
 ```
 
-**Relative date resolution:** When resolving relative dates (e.g., `"+7d"`), `validate()` uses `doc.form.submittedAt` as the reference timestamp. This is the sole source of truth for relative date resolution — it cannot be overridden.
+**Relative date resolution:** Relative dates (e.g., `"+7d"`) resolve against `options.now` when it is given, and against `doc.form.submittedAt` otherwise. The client controls `submittedAt`, so server-side validation must pass a trusted `now`:
+
+```ts
+const result = engine.validate(doc, { now: new Date() })
+```
+
+`submittedAt` must still be present and valid when `now` is passed: `FORM_SUBMITTED_AT_MISSING` and `FORM_SUBMITTED_AT_INVALID` are reported either way. An invalid `options.now` produces a `NOW_INVALID` document error.
 
 > **Note:** `isVisible()` and `getVisibilityMap()` do not perform compatibility checks.
 
@@ -424,9 +432,9 @@ editor.setSubmittedAt('2025-01-01T00:00:00Z')
 
 #### Validation & Visibility
 
-##### `validate(): FormValidationResult`
+##### `validate(options?: EvaluationOptions): FormValidationResult`
 
-Validates the current document against the form definition. Delegates to `FormEngine.validate()`.
+Validates the current document against the form definition. Delegates to `FormEngine.validate()`, passing `options` through.
 
 ```ts
 const result = editor.validate()
@@ -435,17 +443,17 @@ if (!result.valid) {
 }
 ```
 
-##### `getVisibilityMap(): Map<number, boolean>`
+##### `getVisibilityMap(options?: EvaluationOptions): Map<number, boolean>`
 
-Computes visibility for every field and section. Delegates to `FormEngine.getVisibilityMap()`.
+Computes visibility for every field and section. Delegates to `FormEngine.getVisibilityMap()`, passing `options` through.
 
 ```ts
 const vis = editor.getVisibilityMap()
 ```
 
-##### `isVisible(id: number): boolean`
+##### `isVisible(id: number, options?: EvaluationOptions): boolean`
 
-Determines whether a field or section is visible given current values. Delegates to `FormEngine.isVisible()`.
+Determines whether a field or section is visible given current values. Delegates to `FormEngine.isVisible()`, passing `options` through.
 
 ```ts
 if (editor.isVisible(5)) {
@@ -491,7 +499,7 @@ const visible = evaluator.evalCondition(
 type EvaluationContext = {
   values: Record<string, unknown>   // form values keyed by stringified field ID
   visibilityMap?: Map<number, boolean>  // enables hidden-field rule
-  now: Date                         // reference date for relative dates (resolved from form.submittedAt)
+  now: Date                         // reference date for relative dates (options.now, or form.submittedAt)
 }
 ```
 
@@ -620,7 +628,7 @@ None of these validate that `fieldId` refers to an existing, non-section field �
 |------|-------------|
 | `FormValidationResult` | `{ valid: boolean, fieldErrors: Map<number, FieldValidationError[]>, documentErrors?: DocumentValidationError[] }` |
 | `FieldValidationError` | `{ fieldId, rule, message, params?, itemIndex? }` |
-| `DocumentValidationErrorCode` | `'SCHEMA_INVALID' \| 'DUPLICATE_ID' \| 'NESTING_DEPTH' \| 'UNKNOWN_FIELD_REF' \| 'CONDITION_REFS_SECTION' \| 'CONDITION_REFS_STATIC' \| 'INVALID_MIN_MAX' \| 'INVALID_REGEX' \| 'CIRCULAR_DEPENDENCY' \| 'FORM_ID_MISMATCH' \| 'FORM_VERSION_MISMATCH' \| 'FORM_SUBMITTED_AT_MISSING' \| 'FORM_SUBMITTED_AT_INVALID'` |
+| `DocumentValidationErrorCode` | `'SCHEMA_INVALID' \| 'DUPLICATE_ID' \| 'NESTING_DEPTH' \| 'UNKNOWN_FIELD_REF' \| 'CONDITION_REFS_SECTION' \| 'CONDITION_REFS_STATIC' \| 'INVALID_MIN_MAX' \| 'INVALID_REGEX' \| 'CIRCULAR_DEPENDENCY' \| 'FORM_ID_MISMATCH' \| 'FORM_VERSION_MISMATCH' \| 'FORM_SUBMITTED_AT_MISSING' \| 'FORM_SUBMITTED_AT_INVALID' \| 'NOW_INVALID'` |
 | `DocumentValidationError` | `{ code: DocumentValidationErrorCode, message: string, params?: Record<string, unknown>, itemId?: number }` |
 | `StringValidation` | `{ required?, minLength?, maxLength?, pattern?, patternMessage? }` |
 | `NumberValidation` | `{ required?, min?, max? }` |
@@ -649,6 +657,7 @@ None of these validate that `fieldId` refers to an existing, non-section field �
 | `SustainabilityValue` | `{ address, ccri?, cmc? }` — the value of a `sustainability` field |
 | `DocumentError` | Error class with `.errors: DocumentValidationError[]` — thrown on definition validation failure or by `loadDocument()` on id/version mismatch |
 | `EvaluationContext` | `{ values, visibilityMap?, now }` |
+| `EvaluationOptions` | `{ now?: Date }` — trusted reference time for relative dates. Accepted by `validate()`, `isVisible()` and `getVisibilityMap()`; overrides `doc.form.submittedAt` |
 | `FieldDescriptor` | `(Omit<FieldContentItem, 'id'> \| Omit<StaticFieldContentItem, 'id'>) & { id?: number }` — hand-written, because `Omit` does not distribute over a union |
 | `SectionDescriptor` | `Omit<SectionContentItem, 'id' \| 'content'> & { id?: number, content?: ContentItem[] }` |
 | `ContentItemInfo` | `{ id, type, label?, title?, parentId }` |

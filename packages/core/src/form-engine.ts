@@ -3,6 +3,7 @@ import { DependencyGraph } from './dependency-graph'
 import { FieldValidator } from './field-validator'
 import { FormDefinitionValidator } from './form-definition-validator'
 import { DocumentError } from './types/errors'
+import type { EvaluationOptions } from './types/evaluation-options'
 import type { FieldEntry } from './types/field-entry'
 import type { ContentItem, FormDefinition } from './types/form-definition'
 import type { FormSnapshot } from './types/form-snapshot'
@@ -179,12 +180,17 @@ export class FormEngine {
      * an item is hidden if any ancestor is hidden. A section is also hidden
      * when no value field (any type except `section` and `static`) beneath it is visible.
      *
+     * Relative dates in conditions resolve against `options.now` when given,
+     * otherwise against `doc.form.submittedAt`, which the client controls.
+     *
      * @param id - Numeric id of the field or section.
      * @param doc - Current form document.
+     * @param options - Evaluation options; pass `now` for server-side checks.
      * @returns `true` if the item should be displayed, `false` otherwise.
+     * @throws {RangeError} If `options.now` is an invalid date.
      */
-    isVisible(id: number, doc: FormDocument): boolean {
-        return this.visibilityResolver.isVisible(id, doc.values, FormEngine.parseNow(doc))
+    isVisible(id: number, doc: FormDocument, options?: EvaluationOptions): boolean {
+        return this.visibilityResolver.isVisible(id, doc.values, FormEngine.resolveNow(doc, options))
     }
 
     /**
@@ -195,11 +201,16 @@ export class FormEngine {
      * cascading visibility (e.g. a hidden parent hides all children). A section
      * with no visible value field beneath it is hidden along with its descendants.
      *
+     * Relative dates in conditions resolve against `options.now` when given,
+     * otherwise against `doc.form.submittedAt`, which the client controls.
+     *
      * @param doc - Current form document.
+     * @param options - Evaluation options; pass `now` for server-side checks.
      * @returns Map from item id to visibility boolean.
+     * @throws {RangeError} If `options.now` is an invalid date.
      */
-    getVisibilityMap(doc: FormDocument): Map<number, boolean> {
-        return this.visibilityResolver.getVisibilityMap(doc.values, FormEngine.parseNow(doc))
+    getVisibilityMap(doc: FormDocument, options?: EvaluationOptions): Map<number, boolean> {
+        return this.visibilityResolver.getVisibilityMap(doc.values, FormEngine.resolveNow(doc, options))
     }
 
     /**
@@ -226,14 +237,17 @@ export class FormEngine {
      * Sections are never validated directly. For array fields, each item is
      * validated individually according to the array's item definition.
      *
-     * The reference time for relative date validation is derived from
-     * `doc.form.submittedAt`. If that value is missing or unparseable, a
-     * document-level error is reported and `new Date()` is used as fallback.
+     * The reference time for relative dates is `options.now` when given,
+     * otherwise `doc.form.submittedAt`. The client controls `submittedAt`,
+     * so server-side validation must pass `now`. `submittedAt` must still be
+     * present and valid: a missing or unparseable value is a document-level
+     * error either way. An invalid `options.now` yields `NOW_INVALID`.
      *
      * @param doc - Current form document to validate.
+     * @param options - Evaluation options; pass `now` for server-side checks.
      * @returns Validation result with a `valid` flag and a `fieldErrors` map.
      */
-    validate(doc: FormDocument): FormValidationResult {
+    validate(doc: FormDocument, options?: EvaluationOptions): FormValidationResult {
         // Document compatibility check
         const documentErrors: DocumentValidationError[] = []
         if (doc.form.id !== this.formId) {
@@ -273,6 +287,16 @@ export class FormEngine {
             }
         }
 
+        if (options?.now) {
+            if (Number.isNaN(options.now.getTime())) {
+                documentErrors.push({
+                    code: 'NOW_INVALID',
+                    message: 'Reference time "now" is not a valid date',
+                })
+            }
+            now = options.now
+        }
+
         // Document level validation errors
 
         if (documentErrors.length > 0)
@@ -296,6 +320,12 @@ export class FormEngine {
      */
     getFieldDef(id: number): FieldEntry | undefined {
         return this.registry.get(id)
+    }
+
+    private static resolveNow(doc: FormDocument, options: EvaluationOptions | undefined): Date {
+        if (!options?.now) return FormEngine.parseNow(doc)
+        if (Number.isNaN(options.now.getTime())) throw new RangeError('Reference time "now" is not a valid date')
+        return options.now
     }
 
     private static parseNow(doc: FormDocument): Date {

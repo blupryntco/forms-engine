@@ -78,6 +78,7 @@ Separate from schema definition issues, `FormEngine.validate()` can produce **do
 | `FORM_VERSION_MISMATCH` | `doc.form.version` does not match the engine's form version |
 | `FORM_SUBMITTED_AT_MISSING` | `doc.form.submittedAt` is missing |
 | `FORM_SUBMITTED_AT_INVALID` | `doc.form.submittedAt` is not a valid ISO 8601 string |
+| `NOW_INVALID` | `options.now` passed to `validate()` is not a valid date |
 
 Each error may include a `params` object for debuggability. The shape varies by code:
 
@@ -87,6 +88,7 @@ Each error may include a `params` object for debuggability. The shape varies by 
 | `FORM_VERSION_MISMATCH` | `{ expected, actual }` |
 | `FORM_SUBMITTED_AT_MISSING` | _(none)_ |
 | `FORM_SUBMITTED_AT_INVALID` | `{ actual }` |
+| `NOW_INVALID` | _(none)_ |
 
 ```ts
 const result = engine.validate(doc)

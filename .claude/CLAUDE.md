@@ -14,7 +14,7 @@ A form schema is a JSON document that describes the structure of a form: its fie
 
 ### 2.2 Form Values
 
-Form values is a JSON document that contains user-submitted data corresponding to a specific form schema. Form documents carry a required `submittedAt` (ISO 8601) timestamp that serves as the sole reference time for relative date resolution (e.g., `"+7d"`, `"-1m"`). Missing `submittedAt` produces a `FORM_SUBMITTED_AT_MISSING` document error; invalid values produce a `FORM_SUBMITTED_AT_INVALID` document error.
+Form values is a JSON document that contains user-submitted data corresponding to a specific form schema. Form documents carry a required `submittedAt` (ISO 8601) timestamp that serves as the reference time for relative date resolution (e.g., `"+7d"`, `"-1m"`) unless the caller passes a trusted `now` in `EvaluationOptions`. The client controls `submittedAt`, so server-side validation must pass `now`; an invalid `now` produces a `NOW_INVALID` document error. Missing `submittedAt` produces a `FORM_SUBMITTED_AT_MISSING` document error; invalid values produce a `FORM_SUBMITTED_AT_INVALID` document error.
 
 A form document may also carry an optional `suggestions` block alongside `values` — machine-proposed answers keyed by the same stringified field ids. Each entry is `{ value, confidence (0..1), source }`. Suggestions never affect validation or visibility; they are accepted (copied into `values`, suggestion kept) or rejected (removed, value untouched). See [Form Schema](./SCHEMA.md) §6.1.
 

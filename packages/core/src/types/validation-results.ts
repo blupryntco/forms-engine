@@ -78,6 +78,7 @@ export type FieldValidationError = {
  * | `FORM_VERSION_MISMATCH` | The document's form version does not match the engine's form definition version. |
  * | `FORM_SUBMITTED_AT_MISSING` | The document's submittedAt field is missing. |
  * | `FORM_SUBMITTED_AT_INVALID` | The document's submittedAt field is not a valid date. |
+ * | `NOW_INVALID` | The `now` option passed to `validate` is not a valid date. |
  */
 export type DocumentValidationErrorCode =
     | 'SCHEMA_INVALID'
@@ -94,6 +95,7 @@ export type DocumentValidationErrorCode =
     | 'FORM_VERSION_MISMATCH'
     | 'FORM_SUBMITTED_AT_MISSING'
     | 'FORM_SUBMITTED_AT_INVALID'
+    | 'NOW_INVALID'
 
 /**
  * A single validation error found during form definition or document validation.

@@ -1160,6 +1160,75 @@ describe('FormEngine', () => {
         })
     })
 
+    describe('options.now as trusted reference date', () => {
+        const NOW = new Date('2026-01-10T00:00:00.000Z')
+        const SUBMITTED_AT_VARIANTS = ['2020-01-01T00:00:00.000Z', NOW.toISOString(), '2030-01-01T00:00:00.000Z']
+
+        // Section 10 shows only when date field 1 is within the last 30 days; field 11 inside is required.
+        const conditionalDef = baseDef([
+            { id: 1, type: 'date', label: 'Incorporated' },
+            {
+                id: 10,
+                type: 'section',
+                title: 'Recent',
+                condition: { field: 1, op: 'gt', value: '-30d' },
+                content: [{ id: 11, type: 'string', label: 'Reason', validation: { required: true } }],
+            },
+        ])
+
+        it('resolves relative minDate/maxDate against now regardless of submittedAt', () => {
+            const engine = new FormEngine(
+                baseDef([{ id: 1, type: 'date', label: 'D', validation: { minDate: '-7d', maxDate: '+7d' } }]),
+            )
+            for (const submittedAt of SUBMITTED_AT_VARIANTS) {
+                expect(engine.validate(doc({ '1': '2026-01-10' }, submittedAt), { now: NOW }).valid).toBe(true)
+                expect(engine.validate(doc({ '1': '2026-01-01' }, submittedAt), { now: NOW }).valid).toBe(false)
+                expect(engine.validate(doc({ '1': '2026-01-20' }, submittedAt), { now: NOW }).valid).toBe(false)
+            }
+        })
+
+        it('resolves relative condition values against now regardless of submittedAt', () => {
+            const engine = new FormEngine(conditionalDef)
+            for (const submittedAt of SUBMITTED_AT_VARIANTS) {
+                const d = doc({ '1': '2026-01-05' }, submittedAt)
+                expect(engine.isVisible(10, d, { now: NOW })).toBe(true)
+                expect(engine.getVisibilityMap(d, { now: NOW }).get(11)).toBe(true)
+                const result = engine.validate(d, { now: NOW })
+                expect(result.valid).toBe(false)
+                expect(result.fieldErrors.get(11)?.[0]?.rule).toBe('REQUIRED')
+            }
+        })
+
+        it('blocks hiding a section through a forged submittedAt', () => {
+            const engine = new FormEngine(conditionalDef)
+            const forged = doc({ '1': '2026-01-05' }, '2030-01-01T00:00:00.000Z')
+            expect(engine.validate(forged).valid).toBe(true)
+            expect(engine.validate(forged, { now: NOW }).valid).toBe(false)
+        })
+
+        it('still reports missing or invalid submittedAt when now is given', () => {
+            const engine = new FormEngine(baseDef([{ id: 1, type: 'string', label: 'S' }]))
+            const missing = engine.validate(doc({}, ''), { now: NOW })
+            expect(missing.documentErrors?.map((e) => e.code)).toEqual(['FORM_SUBMITTED_AT_MISSING'])
+            const invalid = engine.validate(doc({}, 'garbage'), { now: NOW })
+            expect(invalid.documentErrors?.map((e) => e.code)).toEqual(['FORM_SUBMITTED_AT_INVALID'])
+        })
+
+        it('reports NOW_INVALID from validate when now is an invalid date', () => {
+            const engine = new FormEngine(baseDef([{ id: 1, type: 'string', label: 'S' }]))
+            const result = engine.validate(doc(), { now: new Date('x') })
+            expect(result.valid).toBe(false)
+            expect(result.fieldErrors.size).toBe(0)
+            expect(result.documentErrors?.map((e) => e.code)).toEqual(['NOW_INVALID'])
+        })
+
+        it('throws RangeError from isVisible/getVisibilityMap when now is an invalid date', () => {
+            const engine = new FormEngine(conditionalDef)
+            expect(() => engine.isVisible(10, doc(), { now: new Date('x') })).toThrow(RangeError)
+            expect(() => engine.getVisibilityMap(doc(), { now: new Date('x') })).toThrow(RangeError)
+        })
+    })
+
     describe('end-to-end realistic form', () => {
         // A "job application" form with conditional sections
         const jobApplicationForm: FormDefinition = {

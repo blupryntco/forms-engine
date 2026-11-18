@@ -211,7 +211,7 @@ Date values and date validation boundaries support two formats:
 
 Relative dates must match the pattern `^[+-]\d+[dwmy]$`.
 
-Relative dates are resolved to absolute ISO 8601 values at evaluation time (validation, condition evaluation). The reference timestamp is always `form.submittedAt` from the form document. The resolution happens on every evaluation — they are not cached.
+Relative dates are resolved to absolute ISO 8601 values at evaluation time (validation, condition evaluation). The reference timestamp is `form.submittedAt` from the form document, unless the caller passes a trusted `now` (`engine.validate(doc, { now })`). The client controls `submittedAt`, so server-side validation must pass `now`. The resolution happens on every evaluation — they are not cached.
 
 ### 3.8 File Validation
 
@@ -734,7 +734,7 @@ Form values document links to its form definition via `form` and contains field 
 | `form` | `object` | yes | Reference to the form schema. |
 | `form.id` | `string` | yes | Must match the `id` of the form schema these values belong to. Validated by `FormEngine.validate()` — mismatch produces a `FORM_ID_MISMATCH` document error. |
 | `form.version` | `string` | yes | Must match the `version` of the form schema (semver). Validated by `FormEngine.validate()` — mismatch produces a `FORM_VERSION_MISMATCH` document error. |
-| `form.submittedAt` | `string` | yes | ISO 8601 timestamp of when the form was submitted. Used as the sole reference time for relative date resolution. Auto-populated by `createFormDocument()`. Missing `submittedAt` produces a `FORM_SUBMITTED_AT_MISSING` document error; malformed values produce a `FORM_SUBMITTED_AT_INVALID` document error. |
+| `form.submittedAt` | `string` | yes | ISO 8601 timestamp of when the form was submitted. Used as the reference time for relative date resolution unless the caller passes a trusted `now`. Client-controlled, so do not rely on it server-side. Auto-populated by `createFormDocument()`. Missing `submittedAt` produces a `FORM_SUBMITTED_AT_MISSING` document error; malformed values produce a `FORM_SUBMITTED_AT_INVALID` document error. |
 | `values` | `object` | yes | Flat key-value map. Keys are stringified field IDs, values match field types. |
 | `suggestions` | `object` | no | Sparse map of machine-proposed answers, keyed like `values`. See §6.1. |
 
