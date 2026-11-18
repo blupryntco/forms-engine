@@ -1,5 +1,9 @@
 # @bluprynt/forms-builder
 
+## 4.2.1
+
+No changes in this release.
+
 ## 4.2.0
 
 ### Patch Changes
