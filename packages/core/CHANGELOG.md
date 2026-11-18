@@ -1,5 +1,59 @@
 # @bluprynt/forms-core
 
+## 4.2.1
+
+### Patch Changes
+
+- [#20](https://github.com/blupryntco/forms-engine/pull/20) [`2afa646`](https://github.com/blupryntco/forms-engine/commit/2afa646e6e77b18b5898185724d126806b270ca3) Thanks [@sergeyzwezdin](https://github.com/sergeyzwezdin)! - Reject oversized or deeply nested form definitions with a `DocumentError` instead of a stack overflow.
+  
+  `new FormEngine(definition)` now checks limits first, with `FormDefinitionValidator.validateLimits()`, before the
+  JSON schema check. The walk uses an explicit stack, so a definition nested thousands of levels deep no longer
+  crashes with a `RangeError`. Limits:
+  
+  - sections nest at most 3 levels, as before (`NESTING_DEPTH`);
+  - `and` / `or` groups nest at most 16 levels inside one condition (`NESTING_DEPTH`);
+  - a definition holds at most 5000 nodes, counting content items, `array_obj` sub-fields and condition nodes
+    (new `DEFINITION_TOO_LARGE` code);
+  - an `and` / `or` group holds at most 100 conditions (`SCHEMA_INVALID`, keyword `maxItems`).
+  
+  Any other `RangeError` thrown while compiling the definition becomes a `DocumentError` with `DEFINITION_TOO_LARGE`.
+  Definitions that exceed these limits used to compile and now fail.
+
+- [#20](https://github.com/blupryntco/forms-engine/pull/20) [`2afa646`](https://github.com/blupryntco/forms-engine/commit/2afa646e6e77b18b5898185724d126806b270ca3) Thanks [@sergeyzwezdin](https://github.com/sergeyzwezdin)! - Stop `FormDefinitionEditor` update methods from overwriting `id`, `type` or an item's prototype.
+  
+  `updateField`, `updateSection` and `updateArrayItemField` no longer use `Object.assign`. Each copies only the own keys
+  its item type declares and silently ignores the rest, including `id`, `type`, a section's `content`, `__proto__`,
+  `constructor` and keys of another item type. Before, a JSON payload could replace an item's `type` or `content`, or
+  set an own `__proto__` key that swapped the item's prototype. Merge semantics are unchanged: an omitted key is kept,
+  and an allowed key passed as `undefined` is cleared on serialization.
+  
+  `updateArrayItemField` can no longer change a sub-field's `type`; its `patch` parameter type now omits `id` and `type`.
+  The new `FormDefinitionEditor.validate()` checks the current definition against the JSON Schema and returns
+  `SCHEMA_INVALID` issues. Semantic checks still run when `FormEngine` compiles the definition.
+
+- [#20](https://github.com/blupryntco/forms-engine/pull/20) [`2afa646`](https://github.com/blupryntco/forms-engine/commit/2afa646e6e77b18b5898185724d126806b270ca3) Thanks [@sergeyzwezdin](https://github.com/sergeyzwezdin)! - Add a way to strip values the form definition does not accept.
+  
+  `validate` used to ignore values outside the visible fields, so a client could attach arbitrary data to a document
+  and consumers stored it. `FormEngine.sanitize(doc, options?)` returns a copy of the document without unknown
+  `values` keys, values on `section` and `static` ids, values of hidden fields, and undeclared keys in `array_obj` rows.
+  `suggestions` is cleaned by the same rules. `FormValuesEditor.sanitize(options?)` does the same to the editor's
+  document. Servers should persist `engine.sanitize(doc, { now: new Date() })`. Hidden values are dropped for good, so
+  sanitize on save or submit, not on every edit.
+  
+  `EvaluationOptions` gets a `strict` flag, read by `validate` only. With `strict: true`, each value `sanitize` would
+  remove from `values` becomes one of the new document errors `UNKNOWN_VALUE_KEY`, `NON_VALUE_ITEM_VALUE`,
+  `HIDDEN_FIELD_VALUE` or `UNKNOWN_ROW_KEY`, and `valid` is `false`. Without `strict`, behaviour is unchanged.
+
+- [#20](https://github.com/blupryntco/forms-engine/pull/20) [`2afa646`](https://github.com/blupryntco/forms-engine/commit/2afa646e6e77b18b5898185724d126806b270ca3) Thanks [@sergeyzwezdin](https://github.com/sergeyzwezdin)! - Let the caller set a trusted reference time for relative dates.
+  
+  `FormEngine.validate`, `isVisible` and `getVisibilityMap` (and the matching `FormValuesEditor` methods) take an
+  optional `EvaluationOptions` argument. When `options.now` is set, relative dates such as `"+7d"` in `minDate`,
+  `maxDate` and condition values resolve against it instead of `doc.form.submittedAt`. The client controls
+  `submittedAt`, so server-side validation should pass `{ now: new Date() }`. Without options, behaviour is unchanged.
+  
+  `submittedAt` is still required and checked when `now` is passed. An invalid `now` makes `validate` return the new
+  `NOW_INVALID` document error; `isVisible` and `getVisibilityMap` throw a `RangeError`.
+
 ## 4.2.0
 
 ### Minor Changes
