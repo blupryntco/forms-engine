@@ -120,6 +120,16 @@ const makeLegacyEditorComponents = (): EditorComponentMap => ({
 
 const noop = () => {}
 
+const SectionsContainer: FC<Record<string, unknown>> = (props) => (
+    <div data-testid="sections">{props.children as ReactNode}</div>
+)
+const SectionsItem: FC<Record<string, unknown>> = (props) => <div>{String(props.title ?? '')}</div>
+const ErrorsContainer: FC<Record<string, unknown>> = (props) => (
+    <div data-testid="doc-errors">{props.children as ReactNode}</div>
+)
+const ErrorItem: FC<Record<string, unknown>> = () => <div />
+const FieldGroup: FC<Record<string, unknown>> = (props) => <div>{props.children as ReactNode}</div>
+
 beforeEach(() => {
     jest.clearAllMocks()
 })
@@ -146,16 +156,6 @@ describe.each(LEGACY_FIXTURES)('backward compatibility -- viewer -- $slug', ({ d
     })
 
     it('renders the auxiliary components unchanged', () => {
-        const SectionsContainer: FC<Record<string, unknown>> = (props) => (
-            <div data-testid="sections">{props.children as ReactNode}</div>
-        )
-        const SectionsItem: FC<Record<string, unknown>> = (props) => <div>{String(props.title ?? '')}</div>
-        const ErrorsContainer: FC<Record<string, unknown>> = (props) => (
-            <div data-testid="doc-errors">{props.children as ReactNode}</div>
-        )
-        const ErrorItem: FC<Record<string, unknown>> = () => <div />
-        const FieldGroup: FC<Record<string, unknown>> = (props) => <div>{props.children as ReactNode}</div>
-
         expect(() =>
             render(
                 <Form definition={definition} data={document}>

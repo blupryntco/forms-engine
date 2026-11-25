@@ -7,6 +7,14 @@ import { AddPlaceholder, type AddPlaceholderRenderProps } from './add-placeholde
 const MockComponent: FC<AddPlaceholderRenderProps> = ({ depth, parentId }) => (
     <div data-testid="placeholder" data-depth={depth} data-parent-id={parentId ?? 'null'} />
 )
+const AddingPlaceholder: FC<AddPlaceholderRenderProps> = ({ onAdd: add }) => {
+    const id = add({ type: 'string', label: 'Test' })
+    return <div data-testid="result" data-id={id} />
+}
+const ChangingPlaceholder: FC<AddPlaceholderRenderProps> = ({ onChange: change }) => {
+    change(1, { id: 1, type: 'string', label: 'X' })
+    return <div data-testid="done" />
+}
 
 describe('AddPlaceholder', () => {
     it('renders the component with correct props', () => {
@@ -37,24 +45,32 @@ describe('AddPlaceholder', () => {
 
     it('forwards onAdd callback', () => {
         const onAdd = jest.fn().mockReturnValue(42)
-        const Comp: FC<AddPlaceholderRenderProps> = ({ onAdd: add }) => {
-            const id = add({ type: 'string', label: 'Test' })
-            return <div data-testid="result" data-id={id} />
-        }
 
-        render(<AddPlaceholder depth={0} parentId={null} component={Comp} onAdd={onAdd} onChange={jest.fn()} />)
+        render(
+            <AddPlaceholder
+                depth={0}
+                parentId={null}
+                component={AddingPlaceholder}
+                onAdd={onAdd}
+                onChange={jest.fn()}
+            />,
+        )
 
         expect(onAdd).toHaveBeenCalledWith({ type: 'string', label: 'Test' })
     })
 
     it('forwards onChange callback', () => {
         const onChange = jest.fn()
-        const Comp: FC<AddPlaceholderRenderProps> = ({ onChange: change }) => {
-            change(1, { id: 1, type: 'string', label: 'X' })
-            return <div data-testid="done" />
-        }
 
-        render(<AddPlaceholder depth={0} parentId={null} component={Comp} onAdd={jest.fn()} onChange={onChange} />)
+        render(
+            <AddPlaceholder
+                depth={0}
+                parentId={null}
+                component={ChangingPlaceholder}
+                onAdd={jest.fn()}
+                onChange={onChange}
+            />,
+        )
 
         expect(onChange).toHaveBeenCalledWith(1, { id: 1, type: 'string', label: 'X' })
     })

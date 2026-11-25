@@ -40,6 +40,18 @@ const MockFieldComponent: FC<FieldRenderProps> = ({
         data-selected={isSelected}
     />
 )
+const AddingField: FC<FieldRenderProps> = ({ onAdd: add }) => {
+    const id = add({ type: 'number', label: 'Age' })
+    return <div data-testid="result" data-id={id} />
+}
+const RemovingField: FC<FieldRenderProps> = ({ onRemove: remove }) => {
+    remove()
+    return <div data-testid="done" />
+}
+const ChangingField: FC<FieldRenderProps> = ({ onChange: change }) => {
+    change({ id: 1, type: 'string', label: 'Updated' })
+    return <div data-testid="done" />
+}
 
 const defaultItem: FieldContentItem = { id: 1, type: 'string', label: 'Name' }
 
@@ -120,10 +132,6 @@ describe('Field', () => {
 
     it('forwards onAdd callback', () => {
         const onAdd = jest.fn().mockReturnValue(5)
-        const Comp: FC<FieldRenderProps> = ({ onAdd: add }) => {
-            const id = add({ type: 'number', label: 'Age' })
-            return <div data-testid="result" data-id={id} />
-        }
 
         render(
             <Field
@@ -134,7 +142,7 @@ describe('Field', () => {
                 type="string"
                 item={defaultItem}
                 isSelected={false}
-                component={Comp}
+                component={AddingField}
                 onAdd={onAdd}
                 onRemove={jest.fn()}
                 onChange={jest.fn()}
@@ -146,10 +154,6 @@ describe('Field', () => {
 
     it('forwards onRemove callback', () => {
         const onRemove = jest.fn()
-        const Comp: FC<FieldRenderProps> = ({ onRemove: remove }) => {
-            remove()
-            return <div data-testid="done" />
-        }
 
         render(
             <Field
@@ -160,7 +164,7 @@ describe('Field', () => {
                 type="string"
                 item={defaultItem}
                 isSelected={false}
-                component={Comp}
+                component={RemovingField}
                 onAdd={jest.fn()}
                 onRemove={onRemove}
                 onChange={jest.fn()}
@@ -172,10 +176,6 @@ describe('Field', () => {
 
     it('forwards onChange callback', () => {
         const onChange = jest.fn()
-        const Comp: FC<FieldRenderProps> = ({ onChange: change }) => {
-            change({ id: 1, type: 'string', label: 'Updated' })
-            return <div data-testid="done" />
-        }
 
         render(
             <Field
@@ -186,7 +186,7 @@ describe('Field', () => {
                 type="string"
                 item={defaultItem}
                 isSelected={false}
-                component={Comp}
+                component={ChangingField}
                 onAdd={jest.fn()}
                 onRemove={jest.fn()}
                 onChange={onChange}
