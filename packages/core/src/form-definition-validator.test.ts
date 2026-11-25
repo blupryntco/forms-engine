@@ -1005,9 +1005,9 @@ describe('FormDefinitionValidator.validateSchema', () => {
             expect(result.every((i) => i.code === 'SCHEMA_INVALID')).toBe(true)
         })
 
-        it('returns multiple errors with allErrors mode', () => {
+        it('stops at the first schema violation', () => {
             const result = schemaIssues({ id: 123, version: 'bad' })
-            expect(result.length).toBeGreaterThan(1)
+            expect(result).toHaveLength(1)
         })
 
         it('formats unsupported properties with readable paths', () => {
@@ -1041,9 +1041,6 @@ describe('FormDefinitionValidator.validateSchema', () => {
             const messages = result.map((issue) => issue.message)
 
             expect(messages).toContain('Content item 1 > content item 1 is missing required property "type".')
-            expect(messages).toContain(
-                'Content item 1 > content item 1 validation has unsupported properties: "maxLength", "required".',
-            )
             expect(messages).not.toContain('Content item 1 is invalid.')
             expect(messages).not.toContain('Content item 1 > content item 1 is invalid.')
             expect(messages.filter((message) => message.includes('required property "type"'))).toHaveLength(1)
@@ -1475,6 +1472,30 @@ describe('FormDefinitionValidator.validateLimits', () => {
         expect(codes(withCondition({ and: leaves(4998) } as Condition))).toEqual(['DEFINITION_TOO_LARGE'])
     })
 
+    it('counts select options, including those of array items and array_obj sub-fields', () => {
+        const options = (count: number) => Array.from({ length: count }, (_, i) => ({ value: `v${i}`, label: `O${i}` }))
+        const select = (count: number) => ({ id: 1, type: 'select', label: 'S', options: options(count) })
+        const arrayField = (count: number) => ({
+            id: 1,
+            type: 'array',
+            label: 'L',
+            item: { type: 'select', label: 'I', options: options(count) },
+        })
+        const arrayObjField = (count: number) => ({
+            id: 1,
+            type: 'array_obj',
+            label: 'L',
+            items: [{ id: 2, type: 'multiselect', label: 'M', options: options(count) }],
+        })
+
+        expect(codes({ ...minimal, content: [select(4999)] })).toEqual([])
+        expect(codes({ ...minimal, content: [select(5000)] })).toEqual(['DEFINITION_TOO_LARGE'])
+        expect(codes({ ...minimal, content: [arrayField(4999)] })).toEqual([])
+        expect(codes({ ...minimal, content: [arrayField(5000)] })).toEqual(['DEFINITION_TOO_LARGE'])
+        expect(codes({ ...minimal, content: [arrayObjField(4998)] })).toEqual([])
+        expect(codes({ ...minimal, content: [arrayObjField(4999)] })).toEqual(['DEFINITION_TOO_LARGE'])
+    })
+
     it.each([
         ['null', null],
         ['a string', 'form'],
@@ -1511,5 +1532,129 @@ describe('FormDefinitionValidator.validateSchema condition size', () => {
                 params: expect.objectContaining({ keyword: 'maxItems' }),
             }),
         )
+    })
+})
+
+describe('FormDefinitionValidator.validateSchema array size', () => {
+    const options = (count: number) => Array.from({ length: count }, (_, i) => ({ value: `v${i}`, label: `O${i}` }))
+    const subFields = (count: number) =>
+        Array.from({ length: count }, (_, i) => ({ id: i + 10, type: 'string', label: `S${i}` }))
+    const inValues = (count: number) => Array.from({ length: count }, (_, i) => `v${i}`)
+
+    const cases: [string, (count: number) => unknown][] = [
+        [
+            'select options',
+            (count) => ({ ...minimal, content: [{ id: 1, type: 'select', label: 'S', options: options(count) }] }),
+        ],
+        [
+            'multiselect options',
+            (count) => ({ ...minimal, content: [{ id: 1, type: 'multiselect', label: 'S', options: options(count) }] }),
+        ],
+        [
+            'array item options',
+            (count) => ({
+                ...minimal,
+                content: [
+                    { id: 1, type: 'array', label: 'L', item: { type: 'select', label: 'I', options: options(count) } },
+                ],
+            }),
+        ],
+        [
+            'array_obj sub-fields',
+            (count) => ({ ...minimal, content: [{ id: 1, type: 'array_obj', label: 'L', items: subFields(count) }] }),
+        ],
+        [
+            'array_obj sub-field options',
+            (count) => ({
+                ...minimal,
+                content: [
+                    {
+                        id: 1,
+                        type: 'array_obj',
+                        label: 'L',
+                        items: [{ id: 2, type: 'select', label: 'S', options: options(count) }],
+                    },
+                ],
+            }),
+        ],
+        [
+            'in values',
+            (count) => ({
+                ...minimal,
+                content: [
+                    { id: 1, type: 'string', label: 'A' },
+                    { id: 2, type: 'string', label: 'B', condition: { field: 1, op: 'in', value: inValues(count) } },
+                ],
+            }),
+        ],
+    ]
+
+    it.each(cases)('accepts 1000 %s', (_, build) => {
+        expect(schemaIssues(build(1000))).toEqual([])
+    })
+
+    it.each(cases)('rejects 1001 %s with maxItems', (_, build) => {
+        expect(schemaIssues(build(1001))).toContainEqual(
+            expect.objectContaining({
+                code: 'SCHEMA_INVALID',
+                params: expect.objectContaining({ keyword: 'maxItems' }),
+            }),
+        )
+    })
+})
+
+describe('FormDefinitionValidator.validateSchema limits', () => {
+    it('returns DEFINITION_TOO_LARGE without schema issues past 5000 nodes', () => {
+        const content = Array.from({ length: 20_000 }, () => ({}))
+        expect(schemaIssues({ ...minimal, content })).toEqual([
+            expect.objectContaining({ code: 'DEFINITION_TOO_LARGE' }),
+        ])
+    })
+
+    it('returns NESTING_DEPTH without schema issues for deep and groups', () => {
+        let condition: unknown = { field: 1, op: 'set' }
+        for (let i = 0; i < 17; i += 1) condition = { and: [condition] }
+        const content = [{ id: 1, type: 'string', label: 'A', condition }]
+        expect(schemaIssues({ ...minimal, content })).toEqual([expect.objectContaining({ code: 'NESTING_DEPTH' })])
+    })
+})
+
+describe('FormDefinitionValidator.validateSchema error volume', () => {
+    const badCondition = { field: 1, op: 'eq' }
+    const flatConditions = (count: number) => ({
+        and: Array.from({ length: count / 100 }, () => ({ or: Array.from({ length: 100 }, () => badCondition) })),
+    })
+    const andOrTree = (depth: number): unknown => {
+        if (depth === 0) return badCondition
+        return { and: [andOrTree(depth - 1)], or: [andOrTree(depth - 1)] }
+    }
+    const options = (count: number) => Array.from({ length: count }, () => ({}))
+
+    it.each([
+        ['5000 empty items', { ...minimal, content: Array.from({ length: 5000 }, () => ({})) }],
+        [
+            '5000 items with an unknown type',
+            { ...minimal, content: Array.from({ length: 5000 }, (_, i) => ({ id: i + 1, type: 'x', extra: 1 })) },
+        ],
+        [
+            '4000 invalid conditions',
+            { ...minimal, content: [{ id: 1, type: 'string', label: 'A', condition: flatConditions(4000) }] },
+        ],
+        [
+            'nested and+or groups',
+            { ...minimal, content: [{ id: 1, type: 'string', label: 'A', condition: andOrTree(10) }] },
+        ],
+        [
+            '4999 empty select options',
+            { ...minimal, content: [{ id: 1, type: 'select', label: 'S', options: options(4999) }] },
+        ],
+    ])('reports a bounded number of issues for %s', (_, input) => {
+        const startedAt = Date.now()
+        const issues = schemaIssues(input)
+        const elapsedMs = Date.now() - startedAt
+
+        expect(issues.length).toBeGreaterThan(0)
+        expect(issues.length).toBeLessThanOrEqual(20)
+        expect(elapsedMs).toBeLessThan(500)
     })
 })

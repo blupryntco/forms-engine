@@ -321,8 +321,10 @@ Returns a deep clone of the current definition.
 
 #### `validate(): DocumentValidationError[]`
 
-Checks the current definition against the form definition JSON Schema and returns `SCHEMA_INVALID` issues, or an
-empty array when it conforms. Semantic checks such as duplicate ids and condition references run only when
+Checks the current definition against the depth and size limits, then the form definition JSON Schema, through
+`FormDefinitionValidator.validateSchema()`. Returns `NESTING_DEPTH` / `DEFINITION_TOO_LARGE` issues when the
+definition is over the limits, otherwise `SCHEMA_INVALID` issues for the first violation found, or an empty array
+when it conforms. Semantic checks such as duplicate ids and condition references run only when
 `FormEngine` compiles the definition.
 
 ```ts
@@ -630,11 +632,11 @@ Validates form definitions at both the structural (JSON Schema) and semantic lev
 
 #### `validateLimits(input: unknown): DocumentValidationError[]`
 
-Checks depth and size limits with a stack-based walk, so deeply nested input cannot overflow the call stack. Returns `NESTING_DEPTH` for sections nested deeper than 3 levels or `and`/`or` groups nested deeper than 16, and a single `DEFINITION_TOO_LARGE` for more than 5000 nodes. `FormEngine` runs it before `validateSchema()`.
+Checks depth and size limits with a stack-based walk, so deeply nested input cannot overflow the call stack. Returns `NESTING_DEPTH` for sections nested deeper than 3 levels or `and`/`or` groups nested deeper than 16, and a single `DEFINITION_TOO_LARGE` for more than 5000 nodes. Nodes are content items, `array_obj` sub-fields, select / multiselect `options` entries and condition nodes. `validateSchema()` runs it first.
 
 #### `validateSchema(input: unknown): DocumentValidationError[]`
 
-Validates raw input against the JSON Schema (`form-definition.schema.json`) using AJV. Returns errors with code `SCHEMA_INVALID`.
+Runs `validateLimits()` first and returns its issues if there are any. Otherwise validates raw input against the JSON Schema (`form-definition.schema.json`) using AJV and returns errors with code `SCHEMA_INVALID`. AJV stops at the first failing path, so the result describes the first violation it meets, not every one.
 
 #### `validate(definition: FormDefinition, registry: Map<number, FieldEntry>): DocumentValidationError[]`
 

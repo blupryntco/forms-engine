@@ -1,21 +1,21 @@
 # Schema Validation Issue Codes
 
-Form definitions are validated in three stages before the engine can be used. Each stage collects all of its errors and throws them together in a single `DocumentError`. A stage runs only if the previous one passed.
+Form definitions are validated in three stages before the engine can be used. Each stage throws its errors together in a single `DocumentError`. A stage runs only if the previous one passed.
 
 ## Stage 0: Limits
 
 `FormDefinitionValidator.validateLimits()` walks the definition with an explicit stack instead of recursion, so a hostile definition cannot overflow the call stack. It checks:
 - Sections nest at most 3 levels
 - `and` / `or` groups nest at most 16 levels inside one condition
-- The definition has at most 5000 nodes, counting content items, `array_obj` sub-fields and condition nodes (both groups and simple conditions)
+- The definition has at most 5000 nodes, counting content items, `array_obj` sub-fields, select / multiselect `options` entries (on a field, an `array` field's `item` and `array_obj` sub-fields) and condition nodes (both groups and simple conditions)
 
-If this stage finds issues, the constructor throws them at once, without `SCHEMA_INVALID` issues alongside.
+`FormDefinitionValidator.validateSchema()` runs this stage first, so `FormEngine` and `FormDefinitionEditor.validate()` both apply it. If it finds issues, `validateSchema()` returns them without running the JSON Schema check, and the constructor throws them without `SCHEMA_INVALID` issues alongside.
 
 A `RangeError` thrown anywhere else while compiling the definition is also reported as `DEFINITION_TOO_LARGE`. Other errors propagate unchanged.
 
 ## Stage 1: JSON Schema Validation
 
-Validates structural correctness using AJV against `form-definition.schema.json`. Checks include:
+Validates structural correctness using AJV against `form-definition.schema.json`. AJV stops at the first failing path, so this stage reports the first violation it meets (one or a few `SCHEMA_INVALID` issues), not every violation in the definition. Checks include:
 - Required top-level properties (`id`, `version`, `title`, `content`)
 - Version format (semver: `X.Y.Z`)
 - Content array must be non-empty
@@ -25,6 +25,7 @@ Validates structural correctness using AJV against `form-definition.schema.json`
 - Array fields must have `item` definition; `item` cannot have `id` or `type: "array"`
 - Condition structure and operator validity
 - `and` / `or` groups hold at most 100 conditions each (`maxItems`)
+- Every `options` array (on select / multiselect fields, `array` items and `array_obj` sub-fields), every `array_obj` `items` array and the `value` array of an `in` / `notin` condition hold at most 1000 entries each (`maxItems`)
 - Section structure (`title`, non-empty `content`)
 
 ## Stage 2: Semantic Validation
@@ -35,7 +36,7 @@ Checks logical correctness that JSON Schema alone cannot express.
 
 | Code | Stage | Description |
 |------|:-----:|-------------|
-| `DEFINITION_TOO_LARGE` | 0 | The definition has more than 5000 nodes. Also produced when compiling the definition throws a `RangeError` |
+| `DEFINITION_TOO_LARGE` | 0 | The definition has more than 5000 nodes (select options included). Also produced when compiling the definition throws a `RangeError` |
 | `NESTING_DEPTH` | 0, 2 | Section nested deeper than 3 levels, or `and` / `or` groups nested deeper than 16 levels. For a condition, `itemId` is the item that owns it |
 | `SCHEMA_INVALID` | 1 | JSON Schema structural violation |
 | `DUPLICATE_ID` | 2 | Two or more items share the same ID. `array_obj` sub-field ids share the same id space and are checked with it |
