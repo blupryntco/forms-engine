@@ -468,6 +468,46 @@ describe('FormEngine', () => {
             }
         })
 
+        it('throws on unsafe regex pattern', () => {
+            try {
+                new FormEngine(
+                    baseDef([
+                        {
+                            id: 1,
+                            type: 'string',
+                            label: 'S',
+                            validation: { pattern: '^(a+)+$' },
+                        },
+                    ]),
+                )
+                fail('Expected DocumentError')
+            } catch (e) {
+                expect(e).toBeInstanceOf(DocumentError)
+                expect((e as DocumentError).errors.some((i) => i.code === 'UNSAFE_REGEX')).toBe(true)
+            }
+        })
+
+        it('throws on unsafe regex pattern in an array_obj sub-field', () => {
+            try {
+                new FormEngine(
+                    baseDef([
+                        {
+                            id: 1,
+                            type: 'array_obj',
+                            label: 'Rows',
+                            items: [{ id: 2, type: 'string', label: 'S', validation: { pattern: '(\\w+\\s?)*' } }],
+                        },
+                    ]),
+                )
+                fail('Expected DocumentError')
+            } catch (e) {
+                expect(e).toBeInstanceOf(DocumentError)
+                expect((e as DocumentError).errors).toContainEqual(
+                    expect.objectContaining({ code: 'UNSAFE_REGEX', itemId: 2 }),
+                )
+            }
+        })
+
         it('throws on circular condition dependency', () => {
             try {
                 new FormEngine(

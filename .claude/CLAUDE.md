@@ -56,7 +56,7 @@ Each field may have validation rules depending on its type:
 
 | Type | Supported Validation Rules |
 |------|---------------------------|
-| **string** | required, min length, max length, pattern (regex) |
+| **string** | required, min length, max length, pattern (regex, at most 1000 characters, no nested quantifiers) |
 | **number** | required, min value, max value |
 | **boolean** | required |
 | **date** | required, min date, max date |

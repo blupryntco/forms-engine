@@ -259,6 +259,64 @@ describe('FormDefinitionValidator', () => {
             const issues = validator.validate(def, registry)
             expect(issues.some((i) => i.code === 'INVALID_REGEX')).toBe(false)
         })
+
+        const arrayEntry = (pattern: string): FieldEntry =>
+            makeEntry(1, { type: 'array', item: { type: 'string', label: 'Item', validation: { pattern } } })
+        const arrayObjEntry = (pattern: string): FieldEntry =>
+            makeEntry(1, {
+                type: 'array_obj',
+                items: [
+                    { id: 2, type: 'number', label: 'N' },
+                    { id: 3, type: 'string', label: 'S', validation: { pattern } },
+                ],
+            })
+        const issuesFor = (entry: FieldEntry) =>
+            validator.validate(minimalDef([]), new Map<number, FieldEntry>([[entry.id, entry]]))
+
+        it('detects an invalid regex in an array item', () => {
+            expect(issuesFor(arrayEntry('[invalid('))).toContainEqual(
+                expect.objectContaining({ code: 'INVALID_REGEX', itemId: 1 }),
+            )
+        })
+
+        it('detects an invalid regex in an array_obj sub-field', () => {
+            expect(issuesFor(arrayObjEntry('[invalid('))).toContainEqual(
+                expect.objectContaining({ code: 'INVALID_REGEX', itemId: 3 }),
+            )
+        })
+
+        it('detects an unsafe regex on a string field', () => {
+            const issues = issuesFor(makeEntry(1, { type: 'string', validation: { pattern: '^(a+)+$' } }))
+            expect(issues).toContainEqual(expect.objectContaining({ code: 'UNSAFE_REGEX', itemId: 1 }))
+            expect(issues.some((i) => i.code === 'INVALID_REGEX')).toBe(false)
+        })
+
+        it('detects an unsafe regex in an array item', () => {
+            expect(issuesFor(arrayEntry('^(a+)+$'))).toContainEqual(
+                expect.objectContaining({ code: 'UNSAFE_REGEX', itemId: 1 }),
+            )
+        })
+
+        it('detects an unsafe regex in an array_obj sub-field', () => {
+            expect(issuesFor(arrayObjEntry('^(a+)+$'))).toContainEqual(
+                expect.objectContaining({ code: 'UNSAFE_REGEX', itemId: 3 }),
+            )
+        })
+
+        it('does not flag a safe regex in an array item', () => {
+            expect(issuesFor(arrayEntry('^[a-z]+$'))).toHaveLength(0)
+        })
+
+        it('rejects a pattern longer than 1000 characters in the schema', () => {
+            const withPattern = (pattern: string) => ({
+                ...minimal,
+                content: [{ id: 1, type: 'string', label: 'S', validation: { pattern } }],
+            })
+            expect(schemaValid(withPattern('a'.repeat(1000)))).toBe(true)
+            expect(schemaIssues(withPattern('a'.repeat(1001)))).toContainEqual(
+                expect.objectContaining({ code: 'SCHEMA_INVALID' }),
+            )
+        })
     })
 
     describe('condition references a section', () => {

@@ -74,6 +74,7 @@ export type FieldValidationError = {
  * | `CONDITION_REFS_ARRAY_OBJ_ITEM` | A condition references an `array_obj` sub-field id; its value is per-row and not addressable. |
  * | `INVALID_MIN_MAX` | A field's minimum constraint exceeds its maximum constraint. |
  * | `INVALID_REGEX` | String field `pattern` is not a valid regular expression. |
+ * | `UNSAFE_REGEX` | String field `pattern` nests repeated quantifiers and can backtrack catastrophically. |
  * | `CIRCULAR_DEPENDENCY` | Condition dependencies form a cycle (A depends on B depends on A). |
  * | `FORM_ID_MISMATCH` | The document's form id does not match the engine's form definition id. |
  * | `FORM_VERSION_MISMATCH` | The document's form version does not match the engine's form definition version. |
@@ -96,6 +97,7 @@ export type DocumentValidationErrorCode =
     | 'CONDITION_REFS_ARRAY_OBJ_ITEM'
     | 'INVALID_MIN_MAX'
     | 'INVALID_REGEX'
+    | 'UNSAFE_REGEX'
     | 'CIRCULAR_DEPENDENCY'
     | 'FORM_ID_MISMATCH'
     | 'FORM_VERSION_MISMATCH'

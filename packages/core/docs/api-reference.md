@@ -699,7 +699,7 @@ None of these validate that `fieldId` refers to an existing, non-section field â
 |------|-------------|
 | `FormValidationResult` | `{ valid: boolean, fieldErrors: Map<number, FieldValidationError[]>, documentErrors?: DocumentValidationError[] }` |
 | `FieldValidationError` | `{ fieldId, rule, message, params?, itemIndex? }` |
-| `DocumentValidationErrorCode` | `'SCHEMA_INVALID' \| 'DUPLICATE_ID' \| 'NESTING_DEPTH' \| 'DEFINITION_TOO_LARGE' \| 'UNKNOWN_FIELD_REF' \| 'CONDITION_REFS_SECTION' \| 'CONDITION_REFS_STATIC' \| 'CONDITION_REFS_ARRAY_OBJ_ITEM' \| 'INVALID_MIN_MAX' \| 'INVALID_REGEX' \| 'CIRCULAR_DEPENDENCY' \| 'FORM_ID_MISMATCH' \| 'FORM_VERSION_MISMATCH' \| 'FORM_SUBMITTED_AT_MISSING' \| 'FORM_SUBMITTED_AT_INVALID' \| 'NOW_INVALID' \| 'UNKNOWN_VALUE_KEY' \| 'NON_VALUE_ITEM_VALUE' \| 'HIDDEN_FIELD_VALUE' \| 'UNKNOWN_ROW_KEY'` |
+| `DocumentValidationErrorCode` | `'SCHEMA_INVALID' \| 'DUPLICATE_ID' \| 'NESTING_DEPTH' \| 'DEFINITION_TOO_LARGE' \| 'UNKNOWN_FIELD_REF' \| 'CONDITION_REFS_SECTION' \| 'CONDITION_REFS_STATIC' \| 'CONDITION_REFS_ARRAY_OBJ_ITEM' \| 'INVALID_MIN_MAX' \| 'INVALID_REGEX' \| 'UNSAFE_REGEX' \| 'CIRCULAR_DEPENDENCY' \| 'FORM_ID_MISMATCH' \| 'FORM_VERSION_MISMATCH' \| 'FORM_SUBMITTED_AT_MISSING' \| 'FORM_SUBMITTED_AT_INVALID' \| 'NOW_INVALID' \| 'UNKNOWN_VALUE_KEY' \| 'NON_VALUE_ITEM_VALUE' \| 'HIDDEN_FIELD_VALUE' \| 'UNKNOWN_ROW_KEY'` |
 | `DocumentValidationError` | `{ code: DocumentValidationErrorCode, message: string, params?: Record<string, unknown>, itemId?: number }` |
 | `StringValidation` | `{ required?, minLength?, maxLength?, pattern?, patternMessage? }` |
 | `NumberValidation` | `{ required?, min?, max? }` |
