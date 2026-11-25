@@ -336,7 +336,9 @@ Date validation boundaries (`minDate`, `maxDate`) and condition values support r
 | `m` | months | `"+1m"` — 1 month from now |
 | `y` | years | `"-1y"` — 1 year ago |
 
-Pattern: `^[+-]\d+[dwmy]$`
+Pattern: `^[+-]\d{1,5}[dwmy]$`
+
+The amount has 1 to 5 digits (`"+99999y"` is the largest). A definition with a longer amount is rejected: in `minDate`/`maxDate` with `SCHEMA_INVALID`, in a condition `value` with `INVALID_RELATIVE_DATE`. See [Schema Validation Issue Codes](./schema-issue-codes.md).
 
 ### Resolution
 
@@ -354,6 +356,7 @@ They are **not cached** — every call to `validate()` or `getVisibilityMap()` r
 - Week unit (`w`) multiplies by 7 days.
 - Month addition uses `setUTCMonth()` — may roll forward on month overflow (e.g., Jan 31 + 1m → Mar 3 in non-leap year).
 - If the input does not match the relative pattern, it is returned unchanged (treated as absolute).
+- If the result falls outside the range of JS `Date`, the expression stays unresolved and no exception is thrown. This can happen when the reference time is near the limit, e.g. `+275760-09-13T00:00:00.000Z`. A `minDate`/`maxDate` bound then fails the value with `MIN_DATE`/`MAX_DATE`, and the message and params carry the original expression (`Must be on or before +1d`, `params: { maxDate: '+1d' }`). A condition with `eq`, `ne`, `lt`, `gt`, `lte` or `gte` evaluates to `false`, including `eq` against an empty field.
 
 ---
 

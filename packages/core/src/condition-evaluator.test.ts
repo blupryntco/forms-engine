@@ -2415,3 +2415,25 @@ describe('ConditionEvaluator', () => {
         })
     })
 })
+
+describe('ConditionEvaluator with a relative date outside the range of Date', () => {
+    const edgeNow = new Date(8.64e15)
+    const ops = ['eq', 'ne', 'lt', 'gt', 'lte', 'gte'] as const
+
+    it.each(ops)('returns false for %s instead of throwing', (op) => {
+        for (const value of ['2025-06-15T00:00:00.000Z', undefined]) {
+            expect(
+                evaluator.evalCondition({ field: 1, op, value: '+1d' }, { now: edgeNow, values: { '1': value } }),
+            ).toBe(false)
+        }
+    })
+
+    it('still resolves the same expression against an in-range reference date', () => {
+        expect(
+            evaluator.evalCondition(
+                { field: 1, op: 'gt', value: '+1d' },
+                { now, values: { '1': '2030-01-01T00:00:00.000Z' } },
+            ),
+        ).toBe(true)
+    })
+})

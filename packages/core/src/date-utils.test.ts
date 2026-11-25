@@ -1,4 +1,4 @@
-import { isRelativeDate, resolveRelativeDate } from './date-utils'
+import { isOutOfRangeRelativeDate, isRelativeDate, resolveRelativeDate } from './date-utils'
 
 describe('isRelativeDate', () => {
     it('returns true for valid relative date strings', () => {
@@ -29,6 +29,28 @@ describe('isRelativeDate', () => {
         expect(isRelativeDate('')).toBe(false)
         expect(isRelativeDate('hello')).toBe(false)
         expect(isRelativeDate('+1dd')).toBe(false)
+    })
+
+    it('accepts amounts of up to 5 digits', () => {
+        expect(isRelativeDate('+99999d')).toBe(true)
+        expect(isRelativeDate('-99999y')).toBe(true)
+        expect(isRelativeDate('+100000d')).toBe(false)
+        expect(isRelativeDate('+999999999999999999y')).toBe(false)
+    })
+})
+
+describe('isOutOfRangeRelativeDate', () => {
+    it('returns true for the relative date shape with more than 5 digits', () => {
+        expect(isOutOfRangeRelativeDate('+100000d')).toBe(true)
+        expect(isOutOfRangeRelativeDate('-999999999999999999y')).toBe(true)
+    })
+
+    it('returns false for in-range relative dates and other values', () => {
+        expect(isOutOfRangeRelativeDate('+99999d')).toBe(false)
+        expect(isOutOfRangeRelativeDate('+7d')).toBe(false)
+        expect(isOutOfRangeRelativeDate('2025-01-01T00:00:00.000Z')).toBe(false)
+        expect(isOutOfRangeRelativeDate('100000d')).toBe(false)
+        expect(isOutOfRangeRelativeDate(100000)).toBe(false)
     })
 })
 
@@ -74,7 +96,7 @@ describe('resolveRelativeDate', () => {
             const jan31 = new Date('2025-01-31T00:00:00.000Z')
             const result = resolveRelativeDate('+1m', jan31)
             // JS Date.setUTCMonth overflow: Jan 31 + 1m = Mar 3 (Feb has 28 days in 2025)
-            const parsed = new Date(result)
+            const parsed = new Date(result as string)
             expect(parsed.getUTCMonth()).toBe(2) // March (0-indexed)
         })
     })
@@ -95,7 +117,7 @@ describe('resolveRelativeDate', () => {
         it('handles leap year (Feb 29 + 1y)', () => {
             const leapDay = new Date('2024-02-29T00:00:00.000Z')
             const result = resolveRelativeDate('+1y', leapDay)
-            const parsed = new Date(result)
+            const parsed = new Date(result as string)
             // 2025 is not a leap year, Feb 29 + 1y overflows
             expect(parsed.getUTCFullYear()).toBe(2025)
             expect(parsed.getUTCMonth()).toBe(2) // March
@@ -123,7 +145,7 @@ describe('resolveRelativeDate', () => {
         it('handles December month overflow (+1m from Dec 31)', () => {
             const dec31 = new Date('2025-12-31T00:00:00.000Z')
             const result = resolveRelativeDate('+1m', dec31)
-            const parsed = new Date(result)
+            const parsed = new Date(result as string)
             // Dec 31 + 1 month → Jan 31 of next year
             expect(parsed.getUTCFullYear()).toBe(2026)
             expect(parsed.getUTCMonth()).toBe(0) // January
@@ -133,18 +155,37 @@ describe('resolveRelativeDate', () => {
         it('preserves time component across month/year adjustments', () => {
             const withTime = new Date('2025-06-15T14:30:45.123Z')
             const resultMonth = resolveRelativeDate('+2m', withTime)
-            const parsedMonth = new Date(resultMonth)
+            const parsedMonth = new Date(resultMonth as string)
             expect(parsedMonth.getUTCHours()).toBe(14)
             expect(parsedMonth.getUTCMinutes()).toBe(30)
             expect(parsedMonth.getUTCSeconds()).toBe(45)
             expect(parsedMonth.getUTCMilliseconds()).toBe(123)
 
             const resultYear = resolveRelativeDate('+1y', withTime)
-            const parsedYear = new Date(resultYear)
+            const parsedYear = new Date(resultYear as string)
             expect(parsedYear.getUTCHours()).toBe(14)
             expect(parsedYear.getUTCMinutes()).toBe(30)
             expect(parsedYear.getUTCSeconds()).toBe(45)
             expect(parsedYear.getUTCMilliseconds()).toBe(123)
+        })
+
+        it('resolves the largest amount for every unit', () => {
+            for (const expr of ['+99999d', '+99999w', '+99999m', '+99999y', '-99999y']) {
+                expect(resolveRelativeDate(expr, now)).toEqual(expect.any(String))
+            }
+        })
+
+        it('returns undefined when the result falls outside the range of Date', () => {
+            const maxDate = new Date(8.64e15)
+            const minDate = new Date(-8.64e15)
+            expect(resolveRelativeDate('+1d', maxDate)).toBeUndefined()
+            expect(resolveRelativeDate('+1y', maxDate)).toBeUndefined()
+            expect(resolveRelativeDate('-1w', minDate)).toBeUndefined()
+            expect(resolveRelativeDate('-1m', minDate)).toBeUndefined()
+        })
+
+        it('returns undefined for an invalid reference date', () => {
+            expect(resolveRelativeDate('+1d', new Date(Number.NaN))).toBeUndefined()
         })
     })
 })

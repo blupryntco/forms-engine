@@ -72,6 +72,7 @@ export type FieldValidationError = {
  * | `CONDITION_REFS_SECTION` | A condition references a section id; sections have no value to compare. |
  * | `CONDITION_REFS_STATIC` | A condition references a static field id; static blocks have no value to compare. |
  * | `CONDITION_REFS_ARRAY_OBJ_ITEM` | A condition references an `array_obj` sub-field id; its value is per-row and not addressable. |
+ * | `INVALID_RELATIVE_DATE` | A condition value has the relative date shape (`[+-]<amount><unit>`) with an amount longer than 5 digits. |
  * | `INVALID_MIN_MAX` | A field's minimum constraint exceeds its maximum constraint. |
  * | `INVALID_REGEX` | String field `pattern` is not a valid regular expression. |
  * | `UNSAFE_REGEX` | String field `pattern` nests repeated quantifiers and can backtrack catastrophically. |
@@ -95,6 +96,7 @@ export type DocumentValidationErrorCode =
     | 'CONDITION_REFS_SECTION'
     | 'CONDITION_REFS_STATIC'
     | 'CONDITION_REFS_ARRAY_OBJ_ITEM'
+    | 'INVALID_RELATIVE_DATE'
     | 'INVALID_MIN_MAX'
     | 'INVALID_REGEX'
     | 'UNSAFE_REGEX'

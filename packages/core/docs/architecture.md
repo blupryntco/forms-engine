@@ -236,9 +236,11 @@ Key implications:
 
 ### Relative Date Resolution in Conditions
 
-Condition values that match the pattern `^[+-]\d+[dwmy]$` (e.g., `"+7d"`, `"-1m"`) are resolved to absolute ISO 8601 strings before comparison. Resolution uses `ctx.now`: the caller's `options.now` when given, otherwise `form.submittedAt`. This applies to:
+Condition values that match the pattern `^[+-]\d{1,5}[dwmy]$` (e.g., `"+7d"`, `"-1m"`) are resolved to absolute ISO 8601 strings before comparison. Resolution uses `ctx.now`: the caller's `options.now` when given, otherwise `form.submittedAt`. This applies to:
 - The `value` operand of `eq`/`ne` operators (via `resolveIfDate`)
 - The `value` operand of ordering operators `lt`/`gt`/`lte`/`gte` (via `compareTo` → `resolveIfDate`)
+
+If the resolved date falls outside the range of JS `Date`, `resolveIfDate` returns an `unresolvedDate` marker and all six operators evaluate to `false`.
 
 Field values themselves are **not** resolved — only the condition's `value` operand is.
 
@@ -324,6 +326,8 @@ Field validation (steps 2-5) only runs when no document errors exist. If documen
 Date boundaries (`minDate`, `maxDate`) and condition values support relative expressions like `"+7d"`, `"-1m"`, `"+1y"`. These are resolved to absolute ISO 8601 strings **at evaluation time** (not at construction time), using `options.now` as the reference timestamp when the caller passes it, and `doc.form.submittedAt` otherwise.
 
 Without `now`, date constraints are anchored to the submission time, so re-validating a previously submitted form gives the same result. The client controls `submittedAt`, though, so server-side validation must pass a trusted `now`. Missing `submittedAt` produces a `FORM_SUBMITTED_AT_MISSING` document error and malformed values produce a `FORM_SUBMITTED_AT_INVALID` document error, with or without `now`. An invalid `now` produces `NOW_INVALID` in `validate()` and a `RangeError` in `isVisible()` and `getVisibilityMap()`.
+
+The amount is limited to 5 digits, so a resolved date stays within the range of JS `Date` unless the reference time is near the limit. When it does not, `resolveRelativeDate` returns `undefined` instead of throwing: `DateValidator` reports `MIN_DATE`/`MAX_DATE` with the original expression, and conditions on that value evaluate to `false`.
 
 ### Fluent Builder (FormDefinitionEditor)
 

@@ -1,10 +1,11 @@
 import type { ErrorObject } from 'ajv'
 import Ajv2020 from 'ajv/dist/2020'
 
-import { isRelativeDate } from './date-utils'
+import { isOutOfRangeRelativeDate, isRelativeDate } from './date-utils'
 import { DependencyGraph } from './dependency-graph'
 import formDefinitionSchema from './form-definition.schema.json'
 import { isUnsafePattern } from './regex-safety'
+import type { Condition } from './types/conditions'
 import type { FieldEntry } from './types/field-entry'
 import type { ContentItem, FormDefinition } from './types/form-definition'
 import type { ArrayValidation } from './types/validation/array'
@@ -277,6 +278,8 @@ const itemAllowedProperties = new Map<string, Set<string>>([
  * 4b. **Condition references an `array_obj` sub-field** (`CONDITION_REFS_ARRAY_OBJ_ITEM`)
  *    -- a sub-field holds one value per row, so a form-level condition cannot
  *    say which row it means.
+ * 4c. **Out-of-range relative date** (`INVALID_RELATIVE_DATE`) -- a condition value
+ *    shaped like `[+-]<amount><unit>` must have an amount of at most 5 digits.
  * 5. **Constraint contradictions** (`INVALID_MIN_MAX`) -- e.g. `minLength > maxLength`,
  *    `min > max`, `minDate > maxDate` (absolute dates only), `minItems > maxItems`.
  * 6. **Invalid regex** (`INVALID_REGEX`) -- string field `pattern` values must
@@ -676,6 +679,7 @@ export class FormDefinitionValidator {
         this.checkConditionRefsArrayObjItem(registry, arrayObjItemIds, issues)
         this.checkConditionRefs(registry, arrayObjItemIds, issues)
         this.checkConditionRefsValueless(registry, issues)
+        this.checkRelativeDateConditions(registry, issues)
         this.checkConstraintContradictions(registry, issues)
         this.checkInvalidRegex(registry, issues)
 
@@ -798,6 +802,27 @@ export class FormDefinitionValidator {
                 }
             }
         }
+    }
+
+    /** Flags condition values shaped like a relative date whose amount exceeds 5 digits. */
+    private checkRelativeDateConditions(registry: Map<number, FieldEntry>, issues: DocumentValidationError[]): void {
+        for (const [id, entry] of registry) {
+            if (!entry.condition) continue
+            for (const value of this.collectOutOfRangeRelativeDates(entry.condition)) {
+                issues.push({
+                    code: 'INVALID_RELATIVE_DATE',
+                    message: `Relative date "${value}" in condition is out of range, amount allows at most 5 digits (in item ${id})`,
+                    params: { value },
+                    itemId: id,
+                })
+            }
+        }
+    }
+
+    private collectOutOfRangeRelativeDates(condition: Condition): string[] {
+        if ('and' in condition) return condition.and.flatMap((c) => this.collectOutOfRangeRelativeDates(c))
+        if ('or' in condition) return condition.or.flatMap((c) => this.collectOutOfRangeRelativeDates(c))
+        return isOutOfRangeRelativeDate(condition.value) ? [condition.value] : []
     }
 
     private checkConstraintContradictions(registry: Map<number, FieldEntry>, issues: DocumentValidationError[]): void {

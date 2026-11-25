@@ -32,12 +32,14 @@ export class DateValidator implements TypeValidator {
             const minResolved = isRelativeDate(validation.minDate)
                 ? resolveRelativeDate(validation.minDate, now)
                 : validation.minDate
-            if (timestamp < Date.parse(minResolved)) {
+            // A bound that falls outside the range of `Date` cannot be checked, so the value fails it.
+            if (minResolved === undefined || timestamp < Date.parse(minResolved)) {
+                const minDate = minResolved ?? validation.minDate
                 errors.push({
                     fieldId,
                     rule: 'MIN_DATE',
-                    message: `Must be on or after ${minResolved}`,
-                    params: { minDate: minResolved },
+                    message: `Must be on or after ${minDate}`,
+                    params: { minDate },
                 })
             }
         }
@@ -46,12 +48,14 @@ export class DateValidator implements TypeValidator {
             const maxResolved = isRelativeDate(validation.maxDate)
                 ? resolveRelativeDate(validation.maxDate, now)
                 : validation.maxDate
-            if (timestamp > Date.parse(maxResolved)) {
+            // A bound that falls outside the range of `Date` cannot be checked, so the value fails it.
+            if (maxResolved === undefined || timestamp > Date.parse(maxResolved)) {
+                const maxDate = maxResolved ?? validation.maxDate
                 errors.push({
                     fieldId,
                     rule: 'MAX_DATE',
-                    message: `Must be on or before ${maxResolved}`,
-                    params: { maxDate: maxResolved },
+                    message: `Must be on or before ${maxDate}`,
+                    params: { maxDate },
                 })
             }
         }

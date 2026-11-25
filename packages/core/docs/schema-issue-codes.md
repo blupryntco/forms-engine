@@ -27,6 +27,7 @@ Validates structural correctness using AJV against `form-definition.schema.json`
 - `and` / `or` groups hold at most 100 conditions each (`maxItems`)
 - Every `options` array (on select / multiselect fields, `array` items and `array_obj` sub-fields), every `array_obj` `items` array and the `value` array of an `in` / `notin` condition hold at most 1000 entries each (`maxItems`)
 - A string `pattern` is at most 1000 characters (`maxLength`)
+- Date `minDate` / `maxDate` is an ISO 8601 date-time or a relative date with an amount of 1 to 5 digits (`[+-]\d{1,5}[dwmy]`)
 - Section structure (`title`, non-empty `content`)
 
 ## Stage 2: Semantic Validation
@@ -45,6 +46,7 @@ Checks logical correctness that JSON Schema alone cannot express.
 | `CONDITION_REFS_SECTION` | 2 | Condition references a section (sections have no values) |
 | `CONDITION_REFS_STATIC` | 2 | Condition references a static block (static blocks have no values) |
 | `CONDITION_REFS_ARRAY_OBJ_ITEM` | 2 | Condition references an `array_obj` sub-field (its value is per-row, so no single value exists) |
+| `INVALID_RELATIVE_DATE` | 2 | A simple condition's `value` is a string of the shape `[+-]<digits>[dwmy]` with more than 5 digits, such as `"+100000d"`. Checked inside `and` / `or` groups; array values of `in` / `notin` are not checked. `itemId` is the item that owns the condition, `params: { value }` |
 | `INVALID_MIN_MAX` | 2 | A field's minimum constraint exceeds its maximum constraint |
 | `INVALID_REGEX` | 2 | String: `pattern` is not a valid regex. Also checked in an `array` field's `item` (`itemId` is the `array` field id) and in `array_obj` sub-fields (`itemId` is the sub-field id) |
 | `UNSAFE_REGEX` | 2 | String: `pattern` nests a repeating quantifier inside a repeated group, such as `^(a+)+$`, `(\w+\s?)*` or `(a{1,5})+`, which can cause catastrophic backtracking. `?`, `{0,1}` and `{n}` with n ≤ 1 do not count as repeating. Overlapping alternations such as `(a\|a)*` are not detected. Checked in the same places as `INVALID_REGEX` |
