@@ -70,14 +70,8 @@ export class FormEngine {
      */
     constructor(definition: FormDefinition) {
         try {
-            // 0. Depth and size limits, checked without recursion before any recursive walk
+            // 0. Depth and size limits (checked without recursion), then JSON schema validation
             const definitionValidator = new FormDefinitionValidator()
-            const limitIssues = definitionValidator.validateLimits(definition)
-            if (limitIssues.length > 0) {
-                throw new DocumentError(limitIssues)
-            }
-
-            // 0b. JSON schema validation
             const schemaIssues = definitionValidator.validateSchema(definition)
             if (schemaIssues.length > 0) {
                 throw new DocumentError(schemaIssues)

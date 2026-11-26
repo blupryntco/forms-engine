@@ -425,7 +425,7 @@ Some field types have configuration properties beyond `validation`.
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `options` | `SelectOption[]` | yes | List of selectable options. At least 1 required. Required for both `select` and `multiselect`. |
+| `options` | `SelectOption[]` | yes | List of selectable options. At least 1, at most 1000. Required for both `select` and `multiselect`. |
 
 **SelectOption:**
 
@@ -519,7 +519,7 @@ An `array_obj` field is a list of **rows**, where every row holds one value per 
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `items` | `object[]` | yes | Ordered sub-field definitions, at least one. Same shape as any field (§2.2) **including `id`**, excluding `condition`. Neither `"array"` nor `"array_obj"` is allowed — lists do not nest. |
+| `items` | `object[]` | yes | Ordered sub-field definitions, at least one and at most 1000. Same shape as any field (§2.2) **including `id`**, excluding `condition`. Neither `"array"` nor `"array_obj"` is allowed — lists do not nest. |
 | `kind` | `string` | no | Layout hint: `"list"` or `"table"`. Defaults to `"list"` when absent. |
 
 `kind` is **presentation metadata**, like `placeholder` and `answer_guidelines`: the engine never reads it,
@@ -600,8 +600,8 @@ A leaf condition that evaluates a single field:
 | `gt` | Field value is greater than `value` | yes | number, date |
 | `lte` | Field value is less than or equal to `value` | yes | number, date |
 | `gte` | Field value is greater than or equal to `value` | yes | number, date |
-| `in` | Field value is contained in `value` (array) | yes (array) | string, number, date, select, multiselect, blockchain |
-| `notin` | Field value is not contained in `value` (array) | yes (array) | string, number, date, select, multiselect, blockchain |
+| `in` | Field value is contained in `value` (array, at most 1000 entries) | yes (array) | string, number, date, select, multiselect, blockchain |
+| `notin` | Field value is not contained in `value` (array, at most 1000 entries) | yes (array) | string, number, date, select, multiselect, blockchain |
 
 Conditions may only reference items that hold a value. Referencing a `section` produces a
 `CONDITION_REFS_SECTION` error and referencing a `static` block a `CONDITION_REFS_STATIC` error (§8).
@@ -802,14 +802,17 @@ Two operations are defined on a suggestion:
 | Section nesting depth | 3 levels |
 | `and` / `or` nesting depth within one condition | 16 levels |
 | Conditions per `and` / `or` group | 100 |
-| Nodes per definition | 5000, counting content items, `array_obj` sub-fields and condition nodes (groups and simple conditions) |
+| Nodes per definition | 5000, counting content items, `array_obj` sub-fields, select / multiselect options (on fields, array items and `array_obj` sub-fields) and condition nodes (groups and simple conditions) |
+| `in` / `notin` `value` entries | 1000 |
 | ID format | Positive integer |
 | ID uniqueness | Global across entire schema (all fields and sections) |
 | Select / multiselect options minimum | 1 |
+| Select / multiselect options maximum | 1000 per field, array item or `array_obj` sub-field |
 | Select / multiselect option values | Unique within the field's options list |
 | Array item types | `string`, `number`, `boolean`, `date`, `select`, `multiselect`, `file`, `static`, `blockchain`, `sustainability` (not `array` or `array_obj`) |
 | `array_obj` sub-field types | The same set — lists do not nest |
 | `array_obj` sub-field minimum | 1 |
+| `array_obj` sub-field maximum | 1000 |
 | `array_obj` sub-field required properties | `id`, plus whatever the chosen type requires |
 | `array_obj` sub-field ids | Globally unique, in the same id space as fields and sections |
 | `array_obj` `kind` | `"list"` or `"table"` — `"list"` when absent |
@@ -831,7 +834,8 @@ The engine must validate the schema itself before use. Invalid schemas must be r
 | Section nesting exceeds 3 levels | `Section nesting exceeds maximum depth of 3: {id}` |
 | `and` / `or` nesting exceeds 16 levels | `Condition nesting exceeds maximum depth of 16 (in item {id})` |
 | More than 100 conditions in an `and` / `or` group | Schema error: `maxItems` |
-| Definition exceeds 5000 nodes | `Form definition exceeds the maximum of 5000 nodes` |
+| More than 1000 entries in `options`, `array_obj` `items` or an `in` / `notin` `value` | Schema error: `maxItems` |
+| Definition exceeds 5000 nodes (select options included) | `Form definition exceeds the maximum of 5000 nodes` |
 | `maxLength` < `minLength` | `maxLength must be >= minLength for field "{id}"` |
 | `max` < `min` | `max must be >= min for field "{id}"` |
 | `maxDate` < `minDate` | `maxDate must be >= minDate for field "{id}"` |

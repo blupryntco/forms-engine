@@ -12,7 +12,9 @@ import type { NumberValidation } from './types/validation/number'
 import type { StringValidation } from './types/validation/string'
 import type { DocumentValidationError } from './types/validation-results'
 
-const ajv = new Ajv2020({ allErrors: true })
+// Stops at the first failing path: with `allErrors` every `oneOf` branch reports all its errors,
+// so a small invalid definition produces hundreds of thousands of them.
+const ajv = new Ajv2020({ allErrors: false })
 const validateFn = ajv.compile(formDefinitionSchema)
 
 /** Sections may nest this many levels deep. */
@@ -21,7 +23,7 @@ const maxSectionDepth = 3
 /** `and`/`or` groups may nest this many levels deep inside one condition. */
 const maxConditionDepth = 16
 
-/** Content items, `array_obj` sub-fields and condition nodes allowed in one definition. */
+/** Content items, `array_obj` sub-fields, select options and condition nodes allowed in one definition. */
 const maxDefinitionNodes = 5000
 
 /** One pending node of the iterative limits walk, with the depth of its enclosing structure. */
@@ -253,11 +255,12 @@ const itemAllowedProperties = new Map<string, Set<string>>([
  * Runs before the schema check, without recursion, so a hostile definition
  * cannot overflow the stack. Reports `NESTING_DEPTH` for sections deeper than
  * 3 levels or `and`/`or` groups deeper than 16 levels, and
- * `DEFINITION_TOO_LARGE` past 5000 nodes.
+ * `DEFINITION_TOO_LARGE` past 5000 nodes (select options included).
  *
  * ### Schema validation (`validateSchema`)
- * Validates raw input against the form definition JSON Schema. Returns
- * `SCHEMA_INVALID` issues for every violation found.
+ * Runs the limits check, then validates raw input against the form definition
+ * JSON Schema. Returns the limits issues, or `SCHEMA_INVALID` issues for the
+ * first violation found.
  *
  * ### Semantic validation (`validate`)
  * Checks for logical issues that go beyond JSON schema validity:
@@ -329,8 +332,13 @@ export class FormDefinitionValidator {
         if (item.condition !== undefined) {
             stack.push({ kind: 'condition', value: item.condition, conditionDepth: 0, itemId })
         }
+        this.pushOptionLeaves(stack, item)
+        if (this.isRecord(item.item)) this.pushOptionLeaves(stack, item.item)
         if (Array.isArray(item.items)) {
-            for (let i = 0; i < item.items.length; i += 1) stack.push({ kind: 'leaf' })
+            for (const subField of item.items) {
+                stack.push({ kind: 'leaf' })
+                if (this.isRecord(subField)) this.pushOptionLeaves(stack, subField)
+            }
         }
         if (!Array.isArray(item.content)) return
 
@@ -379,18 +387,30 @@ export class FormDefinitionValidator {
         }))
     }
 
+    /** Queues one leaf per entry of the field's `options`, so select options count toward the node limit. */
+    private pushOptionLeaves(stack: LimitsFrame[], field: Record<string, unknown>): void {
+        if (!Array.isArray(field.options)) return
+        for (let i = 0; i < field.options.length; i += 1) stack.push({ kind: 'leaf' })
+    }
+
     /** Pushes frames for `values` in reverse, so they pop in document order. */
     private pushReversed(stack: LimitsFrame[], values: unknown[], toFrame: (value: unknown) => LimitsFrame): void {
         for (let i = values.length - 1; i >= 0; i -= 1) stack.push(toFrame(values[i]))
     }
 
     /**
-     * Validates raw input against the form definition JSON schema.
+     * Checks {@link validateLimits} first, then validates raw input against the
+     * form definition JSON schema. The schema check stops at the first failing
+     * path, so it reports the first violation it meets, not every one.
      *
      * @param input - The raw input to validate.
-     * @returns Array of `SCHEMA_INVALID` issues. Empty when the input conforms to the schema.
+     * @returns `NESTING_DEPTH` / `DEFINITION_TOO_LARGE` issues when the input is over the limits,
+     *   otherwise `SCHEMA_INVALID` issues. Empty when the input conforms to the schema.
      */
     validateSchema(input: unknown): DocumentValidationError[] {
+        const limitIssues = this.validateLimits(input)
+        if (limitIssues.length > 0) return limitIssues
+
         if (validateFn(input)) return []
 
         return this.formatSchemaErrors(validateFn.errors ?? [], input)
@@ -399,10 +419,10 @@ export class FormDefinitionValidator {
     private formatSchemaErrors(errors: ErrorObject[], input: unknown): DocumentValidationError[] {
         const issues = this.collectSchemaIssues(errors, input)
         const dedupedIssues = this.deduplicateSchemaIssues(issues)
-        const specificIssuePaths = dedupedIssues.filter((issue) => issue.keyword !== 'oneOf').map((issue) => issue.path)
+        const coveredPaths = this.collectCoveredPaths(dedupedIssues)
 
         return dedupedIssues
-            .filter((issue) => !this.isRedundantOneOfIssue(issue, specificIssuePaths))
+            .filter((issue) => !(issue.keyword === 'oneOf' && coveredPaths.has(issue.path)))
             .map((issue) => ({
                 code: 'SCHEMA_INVALID',
                 message: issue.message,
@@ -554,10 +574,22 @@ export class FormDefinitionValidator {
         return result
     }
 
-    private isRedundantOneOfIssue(issue: SchemaIssue, specificIssuePaths: string[]): boolean {
-        if (issue.keyword !== 'oneOf') return false
-
-        return specificIssuePaths.some((path) => path === issue.path || path.startsWith(`${issue.path}/`))
+    /**
+     * Collects the path of every non-`oneOf` issue and all its ancestor paths.
+     * A `oneOf` issue at one of these paths is redundant: a more specific issue
+     * sits at or below it.
+     */
+    private collectCoveredPaths(issues: SchemaIssue[]): Set<string> {
+        const covered = new Set<string>()
+        for (const issue of issues) {
+            if (issue.keyword === 'oneOf') continue
+            const path = issue.path
+            covered.add(path)
+            for (let index = path.lastIndexOf('/'); index > 0; index = path.lastIndexOf('/', index - 1)) {
+                covered.add(path.slice(0, index))
+            }
+        }
+        return covered
     }
 
     private formatPath(path: string): string {

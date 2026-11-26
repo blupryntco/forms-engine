@@ -1484,5 +1484,11 @@ describe('FormDefinitionEditor', () => {
             expect(issues.length).toBeGreaterThan(0)
             expect(issues.every((issue) => issue.code === 'SCHEMA_INVALID')).toBe(true)
         })
+
+        it('reports DEFINITION_TOO_LARGE past the node limit', () => {
+            const content = Array.from({ length: 20_000 }, () => ({})) as unknown as ContentItem[]
+            const editor = new FormDefinitionEditor(defWith(content))
+            expect(editor.validate()).toEqual([expect.objectContaining({ code: 'DEFINITION_TOO_LARGE' })])
+        })
     })
 })

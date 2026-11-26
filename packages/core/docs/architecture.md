@@ -107,14 +107,15 @@ When `new FormEngine(definition)` is called, the following steps execute in orde
 Input: FormDefinition (JSON)
   │
   ▼
-[0] Limits Check
+[0] Limits Check (first step of validateSchema)
   │  Stack-based walk, no recursion: section depth ≤ 3,
-  │  and/or depth ≤ 16, ≤ 5000 nodes
+  │  and/or depth ≤ 16, ≤ 5000 nodes (select options included)
   │  → Throws DocumentError (NESTING_DEPTH, DEFINITION_TOO_LARGE) if exceeded
   │
   ▼
-[0b] JSON Schema Validation (AJV)
-  │  Validates structural correctness against form-definition.schema.json
+[0b] JSON Schema Validation (AJV, second step of validateSchema)
+  │  Validates structural correctness against form-definition.schema.json,
+  │  stopping at the first failing path
   │  → Throws DocumentError if invalid
   │
   ▼

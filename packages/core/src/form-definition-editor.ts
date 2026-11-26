@@ -553,11 +553,12 @@ export class FormDefinitionEditor {
     }
 
     /**
-     * Checks the current definition against the form definition JSON Schema.
-     * Semantic checks (duplicate ids, condition references) run only when the
-     * definition is compiled by `FormEngine`.
+     * Checks the current definition against the depth and size limits, then
+     * the form definition JSON Schema. Semantic checks (duplicate ids,
+     * condition references) run only when the definition is compiled by `FormEngine`.
      *
-     * @returns `SCHEMA_INVALID` issues; empty when the definition conforms.
+     * @returns `NESTING_DEPTH` / `DEFINITION_TOO_LARGE` issues when over the limits,
+     *   otherwise `SCHEMA_INVALID` issues; empty when the definition conforms.
      */
     validate(): DocumentValidationError[] {
         return new FormDefinitionValidator().validateSchema(this.toJSON())
