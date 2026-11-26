@@ -4,6 +4,7 @@ import Ajv2020 from 'ajv/dist/2020'
 import { isRelativeDate } from './date-utils'
 import { DependencyGraph } from './dependency-graph'
 import formDefinitionSchema from './form-definition.schema.json'
+import { isUnsafePattern } from './regex-safety'
 import type { FieldEntry } from './types/field-entry'
 import type { ContentItem, FormDefinition } from './types/form-definition'
 import type { ArrayValidation } from './types/validation/array'
@@ -279,7 +280,9 @@ const itemAllowedProperties = new Map<string, Set<string>>([
  * 5. **Constraint contradictions** (`INVALID_MIN_MAX`) -- e.g. `minLength > maxLength`,
  *    `min > max`, `minDate > maxDate` (absolute dates only), `minItems > maxItems`.
  * 6. **Invalid regex** (`INVALID_REGEX`) -- string field `pattern` values must
- *    be valid regular expressions.
+ *    be valid regular expressions. Covers `array` items and `array_obj` sub-fields too.
+ * 7. **Unsafe regex** (`UNSAFE_REGEX`) -- a valid `pattern` must not nest a repeating
+ *    quantifier inside a repeated group (e.g. `^(a+)+$`), which backtracks catastrophically.
  */
 export class FormDefinitionValidator {
     /**
@@ -859,19 +862,45 @@ export class FormDefinitionValidator {
 
     private checkInvalidRegex(registry: Map<number, FieldEntry>, issues: DocumentValidationError[]): void {
         for (const [id, entry] of registry) {
-            if (entry.type !== 'string' || !entry.validation) continue
-            const v = entry.validation as StringValidation
-            if (v.pattern === undefined) continue
-            try {
-                new RegExp(v.pattern)
-            } catch (e) {
-                const msg = e instanceof Error ? e.message : String(e)
-                issues.push({
-                    code: 'INVALID_REGEX',
-                    message: `Invalid regex pattern for field ${id}: ${msg}`,
-                    itemId: id,
-                })
+            for (const { itemId, pattern } of this.collectPatterns(id, entry)) {
+                const issue = this.checkPattern(itemId, pattern)
+                if (issue) issues.push(issue)
             }
+        }
+    }
+
+    /** String `pattern`s of a field, its `array` item and its `array_obj` sub-fields, keyed by the owning id. */
+    private collectPatterns(id: number, entry: FieldEntry): { itemId: number; pattern: string }[] {
+        const patterns: { itemId: number; pattern: string }[] = []
+        const add = (itemId: number, validation: unknown): void => {
+            const pattern = (validation as StringValidation | undefined)?.pattern
+            if (typeof pattern === 'string') patterns.push({ itemId, pattern })
+        }
+
+        if (entry.type === 'string') add(id, entry.validation)
+        if (entry.type === 'array' && entry.item?.type === 'string') add(id, entry.item.validation)
+        if (entry.type === 'array_obj') {
+            for (const sub of entry.items ?? []) {
+                if (sub.type === 'string') add(sub.id, sub.validation)
+            }
+        }
+        return patterns
+    }
+
+    /** `INVALID_REGEX` when `pattern` does not compile, `UNSAFE_REGEX` when it nests repeated quantifiers. */
+    private checkPattern(itemId: number, pattern: string): DocumentValidationError | undefined {
+        try {
+            new RegExp(pattern)
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e)
+            return { code: 'INVALID_REGEX', message: `Invalid regex pattern for field ${itemId}: ${msg}`, itemId }
+        }
+
+        if (!isUnsafePattern(pattern)) return undefined
+        return {
+            code: 'UNSAFE_REGEX',
+            message: `Unsafe regex pattern for field ${itemId}: nested quantifiers can cause catastrophic backtracking`,
+            itemId,
         }
     }
 

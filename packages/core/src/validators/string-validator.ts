@@ -1,6 +1,10 @@
+import { compileSafePattern } from '../regex-safety'
 import type { StringValidation } from '../types/validation/string'
 import type { FieldValidationError } from '../types/validation-results'
 import type { TypeValidator, ValidatorContext } from './type-validator'
+
+/** Longest value a `pattern` runs against when the field sets no `maxLength`; longer values fail `PATTERN`. */
+const maxPatternInputLength = 10000
 
 export class StringValidator implements TypeValidator {
     validate(ctx: ValidatorContext): FieldValidationError[] {
@@ -30,6 +34,7 @@ export class StringValidator implements TypeValidator {
             })
         }
 
+        // Stop before the pattern: running it on an over-long value is where backtracking gets expensive.
         if (validation?.maxLength !== undefined && value.length > validation.maxLength) {
             errors.push({
                 fieldId,
@@ -37,19 +42,26 @@ export class StringValidator implements TypeValidator {
                 message: `Must be at most ${validation.maxLength} characters`,
                 params: { maxLength: validation.maxLength, actual: value.length },
             })
+            return errors
         }
 
-        if (validation?.pattern !== undefined) {
-            const re = new RegExp(validation.pattern)
-            if (!re.test(value)) {
-                errors.push({
-                    fieldId,
-                    rule: 'PATTERN',
-                    message: validation.patternMessage ?? 'Value does not match the required pattern',
-                })
-            }
+        if (
+            validation?.pattern !== undefined &&
+            !this.matchesPattern(value, validation.pattern, validation.maxLength)
+        ) {
+            errors.push({
+                fieldId,
+                rule: 'PATTERN',
+                message: validation.patternMessage ?? 'Value does not match the required pattern',
+            })
         }
 
         return errors
+    }
+
+    /** Fails closed: an over-long value or a pattern that is invalid or unsafe never matches. */
+    private matchesPattern(value: string, pattern: string, maxLength: number | undefined): boolean {
+        if (maxLength === undefined && value.length > maxPatternInputLength) return false
+        return compileSafePattern(pattern)?.test(value) === true
     }
 }

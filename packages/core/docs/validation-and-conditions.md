@@ -75,6 +75,13 @@ For each field in registry:
 
 If `pattern` fails and `patternMessage` is set, the custom message is used. Otherwise a generic message is generated.
 
+The same rules apply to `array` items and `array_obj` cells of type `string`. Two rules keep `pattern` from running on long input:
+
+- If `MAX_LENGTH` fails, it is the only error returned and the pattern is not run. `MIN_LENGTH` and `PATTERN` can still be reported together.
+- If `pattern` is set without `maxLength`, a value longer than 10000 characters fails `PATTERN` without running the regex, even if it would match. Set `maxLength` to accept longer values.
+
+A definition is rejected if a `pattern` is longer than 1000 characters (`SCHEMA_INVALID`), is not a valid regex (`INVALID_REGEX`) or nests a repeating quantifier inside a repeated group, such as `^(a+)+$` (`UNSAFE_REGEX`). See [Schema Validation Issue Codes](./schema-issue-codes.md). When `FieldValidator` is called directly, bypassing `FormEngine` and these checks, it does not run such a pattern; the value gets a `PATTERN` error instead.
+
 If the field is empty and not required, no further rules are checked.
 
 #### Number

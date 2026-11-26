@@ -109,7 +109,7 @@ The `validation` property contains all validation rules for a field. Its shape d
 | `required` | `boolean` | Field must have a non-empty value. Default: `false`. |
 | `minLength` | `integer >= 0` | Minimum character count. |
 | `maxLength` | `integer >= 1` | Maximum character count. Must be >= `minLength` if both set. |
-| `pattern` | `string` | Regular expression (without delimiters). Value must match fully. |
+| `pattern` | `string` | Regular expression (without delimiters). Value must match fully. At most 1000 characters. Nested quantifiers (a repeating quantifier inside a repeated group, e.g. `(a+)+`) are rejected. Without `maxLength`, a value longer than 10000 characters fails the pattern without being matched. |
 | `patternMessage` | `string` | Custom error message when `pattern` fails. Falls back to a generic message. |
 
 **Value type:** `string`
@@ -859,6 +859,8 @@ The engine must validate the schema itself before use. Invalid schemas must be r
 | Circular condition dependency | `Circular condition dependency detected: {path}` |
 | Empty section (no content) | `Section "{id}" must have at least one content item` |
 | `pattern` is invalid regex | `Invalid regex pattern for field "{id}": {error}` |
+| `pattern` nests quantifiers, e.g. `(a+)+` | `Unsafe regex pattern for field "{id}": nested quantifiers can cause catastrophic backtracking` |
+| `pattern` longer than 1000 characters | Schema error: `maxLength` |
 | `minDate`/`maxDate` not valid ISO 8601 or relative date | `Invalid date format for "{property}" in field "{id}"` |
 | Section with `label` or field with `title` | `Invalid property for type "{type}" on "{id}"` |
 

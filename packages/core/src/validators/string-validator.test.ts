@@ -131,4 +131,47 @@ describe('StringValidator', () => {
         expect(errors[0]).toMatchObject({ rule: 'MIN_LENGTH' })
         expect(errors[1]).toMatchObject({ rule: 'PATTERN' })
     })
+
+    describe('pattern safety', () => {
+        const validate = (value: string, validation: Record<string, unknown>) =>
+            validator.validate({ fieldId, value, validation, now: new Date() })
+
+        it('skips the pattern when maxLength fails', () => {
+            const errors = validate(`${'a'.repeat(40)}!`, { maxLength: 30, pattern: '^[0-9]+$' })
+            expect(errors).toHaveLength(1)
+            expect(errors[0]).toMatchObject({ rule: 'MAX_LENGTH' })
+        })
+
+        it('fails a value over 10000 characters without maxLength', () => {
+            const errors = validate('a'.repeat(10001), { pattern: '^a+$', patternMessage: 'Only a' })
+            expect(errors).toHaveLength(1)
+            expect(errors[0]).toMatchObject({ rule: 'PATTERN', message: 'Only a' })
+        })
+
+        it('runs the pattern on a value of exactly 10000 characters', () => {
+            expect(validate('a'.repeat(10000), { pattern: '^a+$' })).toHaveLength(0)
+        })
+
+        it('runs the pattern on a long value when maxLength allows it', () => {
+            expect(validate('a'.repeat(10001), { maxLength: 20000, pattern: '^a+$' })).toHaveLength(0)
+        })
+
+        it('fails an unsafe pattern without running it', () => {
+            const errors = validate(`${'a'.repeat(40)}!`, { pattern: '^(a+)+$' })
+            expect(errors).toHaveLength(1)
+            expect(errors[0]).toMatchObject({ rule: 'PATTERN' })
+        })
+
+        it('fails a value that an unsafe pattern would match', () => {
+            expect(validate('aaa', { pattern: '^(a+)+$' })[0]).toMatchObject({ rule: 'PATTERN' })
+        })
+
+        it('fails a pattern longer than 1000 characters', () => {
+            expect(validate('a', { pattern: `a|${'b'.repeat(1000)}` })[0]).toMatchObject({ rule: 'PATTERN' })
+        })
+
+        it('fails an invalid pattern instead of throwing', () => {
+            expect(validate('abc', { pattern: '[invalid(' })[0]).toMatchObject({ rule: 'PATTERN' })
+        })
+    })
 })
