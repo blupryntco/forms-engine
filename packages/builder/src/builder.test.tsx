@@ -35,6 +35,20 @@ const MockSection: FC<SectionRenderProps> = ({ id, item }) => (
 const MockPlaceholder: FC<AddPlaceholderRenderProps> = ({ depth, parentId }) => (
     <div data-testid={`placeholder-d${depth}-p${parentId ?? 'null'}`} />
 )
+const SelectableField: FC<FieldRenderProps> = ({ id, isSelected }) => (
+    <div data-testid={`field-${id}`} data-selected={isSelected} />
+)
+const SelectableSection: FC<SectionRenderProps> = ({ id, isSelected }) => (
+    <div data-testid={`section-${id}`} data-selected={isSelected} />
+)
+const TextField: FC<FieldRenderProps> = ({ id, type, item }) => (
+    <div
+        data-testid={`field-${id}`}
+        data-type={type}
+        data-label={item.label ?? ''}
+        data-text={item.type === 'static' ? item.text : ''}
+    />
+)
 
 const emptyDef: FormDefinition = { id: 'test', version: '1.0.0', title: 'Test', content: [] }
 
@@ -143,15 +157,11 @@ describe('FormBuilder', () => {
             content: [{ id: 1, type: 'string', label: 'Name' }],
         }
 
-        const FieldWithSelected: FC<FieldRenderProps> = ({ id, isSelected }) => (
-            <div data-testid={`field-${id}`} data-selected={isSelected} />
-        )
-
         render(
             <FormBuilder
                 definition={def}
                 container={Container}
-                field={FieldWithSelected}
+                field={SelectableField}
                 section={MockSection}
                 addPlaceholder={MockPlaceholder}
                 selectedId={1}
@@ -167,16 +177,12 @@ describe('FormBuilder', () => {
             content: [{ id: 1, type: 'section', title: 'S', content: [] }],
         }
 
-        const SectionWithSelected: FC<SectionRenderProps> = ({ id, isSelected }) => (
-            <div data-testid={`section-${id}`} data-selected={isSelected} />
-        )
-
         render(
             <FormBuilder
                 definition={def}
                 container={Container}
                 field={MockField}
-                section={SectionWithSelected}
+                section={SelectableSection}
                 addPlaceholder={MockPlaceholder}
                 selectedId={1}
             />,
@@ -194,15 +200,11 @@ describe('FormBuilder', () => {
             ],
         }
 
-        const FieldWithSelected: FC<FieldRenderProps> = ({ id, isSelected }) => (
-            <div data-testid={`field-${id}`} data-selected={isSelected} />
-        )
-
         render(
             <FormBuilder
                 definition={def}
                 container={Container}
-                field={FieldWithSelected}
+                field={SelectableField}
                 section={MockSection}
                 addPlaceholder={MockPlaceholder}
                 selectedId={1}
@@ -221,20 +223,11 @@ describe('FormBuilder', () => {
             ],
         }
 
-        const FieldWithText: FC<FieldRenderProps> = ({ id, type, item }) => (
-            <div
-                data-testid={`field-${id}`}
-                data-type={type}
-                data-label={item.label ?? ''}
-                data-text={item.type === 'static' ? item.text : ''}
-            />
-        )
-
         render(
             <FormBuilder
                 definition={def}
                 container={Container}
-                field={FieldWithText}
+                field={TextField}
                 section={MockSection}
                 addPlaceholder={MockPlaceholder}
             />,

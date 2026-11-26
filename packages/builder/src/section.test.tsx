@@ -27,6 +27,14 @@ const MockSectionComponent: FC<SectionRenderProps> = ({ id, depth, index, parent
         data-selected={isSelected}
     />
 )
+const RemovingSection: FC<SectionRenderProps> = ({ onRemove: remove }) => {
+    remove()
+    return <div data-testid="done" />
+}
+const ChangingSection: FC<SectionRenderProps> = ({ onChange: change }) => {
+    change({ id: 1, type: 'section', title: 'Updated', content: [] })
+    return <div data-testid="done" />
+}
 
 const defaultItem: SectionContentItem = { id: 1, type: 'section', title: 'Section 1', content: [] }
 
@@ -101,10 +109,6 @@ describe('Section', () => {
 
     it('forwards onRemove callback', () => {
         const onRemove = jest.fn()
-        const Comp: FC<SectionRenderProps> = ({ onRemove: remove }) => {
-            remove()
-            return <div data-testid="done" />
-        }
 
         render(
             <Section
@@ -114,7 +118,7 @@ describe('Section', () => {
                 parentId={null}
                 item={defaultItem}
                 isSelected={false}
-                component={Comp}
+                component={RemovingSection}
                 onAdd={jest.fn()}
                 onRemove={onRemove}
                 onChange={jest.fn()}
@@ -126,10 +130,6 @@ describe('Section', () => {
 
     it('forwards onChange callback', () => {
         const onChange = jest.fn()
-        const Comp: FC<SectionRenderProps> = ({ onChange: change }) => {
-            change({ id: 1, type: 'section', title: 'Updated', content: [] })
-            return <div data-testid="done" />
-        }
 
         render(
             <Section
@@ -139,7 +139,7 @@ describe('Section', () => {
                 parentId={null}
                 item={defaultItem}
                 isSelected={false}
-                component={Comp}
+                component={ChangingSection}
                 onAdd={jest.fn()}
                 onRemove={jest.fn()}
                 onChange={onChange}
