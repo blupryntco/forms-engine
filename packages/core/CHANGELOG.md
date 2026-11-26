@@ -1,5 +1,84 @@
 # @bluprynt/forms-core
 
+## 4.2.2
+
+### Patch Changes
+
+- [#25](https://github.com/blupryntco/forms-engine/pull/25) [`dd2bc14`](https://github.com/blupryntco/forms-engine/commit/dd2bc140579c6253ec6ce2913c8901cc2e6174c4) Thanks [@sergeyzwezdin](https://github.com/sergeyzwezdin)! - Stop relative dates with a huge amount from crashing the engine. A definition with `minDate: "+999999999999999999d"`,
+  or the same string as a condition value, compiled, and then `validate`, `getVisibilityMap` and `sanitize` threw
+  `RangeError: Invalid time value`.
+  
+  Definition checks:
+  
+  - the amount of a relative date has 1 to 5 digits; the runtime pattern is `^[+-]\d{1,5}[dwmy]$`, and `"+99999y"` is
+    still allowed;
+  - `minDate` / `maxDate` with a longer amount, such as `"+100000d"`, fail with `SCHEMA_INVALID`. The published
+    `@bluprynt/forms-core/schemas/form-definition.schema.json` carries the same limit;
+  - new `INVALID_RELATIVE_DATE` issue (stage 2) for a simple condition `value` that is a string of the shape
+    `[+-]<digits>[dwmy]` with more than 5 digits. It is checked inside `and` / `or` groups; array values of `in` / `notin`
+    are not checked. `itemId` is the item that owns the condition, `params: { value }`.
+  
+  Evaluation: when a relative date resolves outside the range of JS `Date`, which can happen when `now` or `submittedAt`
+  is near the limit (e.g. `+275760-09-13T00:00:00.000Z`), nothing throws:
+  
+  - `minDate` / `maxDate` fail the value with `MIN_DATE` / `MAX_DATE`; the message and params carry the original
+    expression, e.g. `Must be on or before +1d`, `params: { maxDate: '+1d' }`;
+  - conditions with `eq`, `ne`, `lt`, `gt`, `lte` or `gte` on that value evaluate to `false`, including `eq` against an
+    empty field.
+  
+  An invalid `options.now` still throws `RangeError` from `isVisible` and `getVisibilityMap` and yields `NOW_INVALID`
+  from `validate`.
+  
+  Definitions with a relative date amount longer than 5 digits in `minDate`, `maxDate` or a condition value used to
+  compile and now fail.
+
+- [#22](https://github.com/blupryntco/forms-engine/pull/22) [`ddba7aa`](https://github.com/blupryntco/forms-engine/commit/ddba7aa6ae4fccf30529cd938e5736f79f5c961d) Thanks [@sergeyzwezdin](https://github.com/sergeyzwezdin)! - Bound the cost of validating an invalid form definition. A small invalid definition could take seconds to minutes
+  of CPU while its schema errors were collected.
+  
+  `FormDefinitionValidator.validateSchema()` now stops at the first failing path and reports the first violation it
+  meets (one or a few `SCHEMA_INVALID` issues) instead of every violation. Messages, deduplication and the suppression
+  of generic `oneOf` issues are unchanged.
+  
+  `validateSchema()` now runs `validateLimits()` first and returns its `NESTING_DEPTH` / `DEFINITION_TOO_LARGE` issues
+  without running the schema check. `FormDefinitionEditor.validate()` therefore enforces the limits too.
+  `new FormEngine(definition)` behaves as before.
+  
+  New limits:
+  
+  - select / multiselect `options` entries count toward the 5000-node limit, on a field, an `array` field's `item`
+    and `array_obj` sub-fields;
+  - every `options` array, every `array_obj` `items` array and the `value` array of an `in` / `notin` condition hold
+    at most 1000 entries (`SCHEMA_INVALID`, keyword `maxItems`). The published
+    `@bluprynt/forms-core/schemas/form-definition.schema.json` carries the same limits.
+  
+  Definitions that exceed these limits used to compile and now fail.
+
+- [#23](https://github.com/blupryntco/forms-engine/pull/23) [`8cdc266`](https://github.com/blupryntco/forms-engine/commit/8cdc266d9a71b849d0f6316d0881299747ec942c) Thanks [@sergeyzwezdin](https://github.com/sergeyzwezdin)! - Stop string `pattern` rules from causing catastrophic regex backtracking (ReDoS) on crafted definitions or values.
+  
+  Definition checks:
+  
+  - new `UNSAFE_REGEX` issue (stage 2) for a pattern that nests a repeating quantifier inside a repeated group, such as
+    `^(a+)+$`, `(\w+\s?)*` or `(a{1,5})+`. `?`, `{0,1}` and `{n}` with n <= 1 do not count as repeating. Overlapping
+    alternations such as `(a|a)*` are not detected;
+  - `stringValidation.pattern` holds at most 1000 characters (`SCHEMA_INVALID`, keyword `maxLength`). The published
+    `@bluprynt/forms-core/schemas/form-definition.schema.json` carries the same limit;
+  - `INVALID_REGEX` and `UNSAFE_REGEX` now also check patterns in an `array` field's `item` (`itemId` is the `array`
+    field id) and in `array_obj` sub-fields (`itemId` is the sub-field id). These patterns were not checked before, and an
+    invalid one threw a `SyntaxError` during `validate`.
+  
+  Value validation in `StringValidator`, which also covers `array` items and `array_obj` cells:
+  
+  - when `MAX_LENGTH` fails, it is the only error; the pattern is not run and no `PATTERN` error is reported.
+    `MIN_LENGTH` and `PATTERN` are still reported together;
+  - when `pattern` is set without `maxLength`, a value longer than 10000 characters fails `PATTERN` without running the
+    regex, even if it would match.
+  
+  When `FieldValidator` is called directly, bypassing `FormEngine`, `StringValidator` does not execute a pattern that
+  is longer than 1000 characters, invalid or unsafe; the value gets a `PATTERN` error. Compiled patterns are cached in a
+  bounded cache.
+  
+  Definitions with nested-quantifier patterns or patterns longer than 1000 characters used to compile and now fail.
+
 ## 4.2.1
 
 ### Patch Changes
