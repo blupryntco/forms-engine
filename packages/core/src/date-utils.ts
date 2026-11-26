@@ -1,10 +1,14 @@
-const RELATIVE_DATE_RE = /^([+-])(\d+)([dwmy])$/
+const RELATIVE_DATE_RE = /^([+-])(\d{1,5})([dwmy])$/
+
+/** The relative date shape with any number of digits, used to spot amounts over the 5-digit limit. */
+const UNBOUNDED_RELATIVE_DATE_RE = /^[+-]\d+[dwmy]$/
 
 /**
  * Type guard that checks whether a value is a relative date expression.
  *
  * Relative date expressions follow the pattern `[+-]<amount><unit>` where
- * `unit` is one of `d` (days), `w` (weeks), `m` (months), or `y` (years).
+ * `amount` has 1 to 5 digits and `unit` is one of `d` (days), `w` (weeks),
+ * `m` (months), or `y` (years).
  *
  * @param value - The value to test.
  * @returns `true` if `value` is a string matching the relative date pattern.
@@ -21,6 +25,13 @@ export const isRelativeDate = (value: unknown): value is string =>
     typeof value === 'string' && RELATIVE_DATE_RE.test(value)
 
 /**
+ * Checks whether a value has the relative date shape but an amount longer
+ * than 5 digits, so {@link isRelativeDate} rejects it.
+ */
+export const isOutOfRangeRelativeDate = (value: unknown): value is string =>
+    typeof value === 'string' && UNBOUNDED_RELATIVE_DATE_RE.test(value) && !RELATIVE_DATE_RE.test(value)
+
+/**
  * Resolves a relative date expression into an absolute ISO-8601 date string.
  *
  * Supported units:
@@ -34,8 +45,9 @@ export const isRelativeDate = (value: unknown): value is string =>
  *
  * @param relative - A relative date expression (e.g. `"+7d"`, `"-3m"`).
  * @param now - Reference date for the calculation. Defaults to `new Date()`.
- * @returns An ISO-8601 date-time string, or the original string if it is not
- *   a valid relative expression.
+ * @returns An ISO-8601 date-time string, the original string if it is not
+ *   a valid relative expression, or `undefined` if the result falls outside
+ *   the range of `Date`.
  *
  * @example
  * ```ts
@@ -45,7 +57,7 @@ export const isRelativeDate = (value: unknown): value is string =>
  * resolveRelativeDate("+1y", base)  // "2025-06-15T00:00:00.000Z"
  * ```
  */
-export const resolveRelativeDate = (relative: string, now: Date): string => {
+export const resolveRelativeDate = (relative: string, now: Date): string | undefined => {
     const match = RELATIVE_DATE_RE.exec(relative)
     if (!match) return relative
 
@@ -70,5 +82,6 @@ export const resolveRelativeDate = (relative: string, now: Date): string => {
             break
     }
 
+    if (Number.isNaN(result.getTime())) return undefined
     return result.toISOString()
 }

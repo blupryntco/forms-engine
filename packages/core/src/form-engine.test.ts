@@ -1270,6 +1270,77 @@ describe('FormEngine', () => {
         })
     })
 
+    describe('relative dates outside the range of Date', () => {
+        const EDGE_SUBMITTED_AT = '+275760-09-13T00:00:00.000Z'
+
+        const expectDocumentError = (def: FormDefinition, code: string): void => {
+            try {
+                new FormEngine(def)
+                throw new Error('expected DocumentError')
+            } catch (e) {
+                expect(e).toBeInstanceOf(DocumentError)
+                expect((e as DocumentError).errors).toContainEqual(expect.objectContaining({ code }))
+            }
+        }
+
+        it('rejects minDate with an amount longer than 5 digits', () => {
+            expectDocumentError(
+                baseDef([{ id: 1, type: 'date', label: 'D', validation: { minDate: '+999999999999999999d' } }]),
+                'SCHEMA_INVALID',
+            )
+        })
+
+        it('rejects a condition value with an amount longer than 5 digits', () => {
+            expectDocumentError(
+                baseDef([
+                    { id: 1, type: 'date', label: 'D' },
+                    {
+                        id: 2,
+                        type: 'string',
+                        label: 'S',
+                        condition: { field: 1, op: 'eq', value: '+999999999999999999y' },
+                    },
+                ]),
+                'INVALID_RELATIVE_DATE',
+            )
+        })
+
+        it('compiles the largest allowed amounts', () => {
+            expect(
+                () =>
+                    new FormEngine(
+                        baseDef([
+                            { id: 1, type: 'date', label: 'D', validation: { minDate: '-99999y', maxDate: '+99999y' } },
+                            { id: 2, type: 'string', label: 'S', condition: { field: 1, op: 'lt', value: '+99999d' } },
+                        ]),
+                    ),
+            ).not.toThrow()
+        })
+
+        it('reports a field error when a relative bound cannot be resolved', () => {
+            const engine = new FormEngine(
+                baseDef([{ id: 1, type: 'date', label: 'D', validation: { minDate: '+1d' } }]),
+            )
+            const result = engine.validate(doc({ '1': '2025-06-15T00:00:00.000Z' }, EDGE_SUBMITTED_AT))
+            expect(result.valid).toBe(false)
+            expect(result.fieldErrors.get(1)?.[0]?.rule).toBe('MIN_DATE')
+        })
+
+        it('treats an unresolvable condition as false without throwing', () => {
+            const engine = new FormEngine(
+                baseDef([
+                    { id: 1, type: 'date', label: 'D' },
+                    { id: 2, type: 'string', label: 'S', condition: { field: 1, op: 'eq', value: '+1y' } },
+                ]),
+            )
+            const edgeDoc = doc({ '2': 'x' }, EDGE_SUBMITTED_AT)
+            expect(engine.getVisibilityMap(edgeDoc).get(2)).toBe(false)
+            expect(engine.isVisible(2, edgeDoc)).toBe(false)
+            expect(engine.validate(edgeDoc).valid).toBe(true)
+            expect(engine.sanitize(edgeDoc).values).toEqual({})
+        })
+    })
+
     describe('end-to-end realistic form', () => {
         // A "job application" form with conditional sections
         const jobApplicationForm: FormDefinition = {

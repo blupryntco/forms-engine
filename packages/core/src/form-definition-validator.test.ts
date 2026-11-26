@@ -319,6 +319,54 @@ describe('FormDefinitionValidator', () => {
         })
     })
 
+    describe('out-of-range relative dates in conditions', () => {
+        const validateCondition = (condition: Condition) => {
+            const def = minimalDef([
+                { id: 1, type: 'date', label: 'A' },
+                { id: 2, type: 'string', label: 'B', condition },
+            ])
+            const registry = new Map<number, FieldEntry>([
+                [1, makeEntry(1, { type: 'date' })],
+                [2, makeEntry(2, { condition })],
+            ])
+            return validator.validate(def, registry)
+        }
+
+        it('flags a condition value with an amount longer than 5 digits', () => {
+            const issues = validateCondition({ field: 1, op: 'eq', value: '+999999999999999999y' })
+            expect(issues).toContainEqual(
+                expect.objectContaining({
+                    code: 'INVALID_RELATIVE_DATE',
+                    itemId: 2,
+                    params: { value: '+999999999999999999y' },
+                }),
+            )
+        })
+
+        it('flags out-of-range values nested in and/or groups', () => {
+            const issues = validateCondition({
+                and: [{ field: 1, op: 'set' }, { or: [{ field: 1, op: 'gte', value: '-100000d' }] }],
+            })
+            expect(issues).toContainEqual(expect.objectContaining({ code: 'INVALID_RELATIVE_DATE', itemId: 2 }))
+        })
+
+        it('accepts relative dates with amounts of up to 5 digits', () => {
+            const issues = validateCondition({ field: 1, op: 'lt', value: '+99999y' })
+            expect(issues.some((i) => i.code === 'INVALID_RELATIVE_DATE')).toBe(false)
+        })
+
+        it('ignores in/notin arrays and values of other shapes', () => {
+            const conditions: Condition[] = [
+                { field: 1, op: 'in', value: ['+100000d'] },
+                { field: 1, op: 'eq', value: '100000d' },
+                { field: 1, op: 'eq', value: 100000 },
+            ]
+            for (const condition of conditions) {
+                expect(validateCondition(condition).some((i) => i.code === 'INVALID_RELATIVE_DATE')).toBe(false)
+            }
+        })
+    })
+
     describe('condition references a section', () => {
         it('detects condition referencing a section', () => {
             const def = minimalDef([
@@ -567,6 +615,25 @@ describe('FormDefinitionValidator.validateSchema', () => {
                     content: [{ id: 1, type: 'date', label: 'D', validation: { minDate: 'not-a-date' } }],
                 }),
             ).toBe(false)
+        })
+
+        it('accepts relative dates with amounts of up to 5 digits', () => {
+            expect(
+                schemaValid({
+                    ...minimal,
+                    content: [
+                        { id: 1, type: 'date', label: 'D', validation: { minDate: '-99999y', maxDate: '+99999d' } },
+                    ],
+                }),
+            ).toBe(true)
+        })
+
+        it('rejects relative dates with amounts longer than 5 digits', () => {
+            for (const validation of [{ minDate: '+100000d' }, { maxDate: '+999999999999999999d' }]) {
+                expect(
+                    schemaIssues({ ...minimal, content: [{ id: 1, type: 'date', label: 'D', validation }] }),
+                ).toContainEqual(expect.objectContaining({ code: 'SCHEMA_INVALID' }))
+            }
         })
 
         it('rejects date with short ISO date (requires full timestamp)', () => {

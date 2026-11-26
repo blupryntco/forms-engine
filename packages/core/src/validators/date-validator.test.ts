@@ -145,4 +145,27 @@ describe('DateValidator', () => {
         })
         expect(errorsAbove[0]?.rule).toBe('MAX_DATE')
     })
+
+    it('fails a relative bound that falls outside the range of Date instead of throwing', () => {
+        const edgeNow = new Date(8.64e15)
+        const errors = validator.validate({
+            fieldId,
+            value: '2025-06-15T00:00:00.000Z',
+            validation: { maxDate: '+1d' },
+            now: edgeNow,
+        })
+        expect(errors).toEqual([
+            { fieldId, rule: 'MAX_DATE', message: 'Must be on or before +1d', params: { maxDate: '+1d' } },
+        ])
+
+        const minErrors = validator.validate({
+            fieldId,
+            value: '2025-06-15T00:00:00.000Z',
+            validation: { minDate: '+1y' },
+            now: edgeNow,
+        })
+        expect(minErrors).toEqual([
+            { fieldId, rule: 'MIN_DATE', message: 'Must be on or after +1y', params: { minDate: '+1y' } },
+        ])
+    })
 })

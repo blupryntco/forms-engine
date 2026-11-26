@@ -2,6 +2,9 @@ import { isRelativeDate, resolveRelativeDate } from './date-utils'
 import type { Condition, SimpleCondition } from './types/conditions'
 import type { ContentItemType } from './types/field-types'
 
+/** Marks a relative date that falls outside the range of `Date`; any comparison with it is `false`. */
+const unresolvedDate = Symbol('unresolvedDate')
+
 /**
  * Context passed to condition evaluation methods.
  *
@@ -38,7 +41,9 @@ export type EvaluationContext = {
  * operators return `false`.
  *
  * **Date handling**: condition values that are relative date expressions
- * (e.g. `"+7d"`) are resolved against `ctx.now` before comparison.
+ * (e.g. `"+7d"`) are resolved against `ctx.now` before comparison. When the
+ * result falls outside the range of `Date`, `eq`, `ne` and the ordering
+ * operators return `false`.
  *
  * **Multiselect handling**: when `ctx.fieldTypes` reports the referenced field
  * as `multiselect`, its array value is compared as a set instead of a scalar:
@@ -82,10 +87,14 @@ export class ConditionEvaluator {
                 return fieldValue !== null && fieldValue !== undefined && fieldValue !== ''
             case 'notset':
                 return fieldValue === null || fieldValue === undefined || fieldValue === ''
-            case 'eq':
-                return fieldValue === this.resolveIfDate(cond.value, ctx.now)
-            case 'ne':
-                return fieldValue !== this.resolveIfDate(cond.value, ctx.now)
+            case 'eq': {
+                const expected = this.resolveIfDate(cond.value, ctx.now)
+                return expected !== unresolvedDate && fieldValue === expected
+            }
+            case 'ne': {
+                const expected = this.resolveIfDate(cond.value, ctx.now)
+                return expected !== unresolvedDate && fieldValue !== expected
+            }
             case 'lt':
                 return this.compareTo(fieldValue, cond.value, ctx.now) < 0
             case 'gt':
@@ -143,13 +152,15 @@ export class ConditionEvaluator {
         return true
     }
 
+    /** Resolves a relative date value, or returns {@link unresolvedDate} when it falls outside the range of `Date`. */
     private resolveIfDate(value: unknown, now: Date): unknown {
-        if (isRelativeDate(value)) return resolveRelativeDate(value, now)
+        if (isRelativeDate(value)) return resolveRelativeDate(value, now) ?? unresolvedDate
         return value
     }
 
     private compareTo(a: unknown, b: unknown, now: Date): number {
         const resolvedB = this.resolveIfDate(b, now)
+        if (resolvedB === unresolvedDate) return Number.NaN
 
         if (typeof a === 'number' && typeof resolvedB === 'number') return a - resolvedB
 
